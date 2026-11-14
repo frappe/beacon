@@ -39,23 +39,16 @@ pilot_sites{state="maintenance"}     1
 
 ## 2. Get a token and a resource
 
-The token names the resource ID of the sender. Datum writes it on each row. Use one resource ID for each machine or site that sends.
+The token names the resource ID of the sender, as the [contract](telemetry.md#resource-ids) sets. Datum writes it on each row. A machine sends with the name of its Atlas Virtual Machine or Metal Server, and an application with its own name.
 
-| Sender | Issuer | Where the code is |
-| --- | --- | --- |
-| Atlas, and the hosts of its region | Atlas | `issue_datum_token` in `atlas/atlas/core/telemetry/datum.py` |
-| A Pilot VM | Central | Pilot gets the token with its Central credential. Central mints it with `mint_datum_token` in `central/sso.py`. |
-| Cargo | Central | `renew_datum_token` in `cargo/telemetry/credential.py` asks Central each hour. |
-| Central | Central | `send_to_datum` in `central/integrations/datum.py` mints a token for resource `central`. |
+| Issuer | Where the code is |
+| --- | --- |
+| Atlas | `issue_datum_token` in `atlas/atlas/core/telemetry/datum.py` |
+| Central | `datum_token` in `central/api/cargo.py` for Cargo, and `mint_datum_token` in `central/sso.py` for a Pilot VM |
 
 A new Frappe app that runs in a region asks the issuer that already trusts it. Do not make a new key set. Renew the token before it expires. A token for one region does not work in another region.
 
-Beacon keeps only the rows whose resource ID is in its registry. Before you rely on a rule or an SLI, make sure that the registry has the resource:
-
-- The resource list of the region (step 8) gives the resource with the same ID, or
-- the resource has a telemetry ID that is the same as the resource ID of the token. Central does not serve the telemetry ID list yet.
-
-When the senders have other IDs, report on a resource that the list has. For example, the Garage nodes send with their own IDs, so the Cargo rules and the Object Storage SLI report as `cargo`.
+Beacon keeps only the rows whose resource ID is in its registry. Before you rely on a rule or an SLI, make sure that the resource list of the region (step 8) gives the resource with the same ID.
 
 ## 3. Send metrics
 
@@ -118,7 +111,7 @@ Keep the data of a failed push when you can send it again without a duplicate, s
 
 ### Send from a Prometheus exporter
 
-When the service already shows Prometheus metrics, Vector on the machine scrapes them and sends them with remote write. Drop histogram buckets. Keep only `_sum` and `_count`, or a batch gets too large.
+When the service already shows Prometheus metrics, add a role file to the [Datum agent](telemetry.md#the-datum-agent) that scrapes them into a `metrics_<name>` transform. Rename each metric to the contract. Drop histogram buckets. Keep only `_sum` and `_count`, or a batch gets too large.
 
 ### Check the budget
 
@@ -131,21 +124,7 @@ When the service already shows Prometheus metrics, Vector on the machine scrapes
 
 ## 4. Send logs
 
-Send logs that a person reads to find a cause: errors, and the access log of an API. Do not send debug logs, health checks or one line for each item of a loop.
-
-| Field | Example | Rule |
-| --- | --- | --- |
-| `ts` | `2026-11-14T08:00:00Z` | UTC, with the zone. |
-| `product` | `cargo` | One for each product. |
-| `service` | `garage` | The process. |
-| `level` | `error` | Lowercase syslog names: `debug` to `emergency`. |
-| `source` | `journald` | Where the line came from. |
-| `message` | | 8 KiB at most. |
-| `attributes` | `{"bucket": "backups"}` | 64 at most. |
-
-Fluent Bit and Vector post a bare array of lines to `/v1/logs/ingest`. A Frappe app can send its Error Logs from a scheduled job, as Atlas, Cargo and Central do. Store the cursor before the first push. Move it only after Datum accepts the lines.
-
-Remove secrets before the line leaves the machine. A log line is not a safe place for a token, a password, a signed URL or a request body. Datum keeps log lines without a TTL.
+Obey the [log lines](telemetry.md#log-lines) of the contract. A machine with the Datum agent already sends its journal. For a log file, add a `logs_<name>` transform to the role file. A Frappe app sends its Error Logs from a scheduled job with `source = 'error_log'`, as Atlas, Cargo and Central do. Store the cursor before the first push. Move it only after Datum accepts the lines.
 
 ## 5. Find the data in ClickHouse
 
@@ -154,11 +133,11 @@ Run these queries on the ClickHouse of the region. Use the newest minutes, and r
 ```sql
 -- Does Datum get anything from this sender today?
 SELECT date, resource_id, sum(metric_count) FROM datum.daily_ingestion_stats
-WHERE date = today() AND resource_id = 'cargo-bom' GROUP BY date, resource_id;
+WHERE date = today() AND resource_id = '<virtual machine>' GROUP BY date, resource_id;
 
 -- Which series does it send, and when was the last sample?
 SELECT metric, labels, max(ts), argMax(value, ts) FROM datum.samples_recent
-WHERE resource_id = 'cargo-bom' AND ts > now() - INTERVAL 10 MINUTE
+WHERE resource_id = '<virtual machine>' AND ts > now() - INTERVAL 10 MINUTE
 GROUP BY metric, labels ORDER BY metric;
 
 -- Is the clock of the sender correct? The age must be a few seconds to a few minutes.

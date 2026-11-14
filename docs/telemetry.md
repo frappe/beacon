@@ -11,9 +11,9 @@ flowchart LR
         producers["Producers<br/>Pilot, metald, Vector,<br/>Atlas, Cargo, Central"]
         datum["Datum API<br/>checks the token,<br/>validates, writes"]
         subgraph clickhouse["ClickHouse"]
-            samples[("samples<br/>no TTL")]
+            samples[("samples<br/>90 days")]
             recent[("samples_recent<br/>2 days")]
-            logs[("logs")]
+            logs[("logs<br/>30 days")]
             stats[("daily_ingestion_stats<br/>daily_log_stats")]
         end
         producers -- "POST /v1/ingest<br/>/v1/logs/ingest<br/>JWT" --> datum
@@ -45,29 +45,117 @@ Datum only writes, and Beacon only reads. Datum owns the schema. Beacon issues n
 
 ## Producers
 
-Each producer sends what it watches, as counts. These are examples. The rules and runbooks of each producer are in `beacon/` of its own repository.
+Each producer sends what it watches. The rules and runbooks of each producer are in `beacon/` of its own repository.
 
-| Producer | Runs on | Sends | Example metrics |
-| --- | --- | --- | --- |
-| Pilot | Each Pilot VM | Host metrics, process metrics, site states, backup results, bench logs | `pilot_sites{state}`, `pilot_site_backups{status}`, `system_disk_usage_percent` |
-| metald | Each host | VM states, storage, hardware and host health | `metal_vm_wanted_running`, `metal_vm_unavailable` |
-| Vector | Service nodes, Garage nodes | Host metrics, proxy request counts, Garage metrics, logs | `service_proxy_requests_total`, `garage_api_s3_request_counter` |
-| Atlas | The Atlas site of the region | Inventory, sync age, jobs, API errors, Error Logs | `atlas_virtual_machine_drafts` |
-| Cargo | The Cargo site of the region | Image builds, object storage health, backups, Error Logs | `cargo_object_storage_health` |
-| Central | The global Central site | API requests, payments, resource actions, webhooks, Error Logs | `central_requests{group,status_class}` |
+| Producer | Runs on | Sends |
+| --- | --- | --- |
+| metald | Each host | The machine metrics of the host, VM states, storage, hardware |
+| Datum agent | Each Atlas service VM, each Cargo machine; each host for logs only | The machine metrics, logs, and the metrics of the role, such as proxy requests or Garage |
+| Pilot | Each Pilot VM, and the Cargo VM | The machine metrics, processes, MariaDB, sites, backups, logs |
+| Atlas | The Atlas site of the region | Inventory, the expected machines, jobs, API calls, Error Logs |
+| Cargo | The Cargo site of the region | Image builds, object storage health and backups, Error Logs |
+| Central | The global Central site | API requests, payments, resource actions, webhooks, Error Logs |
 
 Central is global, but it sends to the Datum of one region: the Region that has **Central Telemetry Region** set in Central.
 
-## Tokens
+## The contract
 
-A token is a JWT. Its `resource_id` claim names the sender, such as one host or one VM. Datum checks the signature against one key set that holds the keys of Central and of the Atlas of each region. It accepts a token only when the audience of the token names its own region, so the Datum of another region refuses it.
+All producers obey this contract. A rule that reads a value of the contract works for every producer. Do not add a second name for a value that the contract already names.
 
-| Issuer | Issues tokens for |
+### Resource IDs
+
+Each machine and each application sends with one resource ID: the ID that the Beacon registry has for it. The issuer of the token sets it.
+
+| Sender | Resource ID | Issuer |
+| --- | --- | --- |
+| A host | The name of the Metal Server | Atlas |
+| A VM: a Pilot VM, an Atlas service VM, a Cargo machine or the Cargo VM | The name of the Atlas Virtual Machine | Central for Pilot and Cargo, Atlas for its service VMs |
+| The Atlas site | `atlas` | Atlas |
+| The Cargo site | `cargo` | Central |
+| Central | `central` | Central |
+
+A label never repeats the identity of the sender. Do not add `host`, `machine`, `region`, `role` or `cluster` labels. Datum writes the resource ID, and the registry gives the type and the parent.
+
+### Metric names
+
+A name is `<namespace>_<target>_<unit>`, with `_total` at the end of a counter. The namespace is the program that the value is about:
+
+| Namespace | Program |
 | --- | --- |
-| Atlas | Itself and the machines of its region, such as hosts. |
-| Central | Pilot VMs, Cargo and itself. |
+| `system` | The machine: Linux on a host or a VM |
+| `metal` | metald |
+| `atlas`, `cargo`, `central`, `pilot`, `datum` | The application |
+| `proxy`, `wireguard`, `ipv6_router` | The Atlas service on the VM |
+| `garage`, `mariadb` | The service on the VM |
 
-Give each machine its own resource ID. Beacon maps the resource ID of each row to a resource of the registry, by its own ID or by its telemetry ID. Beacon drops a row with an unknown resource ID, so it gives no alert and no SLI events.
+| Item | Rule |
+| --- | --- |
+| Units | `seconds`, `bytes` and `percent` (0 to 100). Do not use minutes, MB or a ratio. |
+| Counter | It only goes up from the start of the process. Send the total, not an increment. The name ends in `_total`. |
+| Gauge | It goes up and down. Send 0 for a state with no items, when a rule reads the state. |
+| Information | `<namespace>_<thing>_info` with the value 1 and the facts as labels. |
+| Labels | Lowercase with `_`. Few values: a label with 1,000 values makes 1,000 series. |
+| Time | All samples of one collection have the same `ts`. |
+
+### Machine metrics
+
+Each machine sends these metrics at least once each 60 seconds, with these names and labels. metald sends them for a host, the Datum agent for an Atlas service VM or a Cargo machine, and Pilot for a Pilot VM. A producer can send more `system_` metrics, but only with a name that no other producer uses for another value.
+
+| Metric | Type | Labels |
+| --- | --- | --- |
+| `system_boot_time_seconds` | Gauge. The heartbeat of the machine. | |
+| `system_cpu_count` | Gauge | |
+| `system_cpu_seconds_total` | Counter | `cpu`, `mode`: a field of `/proc/stat`, such as `user`, `idle` or `iowait`. Linux counts `guest` in `user` too. |
+| `system_load_average` | Gauge | `window`: `1m`, `5m`, `15m` |
+| `system_memory_total_bytes` | Gauge | |
+| `system_memory_available_bytes` | Gauge. `MemAvailable` of Linux. | |
+| `system_memory_swap_used_bytes` | Gauge | |
+| `system_filesystem_size_bytes` | Gauge | `mountpoint`, `device`, `type` |
+| `system_filesystem_available_bytes` | Gauge. The space that a user other than root can use. | `mountpoint`, `device`, `type` |
+| `system_disk_read_bytes_total` | Counter | `device` |
+| `system_disk_written_bytes_total` | Counter | `device` |
+| `system_network_receive_bytes_total` | Counter | `interface` |
+| `system_network_transmit_bytes_total` | Counter | `interface` |
+| `system_network_receive_errors_total` | Counter | `interface` |
+| `system_network_transmit_errors_total` | Counter | `interface` |
+
+Each minute, Atlas sends `atlas_machine{machine, kind}` with the value 1 for each machine that must send now: each Running host, and each VM that runs and does not sleep. `kind` is `host`, `service` for a tenant-0 VM, or `tenant`. The `machine-silent` rule compares this list with `system_boot_time_seconds`.
+
+### Log lines
+
+| Field | Rule |
+| --- | --- |
+| `ts` | UTC, with the zone. |
+| `product` | The owner of the machine or the application: `metal` on a host, `atlas` on an Atlas service VM and for the Atlas site, `cargo` on a Cargo machine and for the Cargo site, `pilot` on a Pilot VM, `central`. |
+| `service` | The systemd unit without `.service`, `kernel`, or the name of the application. |
+| `source` | `journal`, `file`, `error_log` for the Error Logs of an application, or `bmc` for the event log of a BMC that Atlas reads. |
+| `level` | One of `emergency`, `alert`, `critical`, `error`, `warning`, `notice`, `info`, `debug`. Datum refuses other values. |
+| `message` | 8,192 characters at most. Remove secrets and signed URLs before the line leaves the machine. |
+| `attributes` | Names in lowercase with `_`. No identity of the sender. |
+
+Each machine sends the journal lines at `warning` and higher. The main service of the machine also sends its `info` lines: metald on a host, Garage on a Garage node, Datum on the Datum host. A program that writes its errors to a file sends that file, such as the nginx error log. Do not send access logs or health checks: metrics count requests. An application sends its Error Logs at `error`.
+
+### The Datum agent
+
+The Datum agent is Vector with one configuration. The Datum repository owns it in `datum_client/agent/`. Atlas and Cargo install it with the same script, and they add one role file for the role of the machine.
+
+```mermaid
+flowchart LR
+    subgraph agent["/etc/vector/datum.d/"]
+        metrics["metrics.yaml<br/>host_metrics to<br/>machine metrics"]
+        logs["logs.yaml<br/>journal at warning<br/>and higher"]
+        role["role.yaml<br/>metrics_* and logs_*<br/>of the role"]
+    end
+    env["/etc/vector/datum.env<br/>DATUM_ENDPOINT, DATUM_TOKEN"]
+    metrics --> sink1["datum_metrics sink<br/>reads metrics_*"]
+    role --> sink1
+    logs --> sink2["datum_logs sink<br/>reads logs_*"]
+    role --> sink2
+    env -.-> sink1
+    env -.-> sink2
+```
+
+A role file names each transform that gives contract metrics `metrics_<name>`, and each transform that gives contract log lines `logs_<name>`. The sinks read every `metrics_*` and `logs_*` input, so a role file adds no sink. The owner of the machine writes a new token to `datum.env` and restarts Vector: Atlas pushes it over SSH, and a Cargo machine gets it from Central each day.
 
 ## Datum API
 
@@ -94,9 +182,9 @@ Datum refuses the whole request when one sample is not valid. Datum does not ret
 
 | Object | Contents | Sort key | Kept |
 | --- | --- | --- | --- |
-| `samples` | All metrics | `resource_id`, `metric`, `ts` | No TTL |
+| `samples` | All metrics | `resource_id`, `metric`, `ts` | 90 days |
 | `samples_recent` | The last 2 days of `samples` | `metric`, `ts`, `resource_id` | 2 days |
-| `logs` | All log lines | `resource_id`, `product`, `service`, `ts` | No TTL |
+| `logs` | All log lines | `resource_id`, `product`, `service`, `ts` | 30 days |
 | `traces` | Spans | | 7 days |
 | `daily_ingestion_stats` | Samples for each day and `resource_id` | `date`, `resource_id` | No TTL |
 | `daily_log_stats` | Log lines for each day, `resource_id`, product, service and level | | No TTL |
