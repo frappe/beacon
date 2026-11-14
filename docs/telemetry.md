@@ -99,7 +99,7 @@ A name is `<namespace>_<target>_<unit>`, with `_total` at the end of a counter. 
 
 ### Machine metrics
 
-Each host, Atlas service VM, Cargo machine and the Cargo VM sends these metrics at least once each 60 seconds, with these names and labels. metald sends them for a host, and the Datum agent for a VM. A tenant VM sends no machine metrics. Pilot sends only `system_filesystem_size_bytes` and `system_filesystem_available_bytes` for a Pilot VM. A producer can send more `system_` metrics, but only with a name that no other producer uses for another value.
+Each host, Atlas service VM, Cargo machine and the Cargo VM sends these metrics at least once each 60 seconds, with these names and labels. metald sends them for a host, and the Datum agent for a VM. A tenant VM sends no machine metrics. Pilot sends only `system_filesystem_size_bytes` and `system_filesystem_available_bytes` for a Pilot VM, each 5 minutes. A producer can send more `system_` metrics, but only with a name that no other producer uses for another value.
 
 | Metric | Type | Labels |
 | --- | --- | --- |
