@@ -129,7 +129,7 @@ An alert is suppressed when:
 - an active silence matches its rule, alert key or resource, or
 - an In Progress maintenance covers its resource, and for 10 minutes after the maintenance ends, so rebooted hosts can come back, or
 - the maintenance has "Mute SLO Burn" set, and the alert is a burn alert of a region in the maintenance, or
-- the resource has a held removal: the last resource list would remove more than 10% of the resources, and an admin must apply it.
+- the resource has a held removal: the last resource list would terminate more than 10% of the resources, and an admin must apply it.
 
 ## Region health
 

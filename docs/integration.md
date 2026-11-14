@@ -273,7 +273,7 @@ The response has an `ETag`. Beacon signs in with the Frappe API key of a user on
 
 The status is one of Pending, Active, Suspended and Terminated. A Suspended resource gives no alerts. Use it only for a resource that is stopped on purpose, such as a sleeping VM.
 
-Beacon marks a resource as Terminated when it is missing from 2 good fetches. When one fetch would remove more than 10% of the resources, Beacon holds the removal, and an admin must apply it.
+Beacon marks a resource as Terminated when it is missing from 2 good fetches. When one fetch would terminate more than 10% of the resources, Beacon holds the removal, and an admin must apply it. A change to Suspended or Pending is not a removal.
 
 ## 9. Sync and watch
 
