@@ -44,7 +44,8 @@ The token names the resource ID of the sender, as the [contract](telemetry.md#re
 | Issuer | Where the code is |
 | --- | --- |
 | Atlas | `issue_datum_token` in `atlas/atlas/core/telemetry/datum.py` |
-| Central | `datum_token` in `central/api/cargo.py` for Cargo, and `mint_datum_token` in `central/sso.py` for a Pilot VM |
+| Cargo | `issue_datum_token` in `cargo/issuer.py`, for the Cargo site, the Pilot of the Cargo VM and the Cargo machines |
+| Central | `mint_datum_token` in `central/sso.py`, for a Pilot VM and for Central |
 
 A new Frappe app that runs in a region asks the issuer that already trusts it. Do not make a new key set. Renew the token before it expires. A token for one region does not work in another region.
 

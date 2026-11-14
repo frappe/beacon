@@ -71,9 +71,9 @@ Each machine and each application sends with one resource ID: the ID that the Be
 | Sender | Resource ID | Issuer |
 | --- | --- | --- |
 | A host | The name of the Metal Server | Atlas |
-| A VM: a Pilot VM, an Atlas service VM, a Cargo machine or the Cargo VM | The name of the Atlas Virtual Machine | Central for Pilot and a Cargo machine, Atlas for the Datum agent on an Atlas service VM and the Cargo VM |
+| A VM: a Pilot VM, an Atlas service VM, a Cargo machine or the Cargo VM | The name of the Atlas Virtual Machine | Central for a Pilot VM. Cargo for a Cargo machine and the Pilot of the Cargo VM. Atlas for the Datum agent on an Atlas service VM and on the Cargo VM |
 | The Atlas site | `atlas` | Atlas |
-| The Cargo site | `cargo` | Central |
+| The Cargo site | `cargo` | Cargo |
 | Central | `central` | Central |
 
 A label never repeats the identity of the sender. Do not add `host`, `machine`, `region`, `role` or `cluster` labels. Datum writes the resource ID, and the registry gives the type and the parent. The owner of the machines sends their inventory each minute, so a query can find the kind, role or cluster of a machine: `atlas_machine{machine, kind}` from Atlas and `cargo_machine{machine, role, cluster}` from Cargo.
