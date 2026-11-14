@@ -16,7 +16,9 @@
   "runbook_url",
   "http_section",
   "url",
+  "host",
   "expected_status",
+  "minimum_days_left",
   "http_column",
   "expected_text",
   "timeout",
@@ -57,7 +59,7 @@
    "in_list_view": 1,
    "in_standard_filter": 1,
    "label": "Kind",
-   "options": "SQL\nHTTP\nSLO Burn\nBuilt In",
+   "options": "SQL\nHTTP\nTLS\nSLO Burn\nBuilt In",
    "set_only_once": 1
   },
   {
@@ -94,7 +96,7 @@
    "fieldname": "resource_type",
    "fieldtype": "Data",
    "label": "Resource Type",
-   "depends_on": "eval:doc.kind != 'HTTP'"
+   "depends_on": "eval:!['HTTP', 'TLS'].includes(doc.kind)"
   },
   {
    "fieldname": "runbook_url",
@@ -103,25 +105,42 @@
    "options": "URL"
   },
   {
-   "depends_on": "eval:doc.kind == 'HTTP'",
+   "depends_on": "eval:['HTTP', 'TLS'].includes(doc.kind)",
    "fieldname": "http_section",
    "fieldtype": "Section Break",
-   "label": "HTTP check"
+   "label": "Endpoint check"
   },
   {
-   "description": "Beacon calls this URL every minute from the Beacon site.",
+   "description": "Beacon calls this URL every minute from the Beacon site. It can use {region}, {wildcard_domain}, {atlas_url} and {central_url}.",
    "fieldname": "url",
    "fieldtype": "Data",
    "label": "URL",
    "mandatory_depends_on": "eval:doc.kind == 'HTTP'",
-   "options": "URL",
+   "show_description_on_click": 1,
+   "depends_on": "eval:doc.kind == 'HTTP'"
+  },
+  {
+   "depends_on": "eval:doc.kind == 'TLS'",
+   "description": "A host, host:port or URL. Port 443 when not set. It can use {region}, {wildcard_domain}, {atlas_url} and {central_url}.",
+   "fieldname": "host",
+   "fieldtype": "Data",
+   "label": "Host",
+   "mandatory_depends_on": "eval:doc.kind == 'TLS'",
    "show_description_on_click": 1
   },
   {
    "default": "200",
    "fieldname": "expected_status",
    "fieldtype": "Int",
-   "label": "Expected Status"
+   "label": "Expected Status",
+   "depends_on": "eval:doc.kind == 'HTTP'"
+  },
+  {
+   "default": "14",
+   "depends_on": "eval:doc.kind == 'TLS'",
+   "fieldname": "minimum_days_left",
+   "fieldtype": "Int",
+   "label": "Minimum Days Left"
   },
   {
    "fieldname": "http_column",
@@ -132,7 +151,8 @@
    "fieldname": "expected_text",
    "fieldtype": "Data",
    "label": "Expected Text",
-   "show_description_on_click": 1
+   "show_description_on_click": 1,
+   "depends_on": "eval:doc.kind == 'HTTP'"
   },
   {
    "default": "10",
@@ -195,7 +215,7 @@
    "fieldtype": "Check",
    "label": "Include Child Resources",
    "show_description_on_click": 1,
-   "depends_on": "eval:doc.kind != 'HTTP'"
+   "depends_on": "eval:!['HTTP', 'TLS'].includes(doc.kind)"
   },
   {
    "collapsible": 1,
@@ -270,7 +290,7 @@
    "link_fieldname": "rule"
   }
  ],
- "modified": "2026-11-14 04:00:00.000000",
+ "modified": "2026-11-14 13:00:00.000000",
  "modified_by": "Administrator",
  "module": "Beacon",
  "name": "Beacon Alert Rule",

@@ -7,18 +7,18 @@ import frappe
 from frappe import _
 from frappe.model.document import Document
 
+from beacon.core.alert.endpoint_check import ENDPOINT_KINDS, EndpointVariables, get_failure, get_target
 from beacon.core.alert.evaluation_schedule import EvaluationSchedule
-from beacon.core.alert.http_check import HttpChecks
 from beacon.core.alert.rule_evaluator import RuleQuery
 from beacon.core.alert.rules import BURN_KIND
 from beacon.core.definitions import check_desk_change
-from beacon.core.exceptions import ClickHouseError, RuleContractError
+from beacon.core.exceptions import ClickHouseError, EndpointVariableError, RuleContractError
 from beacon.core.resource.clickhouse import ClickHouseClient
 from beacon.core.resource.regions import RegionSelection
 from beacon.core.transaction import RecordTransaction
 
 TEST_SAMPLE_ROWS = 20
-CUSTOM_KINDS = ("SQL", "HTTP")
+CUSTOM_KINDS = ("SQL", "HTTP", "TLS")
 
 
 class BeaconAlertRule(Document):
@@ -37,10 +37,12 @@ class BeaconAlertRule(Document):
 		enabled: DF.Check
 		expected_status: DF.Int
 		expected_text: DF.Data | None
+		host: DF.Data | None
 		interval: DF.Int
 		is_custom: DF.Check
 		is_removed: DF.Check
-		kind: DF.Literal["SQL", "HTTP", "SLO Burn", "Built In"]
+		kind: DF.Literal["SQL", "HTTP", "TLS", "SLO Burn", "Built In"]
+		minimum_days_left: DF.Int
 		pending_for: DF.Int
 		query: DF.Code | None
 		regions: DF.TableMultiSelect[BeaconRegionItem]
@@ -66,29 +68,30 @@ class BeaconAlertRule(Document):
 		):
 			frappe.throw(_("Turn the service on or off instead."))
 		if self.is_custom and self.kind not in CUSTOM_KINDS:
-			frappe.throw(_("A rule made in Desk is an SQL or HTTP rule."))
+			frappe.throw(_("A rule made in Desk is an SQL, HTTP or TLS rule."))
 		if self.kind == "SQL" and self.pending_for < self.interval:
 			frappe.throw(_("Pending For must be equal to or longer than Interval."))
-		if self.kind == "HTTP" and len(self.regions) != 1:
-			frappe.throw(
-				_("An HTTP rule needs exactly one region. Its alerts and incidents belong to that region.")
-			)
+		if self.kind in ENDPOINT_KINDS:
+			self._validate_variables()
+
+	def _validate_variables(self) -> None:
+		target = get_target(self)
+		unknown = EndpointVariables.get_unknown(target)
+		if unknown:
+			frappe.throw(_("Unknown variables: {0}.").format(", ".join("{" + name + "}" for name in unknown)))
+		if "{central_url}" in target and not frappe.db.get_single_value("Beacon Settings", "central_url"):
+			frappe.throw(_("Set the Central URL in Beacon Settings first."))
 
 	def on_update(self) -> None:
 		EvaluationSchedule().sync()
 
 	@frappe.whitelist()
 	def test(self) -> list[dict]:
-		"""Run the query in every active region, or call the URL once. Saves nothing."""
+		"""Run the query, or check the endpoint, once in each region of the rule. Saves nothing."""
 		self.check_permission("write")
 		RecordTransaction.start_new()  # release the row lock of the form call before the remote calls
-		if self.kind == "HTTP":
-			return [
-				{
-					"url": self.url,
-					"result": HttpChecks.get_failure(self) or _("The URL answers as expected."),
-				}
-			]
+		if self.kind in ENDPOINT_KINDS:
+			return [self._test_endpoint(region) for region in self._get_test_regions()]
 
 		results: list[dict[str, Any]] = []
 		for region in RegionSelection.get_active():
@@ -100,3 +103,18 @@ class BeaconAlertRule(Document):
 				results.append({"region": region, "error": str(error)})
 			results[-1]["duration_ms"] = round((time.monotonic() - started) * 1000)
 		return results
+
+	def _get_test_regions(self) -> list[str]:
+		chosen = {row.region for row in self.regions}
+		return [region for region in RegionSelection.get_active() if not chosen or region in chosen]
+
+	def _test_endpoint(self, region: str) -> dict[str, Any]:
+		try:
+			target = EndpointVariables(region).fill(get_target(self))
+		except EndpointVariableError as error:
+			return {"region": region, "error": str(error)}
+		return {
+			"region": region,
+			"target": target,
+			"result": get_failure(self, target) or _("The endpoint answers as expected."),
+		}

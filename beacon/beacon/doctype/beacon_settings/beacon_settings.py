@@ -35,6 +35,7 @@ class BeaconSettings(Document):
 
 		backup_after_minutes_critical: DF.Int
 		backup_after_minutes_high: DF.Int
+		central_url: DF.Data | None
 		chat_enabled: DF.Check
 		chat_webhook_url: DF.Password | None
 		definition_sources: DF.Table[BeaconDefinitionSource]

@@ -219,7 +219,7 @@ Return a `severity` column when one rule has a soft limit and a hard limit. Set 
 
 ### Test the rule before you merge it
 
-Run the query on a ClickHouse with data. `{region:String}` is the region name.
+Run the query on a ClickHouse with data. `{region:String}` is the region name. Rule and SLI queries both get it.
 
 ```sh
 clickhouse-client --param_region=bom < beacon/rules/object-storage-backup-stale.sql
@@ -257,7 +257,7 @@ FROM (
 WHERE last_ts IS NOT NULL AND last_ts > toDateTime64(0, 3)
 ```
 
-Count only failures that the platform causes. A failure of the customer's own app or a normal 4xx answer is good. A global service sets `scope: Global` and `query_region`, the region whose ClickHouse has its data.
+Count only failures that the platform causes. A failure of the customer's own app or a normal 4xx answer is good. A global service sets `scope: Global` and `query_region`, the region whose ClickHouse has its data. A global application, such as Central, is not in a resource list, so its SLI reports `{region:String} AS resource_id`, the region resource.
 
 ## 8. Serve a resource list
 
@@ -281,6 +281,7 @@ Each app keeps its Beacon files in `beacon/` of its own repository:
 beacon/
   rules/<rule-key>.sql       cause rules
   rules/<rule-key>.http      HTTP checks
+  rules/<rule-key>.tls       TLS certificate checks
   services/<service>.sql     SLI queries
   runbooks/<rule-key>.md     the steps for each rule that pages
 ```

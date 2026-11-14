@@ -21,3 +21,7 @@ class IncidentActionError(frappe.ValidationError):
 
 class DefinitionSourceError(frappe.ValidationError):
 	"""A definition source could not be read, or one of its files is invalid."""
+
+
+class EndpointVariableError(frappe.ValidationError):
+	"""An HTTP or TLS rule uses a variable that is unknown or has no value."""

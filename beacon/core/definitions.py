@@ -36,14 +36,19 @@ RULE_HEADER_FIELDS = {
 	"resolve_after": int,
 	"scope_includes_descendants": int,
 }
-HTTP_HEADER_FIELDS = {
-	**{name: kind for name, kind in RULE_HEADER_FIELDS.items() if name not in ("interval", "resource_type")},
-	"url": str,
-	"expected_status": int,
-	"expected_text": str,
+ENDPOINT_HEADER_FIELDS = {
+	**{
+		name: kind
+		for name, kind in RULE_HEADER_FIELDS.items()
+		if name not in ("interval", "resource_type", "scope_includes_descendants")
+	},
 	"timeout": int,
 	"region": str,
 }
+HTTP_HEADER_FIELDS = {**ENDPOINT_HEADER_FIELDS, "url": str, "expected_status": int, "expected_text": str}
+TLS_HEADER_FIELDS = {**ENDPOINT_HEADER_FIELDS, "host": str, "minimum_days_left": int}
+# The region header of an HTTP or TLS file names one region, or all for every active region.
+ALL_REGIONS = "all"
 # A rule that pages must tell the responder what to do.
 PAGING_SEVERITIES = ("High", "Critical")
 SERVICE_HEADER_FIELDS = {
@@ -132,14 +137,16 @@ class SourceSync:
 			rule_paths = self._list(commit, "rules")
 			sql_rules = self._read(commit, rule_paths, ".sql", RULE_HEADER_FIELDS)
 			http_rules = self._read(commit, rule_paths, ".http", HTTP_HEADER_FIELDS)
-			rules = sql_rules + http_rules
+			tls_rules = self._read(commit, rule_paths, ".tls", TLS_HEADER_FIELDS)
+			rules = sql_rules + http_rules + tls_rules
 			services = self._read(commit, self._list(commit, "services"), ".sql", SERVICE_HEADER_FIELDS)
 			if not rules and not services:
 				# A wrong path or branch must not turn off every rule of the source.
 				raise DefinitionSourceError(
 					f"No rule or service files in {self.path or 'the root'}/rules or /services."
 				)
-			self._check_http_rules(http_rules)
+			self._check_endpoint_rules(http_rules, "url")
+			self._check_endpoint_rules(tls_rules, "host")
 			self._check_owners("Beacon Alert Rule", rules)
 			self._check_owners("Beacon Service", services)
 			self._check_queries(sql_rules)
@@ -153,13 +160,11 @@ class SourceSync:
 				rule.key,
 				{**rule.values, "kind": "SQL", "query": rule.query, "regions": []},
 			)
-		for rule in http_rules:
-			region = rule.values.pop("region")
-			self._apply(
-				"Beacon Alert Rule",
-				rule.key,
-				{**rule.values, "kind": "HTTP", "regions": [{"region": region}]},
-			)
+		for kind, endpoint_rules in (("HTTP", http_rules), ("TLS", tls_rules)):
+			for rule in endpoint_rules:
+				region = rule.values.pop("region")
+				regions = [] if region == ALL_REGIONS else [{"region": region}]
+				self._apply("Beacon Alert Rule", rule.key, {**rule.values, "kind": kind, "regions": regions})
 		for service in services:
 			self._apply("Beacon Service", service.key, {**service.values, "sli_query": service.query})
 		removed = self._prune("Beacon Alert Rule", rules) + self._prune("Beacon Service", services)
@@ -180,9 +185,9 @@ class SourceSync:
 			if path.endswith(extension)
 		]
 
-	def _check_http_rules(self, rules: list[DefinitionFile]) -> None:
+	def _check_endpoint_rules(self, rules: list[DefinitionFile], target: str) -> None:
 		for rule in rules:
-			missing = [name for name in ("title", "severity", "url", "region") if not rule.values.get(name)]
+			missing = [name for name in ("title", "severity", target, "region") if not rule.values.get(name)]
 			if missing:
 				raise DefinitionSourceError(f"{rule.path}: add the header {', '.join(missing)}")
 

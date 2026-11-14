@@ -20,7 +20,7 @@ Read them in this order:
 | --- | --- |
 | Region | One Frappe Cloud region. It has its own Datum and ClickHouse. |
 | Resource | One thing that Beacon watches in a region: a host, a VM (Server), a service node, or the region itself. |
-| Rule | A check for a problem, such as a host that is down. It uses SQL or HTTP. |
+| Rule | A check for a problem, such as a host that is down. It uses SQL, HTTP or TLS. |
 | Alert | One problem on one resource, from its start to its end. |
 | Incident | The record that people work on. Customers can see it after a person publishes it. |
 | Service | One line on the status page, such as Sites in one region. It has an SLI and an SLO. |

@@ -5,7 +5,7 @@ from datetime import timedelta
 import frappe
 from frappe.utils import now_datetime
 
-from beacon.core.alert.http_check import HttpChecks
+from beacon.core.alert.endpoint_check import EndpointChecks
 from beacon.core.alert.reconciler import AlertReconciler, RuleFailure
 from beacon.core.alert.suppression import AlertSuppression
 from beacon.core.heartbeat import Heartbeat
@@ -45,7 +45,7 @@ class RegionSchedule:
 		region.run(
 			lambda: self._reconcile_unreachable_alert(context), "Beacon could not update the region alert"
 		)
-		region.run(lambda: self._run_http_checks(context), "Beacon could not run the HTTP checks")
+		region.run(lambda: self._run_endpoint_checks(context), "Beacon could not run the HTTP and TLS checks")
 		services = {service.name: service for service in self._get_services()}
 		RecordTransaction.run_each(
 			"Beacon Service",
@@ -68,9 +68,9 @@ class RegionSchedule:
 		reconciler = AlertReconciler.for_rule(REGION_UNREACHABLE_RULE, context.registry, self.now)
 		IncidentRecovery.queue(reconciler.reconcile(rows).recovered_incidents)
 
-	def _run_http_checks(self, context: RegionMeasurementContext) -> None:
-		"""The run starts a new transaction first, so no lock is held during the HTTP calls."""
-		checks = HttpChecks(self.region.name)
+	def _run_endpoint_checks(self, context: RegionMeasurementContext) -> None:
+		"""The run starts a new transaction first, so no lock is held during the HTTP and TLS calls."""
+		checks = EndpointChecks(self.region.name)
 		checks.reconcile(checks.call(), context.registry, self.now)
 
 	def _get_services(self) -> list[frappe._dict]:

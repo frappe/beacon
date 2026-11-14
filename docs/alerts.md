@@ -36,6 +36,7 @@ SELECT ...
 | Field | Meaning |
 | --- | --- |
 | `severity` | The highest severity of the rule. A row can set a lower one. |
+| `resource_type` | The registry type of the resources in the rows, such as `Host`. When the rows can have more types, write a list, such as `Host, Server, Cargo Server`. Beacon shows it and does not use it to match rows. |
 | `interval` | Seconds between two runs. |
 | `pending_for` | Seconds a row must fail before the alert fires. It must be at least `interval`, so an alert fires at the earliest on the second failing run. |
 | `resolve_after` | Seconds without a row before a firing alert recovers. |
@@ -55,9 +56,24 @@ Use the `severity` column when one rule has a soft limit and a hard limit. For e
 
 A Pending alert takes the severity of its current row. A Firing alert only goes up in severity, and then it stores the value and detail of the row that made it worse.
 
-### HTTP rules
+### HTTP and TLS rules
 
-An HTTP rule is a file with only header lines: a URL, a region and the expected status or text. Each minute, the region run calls the URL from the Beacon site and raises or resolves an alert on the region resource.
+An HTTP rule is a file with only header lines: a URL, a region and the expected status or text. A TLS rule has a host and the minimum days left on its certificate. Each minute, the region run checks the endpoint from the Beacon site and raises or resolves an alert on the region resource.
+
+A TLS rule fails when the connection or the handshake fails, when the certificate does not verify for the host, or when fewer days are left than the minimum.
+
+The region header names one region, or `all` for every active region. Each region then has its own alert.
+
+The URL and the host can use these variables. Beacon fills them in for each region:
+
+| Variable | Value |
+| --- | --- |
+| `{region}` | The region name. |
+| `{wildcard_domain}` | The Wildcard Domain of the region. |
+| `{atlas_url}` | The scheme and host of the Base URL of the region's `atlas` Resource Source. |
+| `{central_url}` | The Central URL in Beacon Settings. |
+
+When a variable has no value in a region, Beacon logs an error and skips the rule there. The alert keeps its state, as after a failed query.
 
 ## One evaluation
 

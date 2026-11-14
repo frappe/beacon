@@ -1,8 +1,13 @@
 frappe.ui.form.on("Beacon Alert Rule", {
+	kind(frm) {
+		frm.set_df_property("http_section", "label", __("{0} check", [frm.doc.kind]));
+	},
+
 	refresh(frm) {
+		frm.trigger("kind");
 		const view = new beacon.RecordView(frm);
 		if (frm.doc.is_custom || frm.is_new()) {
-			frm.set_df_property("kind", "options", ["SQL", "HTTP"]);
+			frm.set_df_property("kind", "options", ["SQL", "HTTP", "TLS"]);
 			frm.set_intro(
 				__(
 					"A Custom rule lives only in this site. To keep it in code, add a file with the same Rule Key to a definition source. The next sync takes this rule over."
@@ -32,7 +37,7 @@ frappe.ui.form.on("Beacon Alert Rule", {
 			["last_error", "Last error"],
 		]);
 		beacon.add_runbook_button(frm, frm.doc.runbook_url);
-		if (["SQL", "HTTP"].includes(frm.doc.kind))
+		if (["SQL", "HTTP", "TLS"].includes(frm.doc.kind))
 			beacon.add_action(
 				frm,
 				__("Test Rule"),

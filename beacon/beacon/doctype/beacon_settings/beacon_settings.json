@@ -38,6 +38,9 @@
   "definitions_tab",
   "definition_sources",
   "github_token",
+  "variables_section",
+  "central_url",
+  "variables_column",
   "advanced_tab",
   "status_page_section",
   "status_page_title",
@@ -237,6 +240,23 @@
    "show_description_on_click": 1
   },
   {
+   "fieldname": "variables_section",
+   "fieldtype": "Section Break",
+   "label": "Variables"
+  },
+  {
+   "description": "Rules use it as {central_url}.",
+   "fieldname": "central_url",
+   "fieldtype": "Data",
+   "label": "Central URL",
+   "options": "URL",
+   "show_description_on_click": 1
+  },
+  {
+   "fieldname": "variables_column",
+   "fieldtype": "Column Break"
+  },
+  {
    "fieldname": "advanced_tab",
    "fieldtype": "Tab Break",
    "label": "Advanced"
@@ -289,7 +309,7 @@
  "issingle": 1,
  "link_display_mode": "Search",
  "links": [],
- "modified": "2026-11-14 02:32:26.939811",
+ "modified": "2026-11-14 13:00:00.000000",
  "modified_by": "Administrator",
  "module": "Beacon",
  "name": "Beacon Settings",
