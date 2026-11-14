@@ -74,7 +74,7 @@ Each machine and each application sends with one resource ID: the ID that the Be
 | The Cargo site | `cargo` | Central |
 | Central | `central` | Central |
 
-A label never repeats the identity of the sender. Do not add `host`, `machine`, `region`, `role` or `cluster` labels. Datum writes the resource ID, and the registry gives the type and the parent.
+A label never repeats the identity of the sender. Do not add `host`, `machine`, `region`, `role` or `cluster` labels. Datum writes the resource ID, and the registry gives the type and the parent. The owner of the machines sends their inventory each minute, so a query can find the kind, role or cluster of a machine: `atlas_machine{machine, kind}` from Atlas and `cargo_machine{machine, role, cluster}` from Cargo.
 
 ### Metric names
 
