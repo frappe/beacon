@@ -264,7 +264,7 @@ Count only failures that the platform causes. A failure of the customer's own ap
 A regional service that runs infrastructure serves `GET <base>/beacon/resources`:
 
 ```json
-{"resources": [{"resource_id": "h12", "resource_type": "Host", "parent_id": "", "title": "h12", "status": "Active"}]}
+{"resources": [{"resource_id": "h12", "resource_type": "Metal Host", "parent_id": "", "title": "h12", "status": "Active"}]}
 ```
 
 The response has an `ETag`. Beacon signs in with the Frappe API key of a user on the service.

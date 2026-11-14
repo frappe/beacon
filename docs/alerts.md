@@ -25,7 +25,7 @@ The lines at the top of the file set the rule fields:
 ```sql
 -- title: Host disk almost full
 -- severity: High
--- resource_type: Host
+-- resource_type: Metal Host
 -- runbook_url: https://example.com/runbooks/host-disk-full.md
 -- interval: 300
 -- pending_for: 300
@@ -36,7 +36,7 @@ SELECT ...
 | Field | Meaning |
 | --- | --- |
 | `severity` | The highest severity of the rule. A row can set a lower one. |
-| `resource_type` | The registry type of the resources in the rows, such as `Host`. When the rows can have more types, write a list, such as `Host, Server, Cargo Server`. Beacon shows it and does not use it to match rows. |
+| `resource_type` | The registry type of the resources in the rows, such as `Metal Host`. When the rows can have more types, write a list, such as `Metal Host, Virtual Machine`. Beacon shows it and does not use it to match rows. |
 | `interval` | Seconds between two runs. |
 | `pending_for` | Seconds a row must fail before the alert fires. It must be at least `interval`, so an alert fires at the earliest on the second failing run. |
 | `resolve_after` | Seconds without a row before a firing alert recovers. |

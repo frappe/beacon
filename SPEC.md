@@ -82,9 +82,9 @@ Each rule file lives in the repository of the producer it reads. A rule about on
 
 | Area | Producer | Resource |
 | --- | --- | --- |
-| Hosts | Atlas host sync age, metald VM states and host system metrics | Host |
+| Hosts | Atlas host sync age, metald VM states and host system metrics | Metal Host |
 | Regional services | Atlas readiness probes, Vector on each node | Service node |
-| Sites | Pilot `pilot_sites` gauge | Server |
+| Sites | Pilot `pilot_sites` gauge | Virtual Machine |
 
 ## Invariants
 
