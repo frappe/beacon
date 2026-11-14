@@ -45,7 +45,7 @@ Datum only writes, and Beacon only reads. Datum owns the schema. Beacon issues n
 
 ## Producers
 
-Each producer sends only what a rule, an SLI or a dashboard reads. All other metrics and logs stay on the machine. The rules and runbooks of each producer are in `beacon/` of its own repository.
+Each producer sends only what a rule, an SLI or a dashboard reads, and a small number of metrics that an engineer needs to investigate an alert of the producer. All other metrics and logs stay on the machine. The rules and runbooks of each producer are in `beacon/` of its own repository.
 
 | Producer | Runs on | Sends |
 | --- | --- | --- |
