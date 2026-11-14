@@ -148,10 +148,14 @@ class AlertReconciler:
 		elif alert.status == "Firing" and alert.clean_since:
 			changes = {"clean_since": None}
 
+		# A Pending alert takes the severity of its current row, so it fires at the level that lasted. A Firing alert
+		# only escalates, and then shows the row that made it worse.
 		severity = row.severity or self.rule.severity
-		if Severity.is_higher(severity, alert.severity):
+		if alert.status == "Pending" and severity != alert.severity:
 			changes["severity"] = severity
-		if changes.get("status") == "Firing" or "severity" in changes:
+		elif alert.status == "Firing" and Severity.is_higher(severity, alert.severity):
+			changes.update({"severity": severity, "value": row.value, "detail": row.detail[:1000]})
+		if changes.get("status") == "Firing" or (alert.status == "Firing" and "severity" in changes):
 			self.changes.firing_changes += 1
 		if changes:
 			self.updates[alert.name] = changes
