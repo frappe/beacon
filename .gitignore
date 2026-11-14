@@ -53,3 +53,8 @@ jspm_packages/
 
 # Aider AI Chat
 .aider*
+
+# Status page build output
+beacon/public/frontend/
+beacon/www/status.html
+beacon/public/node_modules
