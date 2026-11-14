@@ -6,9 +6,11 @@ from typing import TYPE_CHECKING
 
 import frappe
 from frappe import _
+from frappe.model import table_fields
 from frappe.model.document import Document
 from frappe.utils import now_datetime
 
+from beacon.core.alert.endpoint_check import ENDPOINT_KINDS
 from beacon.core.alert.evaluation_schedule import EvaluationSchedule
 from beacon.core.alert.rule_evaluator import RuleQuery
 from beacon.core.exceptions import ClickHouseError, DefinitionSourceError, RuleContractError
@@ -47,7 +49,7 @@ ENDPOINT_HEADER_FIELDS = {
 }
 HTTP_HEADER_FIELDS = {**ENDPOINT_HEADER_FIELDS, "url": str, "expected_status": int, "expected_text": str}
 TLS_HEADER_FIELDS = {**ENDPOINT_HEADER_FIELDS, "host": str, "minimum_days_left": int}
-# The region header of an HTTP or TLS file names one region, or all for every active region.
+# The region header of an HTTP or TLS file names one region, or all for every active region. A file can leave it out, and Desk sets the Regions.
 ALL_REGIONS = "all"
 # A rule that pages must tell the responder what to do.
 PAGING_SEVERITIES = ("High", "Critical")
@@ -64,8 +66,9 @@ SERVICE_HEADER_FIELDS = {
 }
 
 LAYOUT_FIELD_TYPES = ("Tab Break", "Section Break", "Column Break", "HTML")
-# The fields that Desk can change on a record from a file. The query region of a global service depends on the site, so a file can leave it out.
+# The fields that Desk can change on a record from a file. The query region of a global service and the regions of an endpoint check depend on the site, so a file can leave them out.
 DESK_FIELDS = {"Beacon Alert Rule": ("enabled",), "Beacon Service": ("enabled", "query_region")}
+ENDPOINT_DESK_FIELDS = ("enabled", "regions")
 
 BUILT_IN_RULES = (
 	{
@@ -162,11 +165,8 @@ class SourceSync:
 				rule.key,
 				{**rule.values, "kind": "SQL", "query": rule.query, "regions": []},
 			)
-		for kind, endpoint_rules in (("HTTP", http_rules), ("TLS", tls_rules)):
-			for rule in endpoint_rules:
-				region = rule.values.pop("region")
-				regions = [] if region == ALL_REGIONS else [{"region": region}]
-				self._apply("Beacon Alert Rule", rule.key, {**rule.values, "kind": kind, "regions": regions})
+		self._apply_endpoint_rules("HTTP", http_rules)
+		self._apply_endpoint_rules("TLS", tls_rules)
 		for service in services:
 			self._apply("Beacon Service", service.key, {**service.values, "sli_query": service.query})
 		removed = self._prune("Beacon Alert Rule", rules) + self._prune("Beacon Service", services)
@@ -189,7 +189,7 @@ class SourceSync:
 
 	def _check_endpoint_rules(self, rules: list[DefinitionFile], target: str) -> None:
 		for rule in rules:
-			missing = [name for name in ("title", "severity", target, "region") if not rule.values.get(name)]
+			missing = [name for name in ("title", "severity", target) if not rule.values.get(name)]
 			if missing:
 				raise DefinitionSourceError(f"{rule.path}: add the header {', '.join(missing)}")
 
@@ -199,11 +199,27 @@ class SourceSync:
 			filters={"source": self.repository, "scope": "Global", "query_region": ("is", "not set")},
 			pluck="name",
 		)
-		return [
-			f"{rule.path}: a {rule.values['severity']} rule pages, so add a runbook_url."
+		unplaced = [
+			rule.key
 			for rule in rules
-			if rule.values.get("severity") in PAGING_SEVERITIES and not rule.values.get("runbook_url")
-		] + [f"{name}: a global service needs a Query Region. Set it in Desk." for name in unmeasured]
+			if rule.path.endswith((".http", ".tls"))
+			and "region" not in rule.values
+			and not frappe.get_all(
+				"Beacon Region Item", filters={"parent": rule.key, "parenttype": "Beacon Alert Rule"}, limit=1
+			)
+		]
+		return (
+			[
+				f"{rule.path}: a {rule.values['severity']} rule pages, so add a runbook_url."
+				for rule in rules
+				if rule.values.get("severity") in PAGING_SEVERITIES and not rule.values.get("runbook_url")
+			]
+			+ [f"{name}: a global service needs a Query Region. Set it in Desk." for name in unmeasured]
+			+ [
+				f"{name}: the file has no region. Set the Regions in Desk, then turn the rule on."
+				for name in unplaced
+			]
+		)
 
 	def _check_owners(self, doctype: str, files: list[DefinitionFile]) -> None:
 		"""A name belongs to one source. Built-in and burn rules have no source, so a file cannot take them.
@@ -255,6 +271,16 @@ class SourceSync:
 				raise DefinitionSourceError(
 					f"{rule.path}: the query failed in {regions[0]}: {error}"
 				) from error
+
+	def _apply_endpoint_rules(self, kind: str, rules: list[DefinitionFile]) -> None:
+		for rule in rules:
+			values = {name: value for name, value in rule.values.items() if name != "region"}
+			region = rule.values.get("region")
+			if region:
+				values["regions"] = [] if region == ALL_REGIONS else [{"region": region}]
+			elif not frappe.db.exists("Beacon Alert Rule", rule.key):
+				values["enabled"] = 0  # empty Regions means every region, so the check waits for Desk
+			self._apply("Beacon Alert Rule", rule.key, {**values, "kind": kind})
 
 	def _apply(self, doctype: str, name: str, values: dict) -> None:
 		def save() -> None:
@@ -344,9 +370,9 @@ def check_desk_change(doc: Document) -> None:
 		return
 	if doc.is_new():
 		frappe.throw(_("Add a file to a definition source, then sync it in Beacon Settings."))
-	editable = DESK_FIELDS[doc.doctype]
+	editable = ENDPOINT_DESK_FIELDS if doc.get("kind") in ENDPOINT_KINDS else DESK_FIELDS[doc.doctype]
 	if any(
-		doc.has_value_changed(df.fieldname)
+		_has_value_changed(doc, df)
 		for df in doc.meta.fields
 		if df.fieldtype not in LAYOUT_FIELD_TYPES and df.fieldname not in editable
 	):
@@ -354,3 +380,17 @@ def check_desk_change(doc: Document) -> None:
 		frappe.throw(
 			_("This comes from {0}. You can only change {1} here.").format(doc.source or "Beacon", labels)
 		)
+
+
+def _has_value_changed(doc: Document, df) -> bool:
+	"""Frappe compares table rows by identity, so compare their values."""
+	if df.fieldtype not in table_fields:
+		return doc.has_value_changed(df.fieldname)
+
+	def rows(record: Document) -> list[dict]:
+		return [
+			row.as_dict(no_default_fields=True, no_child_table_fields=True)
+			for row in record.get(df.fieldname)
+		]
+
+	return rows(doc) != rows(doc.get_doc_before_save())

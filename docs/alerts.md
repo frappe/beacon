@@ -62,7 +62,7 @@ An HTTP rule is a file with only header lines: a URL, a region and the expected 
 
 A TLS rule fails when the connection or the handshake fails, when the certificate does not verify for the host, or when fewer days are left than the minimum.
 
-The region header names one region, or `all` for every active region. Each region then has its own alert.
+The region header names one region, or `all` for every active region. Each region then has its own alert. Leave the header out when the region depends on the site, such as for a Central check. Beacon then adds the rule turned off, and you set its Regions in Desk and turn it on.
 
 The URL and the host can use these variables. Beacon fills them in for each region:
 

@@ -14,7 +14,14 @@ frappe.ui.form.on("Beacon Alert Rule", {
 				),
 				"blue"
 			);
-		} else view.managed(frm.doc.kind === "SLO Burn" ? [] : ["enabled"]);
+		} else
+			view.managed(
+				frm.doc.kind === "SLO Burn"
+					? []
+					: ["HTTP", "TLS"].includes(frm.doc.kind)
+					? ["enabled", "regions"]
+					: ["enabled"]
+			);
 		if (frm.is_new()) return;
 		if (frm.doc.kind === "SLO Burn")
 			frm.set_intro(
