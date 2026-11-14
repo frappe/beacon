@@ -1,0 +1,705 @@
+{
+ "charts": {
+  "beacon-health-failed-notifications": {
+   "chart_type": "Bar",
+   "config": {
+    "filters": {
+     "filters": [],
+     "logical_operator": "And"
+    },
+    "limit": 10000,
+    "number_formats": {},
+    "split_by": {
+     "dimension": {
+      "column_name": "channel",
+      "data_type": "String",
+      "dimension_name": "Channel"
+     },
+     "max_split_values": 20
+    },
+    "x_axis": {
+     "dimension": {
+      "column_name": "day",
+      "data_type": "Date",
+      "dimension_name": "Day",
+      "granularity": "day"
+     }
+    },
+    "y_axis": {
+     "series": [
+      {
+       "measure": {
+        "aggregation": "sum",
+        "column_name": "notifications",
+        "data_type": "Decimal",
+        "measure_name": "Failed"
+       },
+       "type": "bar"
+      }
+     ],
+     "stack": true
+    }
+   },
+   "description": null,
+   "folder": null,
+   "info": null,
+   "name": "beacon-health-failed-notifications",
+   "query": "beacon-health-failed-notifications-query",
+   "sort_order": 6,
+   "title": "Failed notifications by channel",
+   "workbook": "beacon-health"
+  },
+  "beacon-health-failed-notifications-count": {
+   "chart_type": "Number",
+   "config": {
+    "filters": {
+     "filters": [],
+     "logical_operator": "And"
+    },
+    "number_column_options": [
+     {
+      "negative_is_better": true
+     }
+    ],
+    "number_columns": [
+     {
+      "aggregation": "max",
+      "column_name": "failed_notifications",
+      "data_type": "Decimal",
+      "id": "Failed notifications",
+      "measure_name": "Failed notifications"
+     }
+    ],
+    "number_formats": {
+     "Failed notifications": {
+      "decimals": 0
+     }
+    },
+    "sparkline": false
+   },
+   "description": null,
+   "folder": null,
+   "info": null,
+   "name": "beacon-health-failed-notifications-count",
+   "query": "beacon-health-summary-query",
+   "sort_order": 4,
+   "title": "Failed notifications",
+   "workbook": "beacon-health"
+  },
+  "beacon-health-found-by-customers": {
+   "chart_type": "Number",
+   "config": {
+    "filters": {
+     "filters": [],
+     "logical_operator": "And"
+    },
+    "number_column_options": [
+     {
+      "negative_is_better": true
+     }
+    ],
+    "number_columns": [
+     {
+      "aggregation": "max",
+      "column_name": "found_by_customers",
+      "data_type": "Decimal",
+      "id": "Found by customers %",
+      "measure_name": "Found by customers %"
+     }
+    ],
+    "number_formats": {
+     "Found by customers %": {
+      "decimals": 0
+     }
+    },
+    "sparkline": false
+   },
+   "description": null,
+   "folder": null,
+   "info": null,
+   "name": "beacon-health-found-by-customers",
+   "query": "beacon-health-summary-query",
+   "sort_order": 1,
+   "title": "Incidents that customers found first (%)",
+   "workbook": "beacon-health"
+  },
+  "beacon-health-incidents": {
+   "chart_type": "Number",
+   "config": {
+    "filters": {
+     "filters": [],
+     "logical_operator": "And"
+    },
+    "number_column_options": [
+     {
+      "negative_is_better": true
+     }
+    ],
+    "number_columns": [
+     {
+      "aggregation": "max",
+      "column_name": "incidents",
+      "data_type": "Decimal",
+      "id": "Incidents",
+      "measure_name": "Incidents"
+     }
+    ],
+    "number_formats": {
+     "Incidents": {
+      "decimals": 0
+     }
+    },
+    "sparkline": false
+   },
+   "description": null,
+   "folder": null,
+   "info": null,
+   "name": "beacon-health-incidents",
+   "query": "beacon-health-summary-query",
+   "sort_order": 0,
+   "title": "Incidents",
+   "workbook": "beacon-health"
+  },
+  "beacon-health-noisiest-rules": {
+   "chart_type": "Row",
+   "config": {
+    "filters": {
+     "filters": [],
+     "logical_operator": "And"
+    },
+    "limit": 10000,
+    "number_formats": {},
+    "split_by": {
+     "dimension": {
+      "column_name": "severity",
+      "data_type": "String",
+      "dimension_name": "Severity"
+     },
+     "max_split_values": 20
+    },
+    "x_axis": {
+     "dimension": {
+      "column_name": "rule",
+      "data_type": "String",
+      "dimension_name": "Rule"
+     }
+    },
+    "y_axis": {
+     "series": [
+      {
+       "measure": {
+        "aggregation": "sum",
+        "column_name": "alerts",
+        "data_type": "Decimal",
+        "measure_name": "Alerts"
+       },
+       "type": "row"
+      }
+     ],
+     "stack": true
+    }
+   },
+   "description": null,
+   "folder": null,
+   "info": null,
+   "name": "beacon-health-noisiest-rules",
+   "query": "beacon-health-noisiest-rules-query",
+   "sort_order": 7,
+   "title": "Noisiest rules",
+   "workbook": "beacon-health"
+  },
+  "beacon-health-notification-delay": {
+   "chart_type": "Line",
+   "config": {
+    "filters": {
+     "filters": [],
+     "logical_operator": "And"
+    },
+    "limit": 10000,
+    "number_formats": {},
+    "split_by": {
+     "dimension": {
+      "column_name": "channel",
+      "data_type": "String",
+      "dimension_name": "Channel"
+     },
+     "max_split_values": 20
+    },
+    "x_axis": {
+     "dimension": {
+      "column_name": "day",
+      "data_type": "Date",
+      "dimension_name": "Day",
+      "granularity": "day"
+     }
+    },
+    "y_axis": {
+     "series": [
+      {
+       "measure": {
+        "aggregation": "max",
+        "column_name": "delay_seconds",
+        "data_type": "Decimal",
+        "measure_name": "Delay (seconds)"
+       },
+       "type": "line"
+      }
+     ],
+     "stack": false
+    }
+   },
+   "description": null,
+   "folder": null,
+   "info": null,
+   "name": "beacon-health-notification-delay",
+   "query": "beacon-health-notification-delay-query",
+   "sort_order": 5,
+   "title": "Seconds from queue to send, by channel",
+   "workbook": "beacon-health"
+  },
+  "beacon-health-slo-by-day": {
+   "chart_type": "Line",
+   "config": {
+    "filters": {
+     "filters": [],
+     "logical_operator": "And"
+    },
+    "limit": 10000,
+    "number_formats": {},
+    "split_by": {
+     "dimension": {
+      "column_name": "service",
+      "data_type": "String",
+      "dimension_name": "Service"
+     },
+     "max_split_values": 20
+    },
+    "x_axis": {
+     "dimension": {
+      "column_name": "date",
+      "data_type": "Date",
+      "dimension_name": "Day",
+      "granularity": "day"
+     }
+    },
+    "y_axis": {
+     "series": [
+      {
+       "measure": {
+        "aggregation": "max",
+        "column_name": "sli",
+        "data_type": "Decimal",
+        "measure_name": "SLI %"
+       },
+       "type": "line"
+      }
+     ],
+     "stack": false
+    }
+   },
+   "description": null,
+   "folder": null,
+   "info": null,
+   "name": "beacon-health-slo-by-day",
+   "query": "beacon-health-slo-by-day-query",
+   "sort_order": 9,
+   "title": "SLI by service and day",
+   "workbook": "beacon-health"
+  },
+  "beacon-health-slo-by-service": {
+   "chart_type": "Table",
+   "config": {
+    "columns": [],
+    "filters": {
+     "filters": [],
+     "logical_operator": "And"
+    },
+    "limit": 100,
+    "number_formats": {
+     "Degraded minutes": {
+      "decimals": 0
+     },
+     "Outage minutes": {
+      "decimals": 0
+     },
+     "SLI %": {
+      "decimals": 3
+     },
+     "SLO target %": {
+      "decimals": 3
+     }
+    },
+    "rows": [
+     {
+      "column_name": "service",
+      "data_type": "String",
+      "dimension_name": "Service"
+     }
+    ],
+    "show_row_totals": false,
+    "values": [
+     {
+      "aggregation": "max",
+      "column_name": "slo_target",
+      "data_type": "Decimal",
+      "measure_name": "SLO target %"
+     },
+     {
+      "aggregation": "max",
+      "column_name": "sli",
+      "data_type": "Decimal",
+      "measure_name": "SLI %"
+     },
+     {
+      "aggregation": "sum",
+      "column_name": "degraded_minutes",
+      "data_type": "Decimal",
+      "measure_name": "Degraded minutes"
+     },
+     {
+      "aggregation": "sum",
+      "column_name": "outage_minutes",
+      "data_type": "Decimal",
+      "measure_name": "Outage minutes"
+     }
+    ]
+   },
+   "description": null,
+   "folder": null,
+   "info": null,
+   "name": "beacon-health-slo-by-service",
+   "query": "beacon-health-slo-by-service-query",
+   "sort_order": 8,
+   "title": "SLI by service",
+   "workbook": "beacon-health"
+  },
+  "beacon-health-time-to-acknowledge": {
+   "chart_type": "Number",
+   "config": {
+    "filters": {
+     "filters": [],
+     "logical_operator": "And"
+    },
+    "number_column_options": [
+     {
+      "negative_is_better": true
+     }
+    ],
+    "number_columns": [
+     {
+      "aggregation": "max",
+      "column_name": "minutes_to_acknowledge",
+      "data_type": "Decimal",
+      "id": "Average minutes to acknowledge",
+      "measure_name": "Average minutes to acknowledge"
+     }
+    ],
+    "number_formats": {
+     "Average minutes to acknowledge": {
+      "decimals": 1
+     }
+    },
+    "sparkline": false
+   },
+   "description": null,
+   "folder": null,
+   "info": null,
+   "name": "beacon-health-time-to-acknowledge",
+   "query": "beacon-health-summary-query",
+   "sort_order": 2,
+   "title": "Average minutes to acknowledge",
+   "workbook": "beacon-health"
+  },
+  "beacon-health-time-to-resolve": {
+   "chart_type": "Number",
+   "config": {
+    "filters": {
+     "filters": [],
+     "logical_operator": "And"
+    },
+    "number_column_options": [
+     {
+      "negative_is_better": true
+     }
+    ],
+    "number_columns": [
+     {
+      "aggregation": "max",
+      "column_name": "minutes_to_resolve",
+      "data_type": "Decimal",
+      "id": "Average minutes to resolve",
+      "measure_name": "Average minutes to resolve"
+     }
+    ],
+    "number_formats": {
+     "Average minutes to resolve": {
+      "decimals": 1
+     }
+    },
+    "sparkline": false
+   },
+   "description": null,
+   "folder": null,
+   "info": null,
+   "name": "beacon-health-time-to-resolve",
+   "query": "beacon-health-summary-query",
+   "sort_order": 3,
+   "title": "Average minutes to resolve",
+   "workbook": "beacon-health"
+  }
+ },
+ "creation": "2026-11-14 05:00:00.000000",
+ "dashboards": {
+  "beacon-health-dashboard": {
+   "items": [
+    {
+     "chart": "beacon-health-incidents",
+     "layout": {
+      "h": 5,
+      "i": "item-0",
+      "w": 4,
+      "x": 0,
+      "y": 0
+     },
+     "type": "chart"
+    },
+    {
+     "chart": "beacon-health-found-by-customers",
+     "layout": {
+      "h": 5,
+      "i": "item-1",
+      "w": 4,
+      "x": 4,
+      "y": 0
+     },
+     "type": "chart"
+    },
+    {
+     "chart": "beacon-health-time-to-acknowledge",
+     "layout": {
+      "h": 5,
+      "i": "item-2",
+      "w": 4,
+      "x": 8,
+      "y": 0
+     },
+     "type": "chart"
+    },
+    {
+     "chart": "beacon-health-time-to-resolve",
+     "layout": {
+      "h": 5,
+      "i": "item-3",
+      "w": 4,
+      "x": 12,
+      "y": 0
+     },
+     "type": "chart"
+    },
+    {
+     "chart": "beacon-health-failed-notifications-count",
+     "layout": {
+      "h": 5,
+      "i": "item-4",
+      "w": 4,
+      "x": 16,
+      "y": 0
+     },
+     "type": "chart"
+    },
+    {
+     "chart": "beacon-health-notification-delay",
+     "layout": {
+      "h": 12,
+      "i": "item-5",
+      "w": 10,
+      "x": 0,
+      "y": 5
+     },
+     "type": "chart"
+    },
+    {
+     "chart": "beacon-health-failed-notifications",
+     "layout": {
+      "h": 12,
+      "i": "item-6",
+      "w": 10,
+      "x": 10,
+      "y": 5
+     },
+     "type": "chart"
+    },
+    {
+     "chart": "beacon-health-noisiest-rules",
+     "layout": {
+      "h": 12,
+      "i": "item-7",
+      "w": 10,
+      "x": 0,
+      "y": 17
+     },
+     "type": "chart"
+    },
+    {
+     "chart": "beacon-health-slo-by-service",
+     "layout": {
+      "h": 12,
+      "i": "item-8",
+      "w": 10,
+      "x": 10,
+      "y": 17
+     },
+     "type": "chart"
+    },
+    {
+     "chart": "beacon-health-slo-by-day",
+     "layout": {
+      "h": 12,
+      "i": "item-9",
+      "w": 20,
+      "x": 0,
+      "y": 29
+     },
+     "type": "chart"
+    }
+   ],
+   "name": "beacon-health-dashboard",
+   "title": "Beacon Health",
+   "vertical_compact_layout": 1,
+   "visible_to_roles": [
+    {
+     "role": "Beacon Admin"
+    },
+    {
+     "role": "Beacon Responder"
+    },
+    {
+     "role": "System Manager"
+    }
+   ],
+   "workbook": "beacon-health"
+  }
+ },
+ "data_backup": null,
+ "docstatus": 0,
+ "doctype": "Insights Workbook",
+ "folders": [],
+ "idx": 0,
+ "is_standard": 1,
+ "modified": "2026-11-14 05:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Beacon",
+ "name": "beacon-health",
+ "owner": "Administrator",
+ "queries": {
+  "beacon-health-failed-notifications-query": {
+   "folder": null,
+   "is_builder_query": 0,
+   "is_native_query": 1,
+   "is_script_query": 0,
+   "name": "beacon-health-failed-notifications-query",
+   "operations": [
+    {
+     "data_source": "Site DB",
+     "raw_sql": "SELECT DATE(creation) AS day, channel, COUNT(*) AS notifications\nFROM `tabBeacon Notification`\nWHERE status = 'Failed' AND creation >= CURDATE() - INTERVAL 30 DAY\nGROUP BY day, channel\n",
+     "type": "sql"
+    }
+   ],
+   "sort_order": 2,
+   "title": "Failed notifications by day",
+   "use_live_connection": 1,
+   "workbook": "beacon-health"
+  },
+  "beacon-health-noisiest-rules-query": {
+   "folder": null,
+   "is_builder_query": 0,
+   "is_native_query": 1,
+   "is_script_query": 0,
+   "name": "beacon-health-noisiest-rules-query",
+   "operations": [
+    {
+     "data_source": "Site DB",
+     "raw_sql": "SELECT alert.rule, alert.severity, COUNT(*) AS alerts\nFROM `tabBeacon Alert` AS alert\nJOIN (\n  SELECT rule FROM `tabBeacon Alert` WHERE creation >= NOW() - INTERVAL 30 DAY\n  GROUP BY rule ORDER BY COUNT(*) DESC LIMIT 10\n) AS top ON top.rule = alert.rule\nWHERE alert.creation >= NOW() - INTERVAL 30 DAY\nGROUP BY alert.rule, alert.severity\n",
+     "type": "sql"
+    }
+   ],
+   "sort_order": 3,
+   "title": "Alerts by rule",
+   "use_live_connection": 1,
+   "workbook": "beacon-health"
+  },
+  "beacon-health-notification-delay-query": {
+   "folder": null,
+   "is_builder_query": 0,
+   "is_native_query": 1,
+   "is_script_query": 0,
+   "name": "beacon-health-notification-delay-query",
+   "operations": [
+    {
+     "data_source": "Site DB",
+     "raw_sql": "SELECT DATE(creation) AS day, channel, AVG(TIMESTAMPDIFF(SECOND, creation, sent_at)) AS delay_seconds\nFROM `tabBeacon Notification`\nWHERE sent_at IS NOT NULL AND creation >= CURDATE() - INTERVAL 30 DAY\nGROUP BY day, channel\n",
+     "type": "sql"
+    }
+   ],
+   "sort_order": 1,
+   "title": "Notification delay by day",
+   "use_live_connection": 1,
+   "workbook": "beacon-health"
+  },
+  "beacon-health-slo-by-day-query": {
+   "folder": null,
+   "is_builder_query": 0,
+   "is_native_query": 1,
+   "is_script_query": 0,
+   "name": "beacon-health-slo-by-day-query",
+   "operations": [
+    {
+     "data_source": "Site DB",
+     "raw_sql": "SELECT day.date, service.title AS service, 100 * SUM(day.good) / SUM(day.valid) AS sli\nFROM `tabBeacon Service Day` AS day\nJOIN `tabBeacon Service` AS service ON service.name = day.service\nWHERE day.date >= CURDATE() - INTERVAL 30 DAY AND day.valid > 0\nGROUP BY day.date, service.name, service.title\n",
+     "type": "sql"
+    }
+   ],
+   "sort_order": 4,
+   "title": "SLI by service and day",
+   "use_live_connection": 1,
+   "workbook": "beacon-health"
+  },
+  "beacon-health-slo-by-service-query": {
+   "folder": null,
+   "is_builder_query": 0,
+   "is_native_query": 1,
+   "is_script_query": 0,
+   "name": "beacon-health-slo-by-service-query",
+   "operations": [
+    {
+     "data_source": "Site DB",
+     "raw_sql": "SELECT service.title AS service, service.slo_target,\n  100 * SUM(day.good) / NULLIF(SUM(day.valid), 0) AS sli,\n  SUM(day.degraded_minutes) AS degraded_minutes, SUM(day.outage_minutes) AS outage_minutes\nFROM `tabBeacon Service Day` AS day\nJOIN `tabBeacon Service` AS service ON service.name = day.service\nWHERE day.date >= CURDATE() - INTERVAL 30 DAY\nGROUP BY service.name, service.title, service.slo_target\nORDER BY sli\n",
+     "type": "sql"
+    }
+   ],
+   "sort_order": 5,
+   "title": "SLI by service",
+   "use_live_connection": 1,
+   "workbook": "beacon-health"
+  },
+  "beacon-health-summary-query": {
+   "folder": null,
+   "is_builder_query": 0,
+   "is_native_query": 1,
+   "is_script_query": 0,
+   "name": "beacon-health-summary-query",
+   "operations": [
+    {
+     "data_source": "Site DB",
+     "raw_sql": "SELECT\n  (SELECT COUNT(*) FROM `tabBeacon Incident`\n    WHERE type = 'Incident' AND status != 'Merged' AND creation >= NOW() - INTERVAL 30 DAY) AS incidents,\n  (SELECT 100 * SUM(detected_by = 'Customer') / COUNT(*) FROM `tabBeacon Incident`\n    WHERE type = 'Incident' AND status != 'Merged' AND creation >= NOW() - INTERVAL 30 DAY) AS found_by_customers,\n  (SELECT AVG(TIMESTAMPDIFF(SECOND, creation, acknowledged_at)) / 60 FROM `tabBeacon Incident`\n    WHERE type = 'Incident' AND acknowledged_at IS NOT NULL AND creation >= NOW() - INTERVAL 30 DAY) AS minutes_to_acknowledge,\n  (SELECT AVG(TIMESTAMPDIFF(SECOND, creation, resolved_at)) / 60 FROM `tabBeacon Incident`\n    WHERE type = 'Incident' AND status = 'Resolved' AND creation >= NOW() - INTERVAL 30 DAY) AS minutes_to_resolve,\n  (SELECT COUNT(*) FROM `tabBeacon Notification`\n    WHERE status = 'Failed' AND creation >= NOW() - INTERVAL 30 DAY) AS failed_notifications\n",
+     "type": "sql"
+    }
+   ],
+   "sort_order": 0,
+   "title": "Last 30 days",
+   "use_live_connection": 1,
+   "workbook": "beacon-health"
+  }
+ },
+ "title": "Beacon Health"
+}

@@ -1,0 +1,317 @@
+{
+ "actions": [],
+ "creation": "2026-11-13 12:00:00",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "on_call_tab",
+  "paused_section",
+  "paging_paused",
+  "paused_column",
+  "paused_reason",
+  "primary_section",
+  "primary_override",
+  "column_break_1",
+  "override_until",
+  "responders_section",
+  "responders",
+  "timing_section",
+  "page_delay_seconds",
+  "repeat_every_minutes",
+  "max_rounds",
+  "column_break_2",
+  "backup_after_minutes_critical",
+  "backup_after_minutes_high",
+  "channels_tab",
+  "phone_section",
+  "phone_calls_enabled",
+  "twilio_from_number",
+  "column_break_3",
+  "twilio_account_sid",
+  "twilio_auth_token",
+  "email_and_chat_section",
+  "email_enabled",
+  "email_account",
+  "column_break_4",
+  "chat_enabled",
+  "chat_webhook_url",
+  "definitions_tab",
+  "definition_sources",
+  "github_token",
+  "advanced_tab",
+  "status_page_section",
+  "status_page_title",
+  "column_break_5",
+  "status_page_domain",
+  "incidents_section",
+  "reopen_window_minutes",
+  "column_break_6",
+  "heartbeat_url"
+ ],
+ "fields": [
+  {
+   "fieldname": "on_call_tab",
+   "fieldtype": "Tab Break",
+   "label": "On-call"
+  },
+  {
+   "depends_on": "paging_paused",
+   "fieldname": "paused_section",
+   "fieldtype": "Section Break",
+   "label": "Notifications paused"
+  },
+  {
+   "default": "0",
+   "fieldname": "paging_paused",
+   "fieldtype": "Check",
+   "label": "Paging Paused",
+   "read_only": 1
+  },
+  {
+   "fieldname": "paused_column",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "paused_reason",
+   "fieldtype": "Small Text",
+   "label": "Paused Reason",
+   "read_only": 1
+  },
+  {
+   "fieldname": "primary_section",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "primary_override",
+   "fieldtype": "Link",
+   "label": "Primary Override",
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "override_until",
+   "fieldtype": "Datetime",
+   "label": "Override Until",
+   "read_only": 1
+  },
+  {
+   "fieldname": "responders_section",
+   "fieldtype": "Section Break"
+  },
+  {
+   "description": "Beacon notifies people in this order.",
+   "fieldname": "responders",
+   "fieldtype": "Table",
+   "label": "Responders",
+   "options": "Beacon Responder",
+   "show_description_on_click": 1
+  },
+  {
+   "fieldname": "timing_section",
+   "fieldtype": "Section Break",
+   "label": "Timing"
+  },
+  {
+   "default": "90",
+   "fieldname": "page_delay_seconds",
+   "fieldtype": "Int",
+   "label": "Page Delay (Seconds)"
+  },
+  {
+   "default": "15",
+   "fieldname": "repeat_every_minutes",
+   "fieldtype": "Int",
+   "label": "Repeat Every (Minutes)"
+  },
+  {
+   "default": "3",
+   "description": "How many times Beacon goes through the list for a High incident. For Critical, it repeats until someone acknowledges.",
+   "fieldname": "max_rounds",
+   "fieldtype": "Int",
+   "label": "Max Rounds",
+   "show_description_on_click": 1
+  },
+  {
+   "fieldname": "column_break_2",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "2",
+   "fieldname": "backup_after_minutes_critical",
+   "fieldtype": "Int",
+   "label": "Backup After, Critical (Minutes)"
+  },
+  {
+   "default": "5",
+   "fieldname": "backup_after_minutes_high",
+   "fieldtype": "Int",
+   "label": "Backup After, High (Minutes)"
+  },
+  {
+   "fieldname": "channels_tab",
+   "fieldtype": "Tab Break",
+   "label": "Channels"
+  },
+  {
+   "fieldname": "phone_section",
+   "fieldtype": "Section Break",
+   "label": "Phone"
+  },
+  {
+   "default": "0",
+   "fieldname": "phone_calls_enabled",
+   "fieldtype": "Check",
+   "label": "Phone Calls"
+  },
+  {
+   "fieldname": "twilio_from_number",
+   "fieldtype": "Data",
+   "label": "From Number"
+  },
+  {
+   "fieldname": "column_break_3",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "twilio_account_sid",
+   "fieldtype": "Data",
+   "label": "Twilio Account SID"
+  },
+  {
+   "fieldname": "twilio_auth_token",
+   "fieldtype": "Password",
+   "label": "Twilio Auth Token"
+  },
+  {
+   "fieldname": "email_and_chat_section",
+   "fieldtype": "Section Break",
+   "label": "Email and Chat"
+  },
+  {
+   "default": "0",
+   "fieldname": "email_enabled",
+   "fieldtype": "Check",
+   "label": "Email"
+  },
+  {
+   "fieldname": "email_account",
+   "fieldtype": "Link",
+   "label": "Email Account",
+   "options": "Email Account"
+  },
+  {
+   "fieldname": "column_break_4",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "0",
+   "fieldname": "chat_enabled",
+   "fieldtype": "Check",
+   "label": "Chat"
+  },
+  {
+   "fieldname": "chat_webhook_url",
+   "fieldtype": "Password",
+   "label": "Chat Webhook URL"
+  },
+  {
+   "fieldname": "definitions_tab",
+   "fieldtype": "Tab Break",
+   "label": "Definitions"
+  },
+  {
+   "fieldname": "definition_sources",
+   "fieldtype": "Table",
+   "label": "Sources",
+   "options": "Beacon Definition Source"
+  },
+  {
+   "description": "Optional. A read-only token, needed only for private repositories.",
+   "fieldname": "github_token",
+   "fieldtype": "Password",
+   "label": "GitHub Token",
+   "show_description_on_click": 1
+  },
+  {
+   "fieldname": "advanced_tab",
+   "fieldtype": "Tab Break",
+   "label": "Advanced"
+  },
+  {
+   "fieldname": "status_page_section",
+   "fieldtype": "Section Break",
+   "label": "Status page"
+  },
+  {
+   "default": "Frappe Cloud Status",
+   "fieldname": "status_page_title",
+   "fieldtype": "Data",
+   "label": "Title"
+  },
+  {
+   "fieldname": "column_break_5",
+   "fieldtype": "Column Break"
+  },
+  {
+   "description": "Beacon uses this domain in private incident links and subscription emails.",
+   "fieldname": "status_page_domain",
+   "fieldtype": "Data",
+   "label": "Domain",
+   "show_description_on_click": 1
+  },
+  {
+   "fieldname": "incidents_section",
+   "fieldtype": "Section Break",
+   "label": "Incidents and heartbeat"
+  },
+  {
+   "default": "30",
+   "fieldname": "reopen_window_minutes",
+   "fieldtype": "Int",
+   "label": "Reopen Window (Minutes)"
+  },
+  {
+   "fieldname": "column_break_6",
+   "fieldtype": "Column Break"
+  },
+  {
+   "description": "Beacon calls this URL every minute while its workers keep up. If the calls stop, the external service knows that Beacon is down.",
+   "fieldname": "heartbeat_url",
+   "fieldtype": "Password",
+   "label": "Heartbeat URL",
+   "show_description_on_click": 1
+  }
+ ],
+ "issingle": 1,
+ "link_display_mode": "Search",
+ "links": [],
+ "modified": "2026-11-14 02:32:26.939811",
+ "modified_by": "Administrator",
+ "module": "Beacon",
+ "name": "Beacon Settings",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "read": 1,
+   "role": "Beacon Admin",
+   "write": 1
+  },
+  {
+   "read": 1,
+   "role": "Beacon Responder"
+  },
+  {
+   "read": 1,
+   "role": "System Manager",
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

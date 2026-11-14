@@ -1,0 +1,217 @@
+{
+ "actions": [],
+ "autoname": "field:region",
+ "creation": "2026-11-13 12:00:00",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "overview_section",
+  "status",
+  "telemetry_state",
+  "reporting_percent",
+  "telemetry_streak",
+  "overview_column",
+  "title",
+  "region",
+  "wildcard_domain",
+  "telemetry_checked_at",
+  "connection_section",
+  "clickhouse_url",
+  "clickhouse_database",
+  "credentials_column",
+  "clickhouse_user",
+  "clickhouse_password",
+  "status_page_section",
+  "show_on_status_page",
+  "status_page_column",
+  "sort_order"
+ ],
+ "fields": [
+  {
+   "fieldname": "overview_section",
+   "fieldtype": "Section Break"
+  },
+  {
+   "default": "Active",
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Status",
+   "options": "Active\nDisabled",
+   "read_only": 1
+  },
+  {
+   "default": "OK",
+   "fieldname": "telemetry_state",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Telemetry",
+   "options": "OK\nUnreachable\nSuspect",
+   "read_only": 1
+  },
+  {
+   "description": "The percentage of hosts that Atlas synced and that sent a metald sample in the last 5 minutes.",
+   "fieldname": "reporting_percent",
+   "fieldtype": "Percent",
+   "in_list_view": 1,
+   "label": "Hosts Reporting",
+   "read_only": 1,
+   "show_description_on_click": 1
+  },
+  {
+   "fieldname": "telemetry_streak",
+   "fieldtype": "Int",
+   "hidden": 1,
+   "label": "Telemetry Streak",
+   "read_only": 1
+  },
+  {
+   "fieldname": "overview_column",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "title",
+   "fieldtype": "Data",
+   "label": "Title",
+   "reqd": 1
+  },
+  {
+   "fieldname": "region",
+   "fieldtype": "Data",
+   "label": "Region",
+   "reqd": 1,
+   "set_only_once": 1,
+   "unique": 1
+  },
+  {
+   "fieldname": "wildcard_domain",
+   "fieldtype": "Data",
+   "label": "Wildcard Domain"
+  },
+  {
+   "fieldname": "telemetry_checked_at",
+   "fieldtype": "Datetime",
+   "label": "Telemetry Checked At",
+   "read_only": 1
+  },
+  {
+   "fieldname": "connection_section",
+   "fieldtype": "Section Break",
+   "label": "ClickHouse connection"
+  },
+  {
+   "fieldname": "clickhouse_url",
+   "fieldtype": "Data",
+   "label": "URL",
+   "reqd": 1
+  },
+  {
+   "default": "datum",
+   "fieldname": "clickhouse_database",
+   "fieldtype": "Data",
+   "label": "Database",
+   "reqd": 1
+  },
+  {
+   "fieldname": "credentials_column",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "beacon",
+   "fieldname": "clickhouse_user",
+   "fieldtype": "Data",
+   "label": "User",
+   "reqd": 1
+  },
+  {
+   "fieldname": "clickhouse_password",
+   "fieldtype": "Password",
+   "label": "Password"
+  },
+  {
+   "fieldname": "status_page_section",
+   "fieldtype": "Section Break",
+   "label": "Status page"
+  },
+  {
+   "default": "1",
+   "fieldname": "show_on_status_page",
+   "fieldtype": "Check",
+   "label": "Show on Status Page"
+  },
+  {
+   "fieldname": "status_page_column",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "sort_order",
+   "fieldtype": "Int",
+   "label": "Sort Order"
+  }
+ ],
+ "link_display_mode": "Search",
+ "links": [
+  {
+   "group": "Resources",
+   "link_doctype": "Beacon Resource Source",
+   "link_fieldname": "region"
+  },
+  {
+   "group": "Resources",
+   "link_doctype": "Beacon Resource",
+   "link_fieldname": "region"
+  },
+  {
+   "group": "Alerts",
+   "link_doctype": "Beacon Alert",
+   "link_fieldname": "region"
+  },
+  {
+   "group": "Alerts",
+   "link_doctype": "Beacon Silence",
+   "link_fieldname": "region"
+  }
+ ],
+ "modified": "2026-11-14 02:11:06.277305",
+ "modified_by": "Administrator",
+ "module": "Beacon",
+ "name": "Beacon Region",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "read": 1,
+   "role": "Beacon Admin",
+   "write": 1
+  },
+  {
+   "read": 1,
+   "role": "Beacon Responder"
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "read": 1,
+   "role": "System Manager",
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "show_title_field_in_link": 1,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [
+  {
+   "color": "Green",
+   "title": "Active"
+  },
+  {
+   "color": "Gray",
+   "title": "Disabled"
+  }
+ ],
+ "title_field": "title"
+}

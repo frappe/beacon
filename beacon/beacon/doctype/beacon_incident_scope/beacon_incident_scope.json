@@ -1,0 +1,59 @@
+{
+ "actions": [],
+ "creation": "2026-11-13 12:00:00",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "region",
+  "resource_type",
+  "column_break_1",
+  "resource_id",
+  "include_descendants"
+ ],
+ "fields": [
+  {
+   "fieldname": "region",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Region",
+   "options": "Beacon Region",
+   "reqd": 1
+  },
+  {
+   "fieldname": "resource_type",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Resource Type"
+  },
+  {
+   "fieldname": "column_break_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "resource_id",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Resource ID"
+  },
+  {
+   "default": "0",
+   "fieldname": "include_descendants",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "label": "Include Child Resources"
+  }
+ ],
+ "istable": 1,
+ "link_display_mode": "Search",
+ "links": [],
+ "modified": "2026-11-13 19:17:10.281108",
+ "modified_by": "Administrator",
+ "module": "Beacon",
+ "name": "Beacon Incident Scope",
+ "owner": "Administrator",
+ "permissions": [],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

@@ -1,0 +1,97 @@
+{
+ "actions": [],
+ "creation": "2026-11-14 10:00:00",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "repository",
+  "path",
+  "source_column",
+  "branch",
+  "sync_section",
+  "last_synced_at",
+  "commit",
+  "sync_column",
+  "result"
+ ],
+ "fields": [
+  {
+   "columns": 2,
+   "description": "The GitHub owner and repository, such as frappe/atlas.",
+   "fieldname": "repository",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Repository",
+   "reqd": 1,
+   "show_description_on_click": 1
+  },
+  {
+   "columns": 1,
+   "default": "beacon",
+   "description": "The folder that holds rules/ and services/. Leave it empty for the repository root.",
+   "fieldname": "path",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Path",
+   "show_description_on_click": 1
+  },
+  {
+   "fieldname": "source_column",
+   "fieldtype": "Column Break"
+  },
+  {
+   "columns": 1,
+   "default": "develop",
+   "fieldname": "branch",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Branch",
+   "reqd": 1
+  },
+  {
+   "fieldname": "sync_section",
+   "fieldtype": "Section Break",
+   "label": "Last Sync"
+  },
+  {
+   "columns": 2,
+   "fieldname": "last_synced_at",
+   "fieldtype": "Datetime",
+   "in_list_view": 1,
+   "label": "Last Synced",
+   "read_only": 1
+  },
+  {
+   "columns": 1,
+   "fieldname": "commit",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Commit",
+   "read_only": 1
+  },
+  {
+   "fieldname": "sync_column",
+   "fieldtype": "Column Break"
+  },
+  {
+   "columns": 3,
+   "fieldname": "result",
+   "fieldtype": "Small Text",
+   "in_list_view": 1,
+   "label": "Result",
+   "read_only": 1
+  }
+ ],
+ "istable": 1,
+ "links": [],
+ "modified": "2026-11-14 02:39:04.786920",
+ "modified_by": "Administrator",
+ "module": "Beacon",
+ "name": "Beacon Definition Source",
+ "owner": "Administrator",
+ "permissions": [],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

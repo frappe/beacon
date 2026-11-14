@@ -1,0 +1,256 @@
+{
+ "actions": [],
+ "autoname": "hash",
+ "creation": "2026-11-13 12:00:00",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "overview_section",
+  "title",
+  "status",
+  "severity",
+  "started_at",
+  "overview_column",
+  "resource",
+  "region",
+  "incident",
+  "rule",
+  "evidence_section",
+  "detail",
+  "evidence_column",
+  "value",
+  "first_value",
+  "suppression_section",
+  "suppressed",
+  "suppression_column",
+  "suppressed_by",
+  "details_section",
+  "fired_at",
+  "clean_since",
+  "resolved_at",
+  "details_column",
+  "resolution",
+  "resource_type",
+  "alert_key",
+  "open_key"
+ ],
+ "fields": [
+  {
+   "fieldname": "overview_section",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "title",
+   "fieldtype": "Data",
+   "hidden": 1,
+   "label": "Title",
+   "read_only": 1
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Status",
+   "options": "Pending\nFiring\nResolved",
+   "read_only": 1
+  },
+  {
+   "fieldname": "severity",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Severity",
+   "options": "Low\nMedium\nHigh\nCritical",
+   "read_only": 1
+  },
+  {
+   "fieldname": "started_at",
+   "fieldtype": "Datetime",
+   "in_list_view": 1,
+   "label": "Started At",
+   "read_only": 1
+  },
+  {
+   "fieldname": "overview_column",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "resource",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Resource",
+   "options": "Beacon Resource",
+   "read_only": 1
+  },
+  {
+   "fieldname": "region",
+   "fieldtype": "Link",
+   "in_standard_filter": 1,
+   "label": "Region",
+   "options": "Beacon Region",
+   "read_only": 1
+  },
+  {
+   "fieldname": "incident",
+   "fieldtype": "Link",
+   "label": "Incident",
+   "options": "Beacon Incident",
+   "read_only": 1
+  },
+  {
+   "fieldname": "rule",
+   "fieldtype": "Link",
+   "label": "Rule",
+   "options": "Beacon Alert Rule",
+   "read_only": 1
+  },
+  {
+   "fieldname": "evidence_section",
+   "fieldtype": "Section Break",
+   "label": "Evidence"
+  },
+  {
+   "fieldname": "detail",
+   "fieldtype": "Small Text",
+   "label": "Detail",
+   "read_only": 1
+  },
+  {
+   "fieldname": "evidence_column",
+   "fieldtype": "Column Break"
+  },
+  {
+   "description": "Beacon updates this value only when the alert changes state.",
+   "fieldname": "value",
+   "fieldtype": "Float",
+   "label": "Last Value",
+   "read_only": 1,
+   "show_description_on_click": 1
+  },
+  {
+   "fieldname": "first_value",
+   "fieldtype": "Float",
+   "label": "First Value",
+   "read_only": 1
+  },
+  {
+   "depends_on": "suppressed",
+   "fieldname": "suppression_section",
+   "fieldtype": "Section Break",
+   "label": "Suppression"
+  },
+  {
+   "default": "0",
+   "fieldname": "suppressed",
+   "fieldtype": "Check",
+   "label": "Suppressed",
+   "read_only": 1
+  },
+  {
+   "fieldname": "suppression_column",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "suppressed_by",
+   "fieldtype": "Data",
+   "label": "Suppressed By",
+   "read_only": 1
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "details_section",
+   "fieldtype": "Section Break",
+   "label": "Details"
+  },
+  {
+   "fieldname": "fired_at",
+   "fieldtype": "Datetime",
+   "label": "Fired At",
+   "read_only": 1
+  },
+  {
+   "fieldname": "clean_since",
+   "fieldtype": "Datetime",
+   "label": "Clean Since",
+   "read_only": 1
+  },
+  {
+   "fieldname": "resolved_at",
+   "fieldtype": "Datetime",
+   "label": "Resolved At",
+   "read_only": 1
+  },
+  {
+   "fieldname": "details_column",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "resolution",
+   "fieldtype": "Select",
+   "label": "Resolution",
+   "options": "\nCleared\nRecovered\nResource Removed\nDisabled",
+   "read_only": 1
+  },
+  {
+   "fieldname": "resource_type",
+   "fieldtype": "Data",
+   "label": "Resource Type",
+   "read_only": 1
+  },
+  {
+   "fieldname": "alert_key",
+   "fieldtype": "Data",
+   "label": "Alert Key",
+   "read_only": 1
+  },
+  {
+   "fieldname": "open_key",
+   "fieldtype": "Data",
+   "hidden": 1,
+   "label": "Open Key",
+   "read_only": 1,
+   "unique": 1
+  }
+ ],
+ "in_create": 1,
+ "link_display_mode": "Search",
+ "links": [],
+ "modified": "2026-11-13 19:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Beacon",
+ "name": "Beacon Alert",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "read": 1,
+   "role": "Beacon Admin"
+  },
+  {
+   "read": 1,
+   "role": "Beacon Responder"
+  },
+  {
+   "read": 1,
+   "role": "System Manager"
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [
+  {
+   "color": "Orange",
+   "title": "Pending"
+  },
+  {
+   "color": "Red",
+   "title": "Firing"
+  },
+  {
+   "color": "Green",
+   "title": "Resolved"
+  }
+ ],
+ "title_field": "title"
+}

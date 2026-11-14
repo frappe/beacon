@@ -1,0 +1,244 @@
+{
+ "actions": [],
+ "creation": "2026-11-13 12:00:00",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "overview_section",
+  "title",
+  "kind",
+  "overview_column",
+  "region",
+  "enabled",
+  "last_sync_section",
+  "last_attempt_at",
+  "last_success_at",
+  "row_count",
+  "last_error",
+  "failed_fetches",
+  "sync_column",
+  "orphan_count",
+  "conflict_count",
+  "held_removals",
+  "removal_section",
+  "held_since",
+  "removals_html",
+  "connection_section",
+  "base_url",
+  "connection_column",
+  "token",
+  "advanced_section",
+  "source_key",
+  "advanced_column",
+  "etag"
+ ],
+ "fields": [
+  {
+   "fieldname": "overview_section",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "title",
+   "fieldtype": "Data",
+   "label": "Title",
+   "reqd": 1
+  },
+  {
+   "default": "Resources",
+   "fieldname": "kind",
+   "fieldtype": "Select",
+   "label": "Kind",
+   "options": "Resources\nTelemetry IDs",
+   "reqd": 1,
+   "set_only_once": 1
+  },
+  {
+   "fieldname": "overview_column",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "region",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Region",
+   "mandatory_depends_on": "eval:doc.kind == 'Resources'",
+   "options": "Beacon Region",
+   "set_only_once": 1
+  },
+  {
+   "default": "1",
+   "fieldname": "enabled",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Enabled"
+  },
+  {
+   "fieldname": "last_sync_section",
+   "fieldtype": "Section Break",
+   "label": "Latest synchronization"
+  },
+  {
+   "fieldname": "last_attempt_at",
+   "fieldtype": "Datetime",
+   "label": "Last Attempt At",
+   "read_only": 1
+  },
+  {
+   "fieldname": "last_success_at",
+   "fieldtype": "Datetime",
+   "in_list_view": 1,
+   "label": "Last Success At",
+   "read_only": 1
+  },
+  {
+   "fieldname": "row_count",
+   "fieldtype": "Int",
+   "label": "Row Count",
+   "read_only": 1
+  },
+  {
+   "fieldname": "last_error",
+   "fieldtype": "Small Text",
+   "label": "Last Error",
+   "read_only": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "failed_fetches",
+   "fieldtype": "Int",
+   "label": "Failed Fetches",
+   "read_only": 1
+  },
+  {
+   "fieldname": "sync_column",
+   "fieldtype": "Column Break"
+  },
+  {
+   "description": "Rows whose parent resource is unknown.",
+   "fieldname": "orphan_count",
+   "fieldtype": "Int",
+   "label": "Orphans",
+   "read_only": 1,
+   "show_description_on_click": 1
+  },
+  {
+   "description": "Rows that another source owns.",
+   "fieldname": "conflict_count",
+   "fieldtype": "Int",
+   "label": "Conflicts",
+   "read_only": 1,
+   "show_description_on_click": 1
+  },
+  {
+   "fieldname": "held_removals",
+   "fieldtype": "Int",
+   "label": "Held Removals",
+   "read_only": 1
+  },
+  {
+   "depends_on": "held_removals",
+   "fieldname": "removal_section",
+   "fieldtype": "Section Break",
+   "label": "Held removals"
+  },
+  {
+   "fieldname": "held_since",
+   "fieldtype": "Datetime",
+   "label": "Held Since",
+   "read_only": 1
+  },
+  {
+   "fieldname": "removals_html",
+   "fieldtype": "HTML",
+   "label": "Held removals"
+  },
+  {
+   "fieldname": "connection_section",
+   "fieldtype": "Section Break",
+   "label": "Connection"
+  },
+  {
+   "description": "The API root of the service, such as https://atlas.example.com/api/atlas. Beacon adds /beacon/resources or /beacon/telemetry-ids.",
+   "fieldname": "base_url",
+   "fieldtype": "Data",
+   "label": "Base URL",
+   "reqd": 1,
+   "show_description_on_click": 1
+  },
+  {
+   "fieldname": "connection_column",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "token",
+   "fieldtype": "Password",
+   "label": "API Key",
+   "description": "The API key and secret of a Frappe user on the service, as key:secret.",
+   "show_description_on_click": 1
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "advanced_section",
+   "fieldtype": "Section Break",
+   "label": "Advanced"
+  },
+  {
+   "fieldname": "source_key",
+   "fieldtype": "Data",
+   "label": "Source Key",
+   "reqd": 1,
+   "set_only_once": 1
+  },
+  {
+   "fieldname": "advanced_column",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "etag",
+   "fieldtype": "Data",
+   "label": "ETag",
+   "read_only": 1
+  }
+ ],
+ "link_display_mode": "Search",
+ "links": [
+  {
+   "group": "Resources",
+   "link_doctype": "Beacon Resource",
+   "link_fieldname": "source"
+  }
+ ],
+ "modified": "2026-11-14 03:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Beacon",
+ "name": "Beacon Resource Source",
+ "naming_rule": "By script",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "read": 1,
+   "role": "Beacon Admin",
+   "write": 1
+  },
+  {
+   "read": 1,
+   "role": "Beacon Responder"
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "read": 1,
+   "role": "System Manager",
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "title"
+}

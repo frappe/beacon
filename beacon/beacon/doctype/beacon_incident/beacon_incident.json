@@ -1,0 +1,426 @@
+{
+ "actions": [],
+ "autoname": "INC-.#####",
+ "creation": "2026-11-13 12:00:00",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "overview_tab",
+  "title",
+  "type",
+  "severity",
+  "detected_by",
+  "overview_column",
+  "status",
+  "visibility",
+  "merged_into",
+  "acknowledgement_column",
+  "acknowledged_by",
+  "acknowledged_at",
+  "resolved_at",
+  "maintenance_window_section",
+  "scheduled_start",
+  "scheduled_end",
+  "maintenance_column",
+  "mute_slo_burn",
+  "excluded_from_slo",
+  "scope_section",
+  "scope",
+  "impact_section",
+  "affected_services",
+  "updates_tab",
+  "updates",
+  "rca_section",
+  "postmortem_required",
+  "rca",
+  "public_rca",
+  "action_items",
+  "alerts_tab",
+  "alerts_html",
+  "grouping_section",
+  "created_by_beacon",
+  "share_token",
+  "grouping_column",
+  "group_keys",
+  "notifications_tab",
+  "notifications_html",
+  "escalation_section",
+  "escalation",
+  "next_page_at",
+  "escalation_column",
+  "page_round",
+  "page_index"
+ ],
+ "fields": [
+  {
+   "fieldname": "overview_tab",
+   "fieldtype": "Tab Break",
+   "label": "Overview"
+  },
+  {
+   "fieldname": "title",
+   "fieldtype": "Data",
+   "label": "Title",
+   "reqd": 1
+  },
+  {
+   "default": "Incident",
+   "fieldname": "type",
+   "fieldtype": "Select",
+   "in_standard_filter": 1,
+   "label": "Type",
+   "options": "Incident\nMaintenance",
+   "read_only_depends_on": "eval:!doc.__islocal",
+   "set_only_once": 1
+  },
+  {
+   "default": "High",
+   "fieldname": "severity",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Severity",
+   "options": "Low\nMedium\nHigh\nCritical"
+  },
+  {
+   "default": "Engineer",
+   "depends_on": "eval:doc.type == 'Incident'",
+   "description": "Who found the problem first. Beacon sets Alert for the incidents it opens.",
+   "fieldname": "detected_by",
+   "fieldtype": "Select",
+   "in_standard_filter": 1,
+   "label": "Detected By",
+   "options": "Alert\nEngineer\nCustomer",
+   "show_description_on_click": 1
+  },
+  {
+   "fieldname": "overview_column",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Status",
+   "options": "Triggered\nInvestigating\nIdentified\nMonitoring\nResolved\nMerged\nScheduled\nIn Progress\nCompleted\nCancelled",
+   "read_only": 1
+  },
+  {
+   "default": "Internal",
+   "fieldname": "visibility",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Visibility",
+   "options": "Internal\nUnlisted\nPublic",
+   "read_only": 1
+  },
+  {
+   "depends_on": "eval:doc.status == 'Merged'",
+   "fieldname": "merged_into",
+   "fieldtype": "Link",
+   "label": "Merged Into",
+   "options": "Beacon Incident",
+   "read_only": 1
+  },
+  {
+   "fieldname": "acknowledgement_column",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "acknowledged_by",
+   "fieldtype": "Link",
+   "label": "Acknowledged By",
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "fieldname": "acknowledged_at",
+   "fieldtype": "Datetime",
+   "label": "Acknowledged At",
+   "read_only": 1
+  },
+  {
+   "fieldname": "resolved_at",
+   "fieldtype": "Datetime",
+   "label": "Resolved At",
+   "read_only": 1
+  },
+  {
+   "depends_on": "eval:doc.type == 'Maintenance'",
+   "fieldname": "maintenance_window_section",
+   "fieldtype": "Section Break",
+   "label": "Maintenance window"
+  },
+  {
+   "fieldname": "scheduled_start",
+   "fieldtype": "Datetime",
+   "label": "Scheduled Start",
+   "mandatory_depends_on": "eval:doc.type == 'Maintenance'",
+   "read_only_depends_on": "eval:doc.status != 'Scheduled'"
+  },
+  {
+   "fieldname": "scheduled_end",
+   "fieldtype": "Datetime",
+   "label": "Scheduled End",
+   "mandatory_depends_on": "eval:doc.type == 'Maintenance'",
+   "read_only_depends_on": "eval:['Completed', 'Cancelled'].includes(doc.status)"
+  },
+  {
+   "fieldname": "maintenance_column",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "1",
+   "description": "Stops SLO burn alerts for the regions of this incident.",
+   "fieldname": "mute_slo_burn",
+   "fieldtype": "Check",
+   "label": "Mute SLO Burn",
+   "show_description_on_click": 1
+  },
+  {
+   "default": "0",
+   "description": "Beacon sets this when you publish the maintenance as Public before it starts. Then its time does not count against the SLO.",
+   "fieldname": "excluded_from_slo",
+   "fieldtype": "Check",
+   "label": "Excluded From SLO",
+   "read_only": 1,
+   "show_description_on_click": 1
+  },
+  {
+   "fieldname": "scope_section",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "scope",
+   "fieldtype": "Table",
+   "label": "Resource Scope",
+   "options": "Beacon Incident Scope",
+   "read_only_depends_on": "eval:doc.type == 'Maintenance' && doc.status != 'Scheduled'"
+  },
+  {
+   "fieldname": "impact_section",
+   "fieldtype": "Section Break"
+  },
+  {
+   "description": "The status page shows this only when the incident is Public or Unlisted.",
+   "fieldname": "affected_services",
+   "fieldtype": "Table",
+   "label": "Affected Services",
+   "options": "Beacon Incident Service",
+   "show_description_on_click": 1
+  },
+  {
+   "fieldname": "updates_tab",
+   "fieldtype": "Tab Break",
+   "label": "Updates and RCA"
+  },
+  {
+   "fieldname": "updates",
+   "fieldtype": "Table",
+   "label": "Updates",
+   "options": "Beacon Incident Update"
+  },
+  {
+   "fieldname": "rca_section",
+   "fieldtype": "Section Break",
+   "label": "Root Cause Analysis"
+  },
+  {
+   "default": "0",
+   "depends_on": "eval:doc.type == 'Incident'",
+   "description": "Beacon sets this on resolve for a public, Critical or long incident, or one that a customer found. Write the RCA and add action items.",
+   "fieldname": "postmortem_required",
+   "fieldtype": "Check",
+   "label": "Postmortem Required",
+   "show_description_on_click": 1
+  },
+  {
+   "fieldname": "rca",
+   "fieldtype": "Text Editor",
+   "label": "Internal RCA"
+  },
+  {
+   "description": "The incident page shows this after you publish and resolve the incident.",
+   "fieldname": "public_rca",
+   "fieldtype": "Text Editor",
+   "label": "Public RCA",
+   "show_description_on_click": 1
+  },
+  {
+   "depends_on": "eval:doc.type == 'Incident'",
+   "fieldname": "action_items",
+   "fieldtype": "Table",
+   "label": "Action Items",
+   "options": "Beacon Incident Action Item"
+  },
+  {
+   "fieldname": "alerts_tab",
+   "fieldtype": "Tab Break",
+   "label": "Alerts"
+  },
+  {
+   "fieldname": "alerts_html",
+   "fieldtype": "HTML",
+   "label": "Alerts"
+  },
+  {
+   "fieldname": "grouping_section",
+   "fieldtype": "Section Break",
+   "label": "Grouping"
+  },
+  {
+   "default": "0",
+   "fieldname": "created_by_beacon",
+   "fieldtype": "Check",
+   "label": "Created by Beacon",
+   "read_only": 1
+  },
+  {
+   "fieldname": "share_token",
+   "fieldtype": "Data",
+   "hidden": 1,
+   "label": "Share Token",
+   "read_only": 1,
+   "unique": 1
+  },
+  {
+   "fieldname": "grouping_column",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "group_keys",
+   "fieldtype": "Small Text",
+   "label": "Group Keys",
+   "read_only": 1
+  },
+  {
+   "fieldname": "notifications_tab",
+   "fieldtype": "Tab Break",
+   "label": "Notifications"
+  },
+  {
+   "fieldname": "notifications_html",
+   "fieldtype": "HTML",
+   "label": "Notifications"
+  },
+  {
+   "fieldname": "escalation_section",
+   "fieldtype": "Section Break",
+   "label": "Escalation"
+  },
+  {
+   "default": "None",
+   "fieldname": "escalation",
+   "fieldtype": "Select",
+   "label": "State",
+   "options": "None\nWaiting\nCalling\nDone",
+   "read_only": 1
+  },
+  {
+   "fieldname": "next_page_at",
+   "fieldtype": "Datetime",
+   "label": "Next Page At",
+   "read_only": 1
+  },
+  {
+   "fieldname": "escalation_column",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "page_round",
+   "fieldtype": "Int",
+   "label": "Page Round",
+   "read_only": 1
+  },
+  {
+   "description": "The position, in the responder list, of the person Beacon notifies now.",
+   "fieldname": "page_index",
+   "fieldtype": "Int",
+   "label": "Page Index",
+   "read_only": 1,
+   "show_description_on_click": 1
+  }
+ ],
+ "link_display_mode": "Search",
+ "links": [
+  {
+   "group": "Subscribers",
+   "link_doctype": "Beacon Incident Subscriber",
+   "link_fieldname": "incident"
+  }
+ ],
+ "modified": "2026-11-14 05:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Beacon",
+ "name": "Beacon Incident",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "read": 1,
+   "role": "Beacon Admin",
+   "write": 1
+  },
+  {
+   "create": 1,
+   "read": 1,
+   "role": "Beacon Responder",
+   "write": 1
+  },
+  {
+   "create": 1,
+   "read": 1,
+   "role": "System Manager",
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "show_title_field_in_link": 1,
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": [
+  {
+   "color": "Red",
+   "title": "Triggered"
+  },
+  {
+   "color": "Orange",
+   "title": "Investigating"
+  },
+  {
+   "color": "Orange",
+   "title": "Identified"
+  },
+  {
+   "color": "Blue",
+   "title": "Monitoring"
+  },
+  {
+   "color": "Green",
+   "title": "Resolved"
+  },
+  {
+   "color": "Gray",
+   "title": "Merged"
+  },
+  {
+   "color": "Blue",
+   "title": "Scheduled"
+  },
+  {
+   "color": "Blue",
+   "title": "In Progress"
+  },
+  {
+   "color": "Green",
+   "title": "Completed"
+  },
+  {
+   "color": "Gray",
+   "title": "Cancelled"
+  }
+ ],
+ "title_field": "title",
+ "track_changes": 1
+}

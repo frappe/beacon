@@ -1,0 +1,121 @@
+{
+ "actions": [],
+ "autoname": "hash",
+ "creation": "2026-11-13 12:00:00",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "service",
+  "region",
+  "date",
+  "counts_section",
+  "good",
+  "valid",
+  "observed_minutes",
+  "column_break_47",
+  "degraded_minutes",
+  "outage_minutes",
+  "maintenance_minutes"
+ ],
+ "fields": [
+  {
+   "fieldname": "service",
+   "fieldtype": "Link",
+   "in_standard_filter": 1,
+   "label": "Service",
+   "options": "Beacon Service",
+   "read_only": 1
+  },
+  {
+   "fieldname": "region",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Region",
+   "options": "Beacon Region",
+   "read_only": 1
+  },
+  {
+   "fieldname": "date",
+   "fieldtype": "Date",
+   "in_list_view": 1,
+   "label": "Date",
+   "read_only": 1
+  },
+  {
+   "fieldname": "counts_section",
+   "fieldtype": "Section Break",
+   "label": "Counts"
+  },
+  {
+   "fieldname": "good",
+   "fieldtype": "Int",
+   "label": "Good",
+   "read_only": 1
+  },
+  {
+   "fieldname": "valid",
+   "fieldtype": "Int",
+   "label": "Valid",
+   "read_only": 1
+  },
+  {
+   "fieldname": "observed_minutes",
+   "fieldtype": "Int",
+   "label": "Observed Minutes",
+   "read_only": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "column_break_47",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "degraded_minutes",
+   "fieldtype": "Int",
+   "label": "Degraded Minutes",
+   "read_only": 1
+  },
+  {
+   "description": "Minutes with a Partial or Major outage.",
+   "fieldname": "outage_minutes",
+   "fieldtype": "Int",
+   "label": "Outage Minutes",
+   "read_only": 1,
+   "show_description_on_click": 1
+  },
+  {
+   "fieldname": "maintenance_minutes",
+   "fieldtype": "Int",
+   "label": "Maintenance Minutes",
+   "read_only": 1
+  }
+ ],
+ "in_create": 1,
+ "link_display_mode": "Search",
+ "links": [],
+ "modified": "2026-11-13 13:13:18.963897",
+ "modified_by": "Administrator",
+ "module": "Beacon",
+ "name": "Beacon Service Day",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "read": 1,
+   "role": "Beacon Admin"
+  },
+  {
+   "read": 1,
+   "role": "Beacon Responder"
+  },
+  {
+   "read": 1,
+   "role": "System Manager"
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "date",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "date"
+}

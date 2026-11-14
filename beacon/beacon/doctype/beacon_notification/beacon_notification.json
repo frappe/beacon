@@ -1,0 +1,171 @@
+{
+ "actions": [],
+ "autoname": "hash",
+ "creation": "2026-11-13 12:00:00",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "overview_section",
+  "status",
+  "channel",
+  "responder",
+  "overview_column",
+  "incident",
+  "sent_at",
+  "answered_at",
+  "delivery_section",
+  "error",
+  "message",
+  "provider_section",
+  "page_round",
+  "provider_column",
+  "provider_ref"
+ ],
+ "fields": [
+  {
+   "fieldname": "overview_section",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "in_standard_filter": 1,
+   "label": "Status",
+   "options": "Queued\nSent\nAnswered\nNo Answer\nAcknowledged\nFailed",
+   "read_only": 1
+  },
+  {
+   "fieldname": "channel",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Channel",
+   "options": "Call\nEmail\nChat",
+   "read_only": 1
+  },
+  {
+   "fieldname": "responder",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Responder",
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "fieldname": "overview_column",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "incident",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Incident",
+   "options": "Beacon Incident",
+   "read_only": 1
+  },
+  {
+   "fieldname": "sent_at",
+   "fieldtype": "Datetime",
+   "label": "Sent At",
+   "read_only": 1
+  },
+  {
+   "fieldname": "answered_at",
+   "fieldtype": "Datetime",
+   "label": "Answered At",
+   "read_only": 1
+  },
+  {
+   "fieldname": "delivery_section",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "error",
+   "fieldtype": "Small Text",
+   "label": "Error",
+   "read_only": 1
+  },
+  {
+   "fieldname": "message",
+   "fieldtype": "Small Text",
+   "label": "Message",
+   "read_only": 1
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "provider_section",
+   "fieldtype": "Section Break",
+   "label": "Provider details"
+  },
+  {
+   "fieldname": "page_round",
+   "fieldtype": "Int",
+   "label": "Round",
+   "read_only": 1
+  },
+  {
+   "fieldname": "provider_column",
+   "fieldtype": "Column Break"
+  },
+  {
+   "description": "Twilio CallSid.",
+   "fieldname": "provider_ref",
+   "fieldtype": "Data",
+   "label": "Provider Ref",
+   "read_only": 1,
+   "show_description_on_click": 1
+  }
+ ],
+ "in_create": 1,
+ "link_display_mode": "Search",
+ "links": [],
+ "modified": "2026-11-13 19:30:37.733426",
+ "modified_by": "Administrator",
+ "module": "Beacon",
+ "name": "Beacon Notification",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "read": 1,
+   "role": "Beacon Admin"
+  },
+  {
+   "read": 1,
+   "role": "Beacon Responder"
+  },
+  {
+   "read": 1,
+   "role": "System Manager"
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": [
+  {
+   "color": "Orange",
+   "title": "Queued"
+  },
+  {
+   "color": "Green",
+   "title": "Sent"
+  },
+  {
+   "color": "Green",
+   "title": "Answered"
+  },
+  {
+   "color": "Orange",
+   "title": "No Answer"
+  },
+  {
+   "color": "Green",
+   "title": "Acknowledged"
+  },
+  {
+   "color": "Red",
+   "title": "Failed"
+  }
+ ],
+ "title_field": "status"
+}

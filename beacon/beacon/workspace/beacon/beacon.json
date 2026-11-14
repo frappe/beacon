@@ -1,0 +1,96 @@
+{
+ "charts": [],
+ "content": "[{\"id\": \"beacon-count-0\", \"type\": \"number_card\", \"data\": {\"number_card_name\": \"Open incidents\", \"col\": 4}}, {\"id\": \"beacon-count-1\", \"type\": \"number_card\", \"data\": {\"number_card_name\": \"Firing alerts\", \"col\": 4}}, {\"id\": \"beacon-count-2\", \"type\": \"number_card\", \"data\": {\"number_card_name\": \"Active maintenance\", \"col\": 4}}, {\"id\": \"beacon-count-3\", \"type\": \"number_card\", \"data\": {\"number_card_name\": \"Active regions\", \"col\": 4}}, {\"id\": \"beacon-count-4\", \"type\": \"number_card\", \"data\": {\"number_card_name\": \"Services\", \"col\": 4}}, {\"id\": \"beacon-count-5\", \"type\": \"number_card\", \"data\": {\"number_card_name\": \"Monitored resources\", \"col\": 4}}, {\"id\": \"beacon-list-0\", \"type\": \"quick_list\", \"data\": {\"quick_list_name\": \"Open incidents\", \"col\": 6}}, {\"id\": \"beacon-list-1\", \"type\": \"quick_list\", \"data\": {\"quick_list_name\": \"Firing alerts\", \"col\": 6}}, {\"id\": \"beacon-access-title\", \"type\": \"header\", \"data\": {\"text\": \"Quick access\", \"col\": 12}}, {\"id\": \"beacon-shortcut-0\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Service health\", \"col\": 4}}, {\"id\": \"beacon-shortcut-1\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Maintenance\", \"col\": 4}}, {\"id\": \"beacon-shortcut-2\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"On-call & settings\", \"col\": 4}}]",
+ "creation": "2026-11-13 17:18:41.762960",
+ "custom_blocks": [],
+ "docstatus": 0,
+ "doctype": "Workspace",
+ "hide_custom": 0,
+ "icon": "radio-tower",
+ "idx": 0,
+ "indicator_color": "green",
+ "is_hidden": 0,
+ "label": "Beacon",
+ "link_type": "DocType",
+ "links": [],
+ "modified": "2026-11-13 17:21:17.382331",
+ "modified_by": "Administrator",
+ "module": "Beacon",
+ "name": "Beacon",
+ "number_cards": [
+  {
+   "label": "Open incidents",
+   "number_card_name": "Beacon Open Incidents"
+  },
+  {
+   "label": "Firing alerts",
+   "number_card_name": "Beacon Firing Alerts"
+  },
+  {
+   "label": "Active maintenance",
+   "number_card_name": "Beacon Active Maintenance"
+  },
+  {
+   "label": "Active regions",
+   "number_card_name": "Beacon Active Regions"
+  },
+  {
+   "label": "Services",
+   "number_card_name": "Beacon Services"
+  },
+  {
+   "label": "Monitored resources",
+   "number_card_name": "Beacon Monitored Resources"
+  }
+ ],
+ "owner": "Administrator",
+ "public": 1,
+ "quick_lists": [
+  {
+   "document_type": "Beacon Incident",
+   "label": "Open incidents",
+   "quick_list_filter": "[[\"Beacon Incident\", \"type\", \"=\", \"Incident\"], [\"Beacon Incident\", \"status\", \"in\", [\"Triggered\", \"Investigating\", \"Identified\", \"Monitoring\"]]]"
+  },
+  {
+   "document_type": "Beacon Alert",
+   "label": "Firing alerts",
+   "quick_list_filter": "[[\"Beacon Alert\", \"status\", \"=\", \"Firing\"]]"
+  }
+ ],
+ "roles": [
+  {
+   "role": "Beacon Admin"
+  },
+  {
+   "role": "Beacon Responder"
+  },
+  {
+   "role": "System Manager"
+  }
+ ],
+ "sequence_id": 1.0,
+ "shortcuts": [
+  {
+   "doc_view": "List",
+   "label": "Service health",
+   "link_to": "Beacon Service State",
+   "type": "DocType"
+  },
+  {
+   "doc_view": "List",
+   "label": "Maintenance",
+   "link_to": "Beacon Incident",
+   "stats_filter": "[[\"Beacon Incident\", \"type\", \"=\", \"Maintenance\"]]",
+   "type": "DocType"
+  },
+  {
+   "doc_view": "",
+   "label": "On-call & settings",
+   "link_to": "Beacon Settings",
+   "type": "DocType"
+  }
+ ],
+ "standard": 1,
+ "title": "Beacon",
+ "type": "Workspace"
+}

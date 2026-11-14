@@ -1,0 +1,52 @@
+@media (max-width: 767px) {
+	body[data-route="Workspaces/Beacon"] .ce-block:has([number_card_name]) {
+		flex: 0 0 50%;
+		max-width: 50%;
+	}
+}
+
+.beacon-table {
+	border: 1px solid var(--border-color);
+	border-radius: var(--border-radius-md);
+	overflow-x: auto;
+}
+/* An HTML field has no form-group margin, so give the table the spacing that other fields have. */
+.frappe-control[data-fieldtype="HTML"] .beacon-table { margin-bottom: var(--margin-lg); }
+.beacon-table table { width: 100%; margin: 0; font-size: var(--text-base); }
+.beacon-table th {
+	padding: 6px 12px;
+	background: var(--subtle-fg);
+	color: var(--text-muted);
+	font-size: var(--text-sm);
+	font-weight: 500;
+	white-space: nowrap;
+}
+.beacon-table td { padding: 8px 12px; border-top: 1px solid var(--border-color); vertical-align: middle; }
+.beacon-table tr[data-name]:not([data-name=""]) { cursor: pointer; }
+.beacon-table tbody tr:hover { background: var(--subtle-accent); }
+.beacon-table td .indicator-pill { margin: 0; }
+.beacon-table-footer {
+	display: block;
+	padding: 6px 12px;
+	border-top: 1px solid var(--border-color);
+	color: var(--text-muted);
+	font-size: var(--text-sm);
+	cursor: pointer;
+}
+.beacon-table-footer:hover { background: var(--subtle-accent); color: var(--text-color); text-decoration: none; }
+.beacon-empty { margin: 0; color: var(--text-muted); }
+
+.beacon-result-card + .beacon-result-card { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border-color); }
+.beacon-fields {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+	gap: 12px;
+	margin: 0;
+}
+.beacon-fields dt { color: var(--text-muted); font-size: var(--text-sm); font-weight: 400; }
+.beacon-fields dd { margin: 2px 0 0; font-weight: 500; overflow-wrap: anywhere; }
+.beacon-result-section { margin-top: 12px; }
+.beacon-result-section h6 { margin-bottom: 6px; color: var(--text-muted); font-size: var(--text-sm); font-weight: 500; }
+.beacon-result-list { margin: 0; padding-left: 18px; }
+.beacon-panel-heading { margin: 16px 0 6px; color: var(--text-muted); font-size: var(--text-sm); font-weight: 500; }
+.beacon-panel-heading:first-child { margin-top: 0; }

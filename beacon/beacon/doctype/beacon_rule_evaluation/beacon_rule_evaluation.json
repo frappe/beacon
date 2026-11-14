@@ -1,0 +1,152 @@
+{
+ "actions": [],
+ "autoname": "hash",
+ "creation": "2026-11-13 12:00:00",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "overview_section",
+  "state",
+  "rule",
+  "region",
+  "result_column",
+  "last_run_at",
+  "last_success_at",
+  "next_run_at",
+  "errors_section",
+  "last_error",
+  "last_run_section",
+  "consecutive_errors",
+  "last_duration_ms",
+  "last_run_column",
+  "last_row_count",
+  "unknown_rows"
+ ],
+ "fields": [
+  {
+   "fieldname": "overview_section",
+   "fieldtype": "Section Break"
+  },
+  {
+   "default": "Healthy",
+   "fieldname": "state",
+   "fieldtype": "Select",
+   "in_standard_filter": 1,
+   "label": "State",
+   "options": "Healthy\nErroring\nBroken",
+   "read_only": 1
+  },
+  {
+   "fieldname": "rule",
+   "fieldtype": "Link",
+   "label": "Rule",
+   "options": "Beacon Alert Rule",
+   "read_only": 1
+  },
+  {
+   "fieldname": "region",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Region",
+   "options": "Beacon Region",
+   "read_only": 1
+  },
+  {
+   "fieldname": "result_column",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "last_run_at",
+   "fieldtype": "Datetime",
+   "label": "Last Run At",
+   "read_only": 1
+  },
+  {
+   "fieldname": "last_success_at",
+   "fieldtype": "Datetime",
+   "in_list_view": 1,
+   "label": "Last Success At",
+   "read_only": 1
+  },
+  {
+   "fieldname": "next_run_at",
+   "fieldtype": "Datetime",
+   "label": "Next Run At",
+   "read_only": 1
+  },
+  {
+   "depends_on": "last_error",
+   "fieldname": "errors_section",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "last_error",
+   "fieldtype": "Code",
+   "label": "Last Error",
+   "read_only": 1
+  },
+  {
+   "fieldname": "last_run_section",
+   "fieldtype": "Section Break",
+   "label": "Last run"
+  },
+  {
+   "fieldname": "consecutive_errors",
+   "fieldtype": "Int",
+   "label": "Consecutive Errors",
+   "read_only": 1
+  },
+  {
+   "fieldname": "last_duration_ms",
+   "fieldtype": "Int",
+   "label": "Last Duration (ms)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "last_run_column",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "last_row_count",
+   "fieldtype": "Int",
+   "label": "Last Row Count",
+   "read_only": 1
+  },
+  {
+   "description": "Rows for resources that Beacon does not know.",
+   "fieldname": "unknown_rows",
+   "fieldtype": "Int",
+   "label": "Unknown Rows",
+   "read_only": 1,
+   "show_description_on_click": 1
+  }
+ ],
+ "in_create": 1,
+ "link_display_mode": "Search",
+ "links": [],
+ "modified": "2026-11-13 19:30:37.734265",
+ "modified_by": "Administrator",
+ "module": "Beacon",
+ "name": "Beacon Rule Evaluation",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "read": 1,
+   "role": "Beacon Admin"
+  },
+  {
+   "read": 1,
+   "role": "Beacon Responder"
+  },
+  {
+   "read": 1,
+   "role": "System Manager"
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "rule"
+}

@@ -1,0 +1,265 @@
+{
+ "actions": [],
+ "creation": "2026-11-13 12:00:00",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "overview_section",
+  "status",
+  "title",
+  "resource_type",
+  "region",
+  "resource_column",
+  "resource_id",
+  "parent_resource",
+  "source",
+  "active_since",
+  "now_section",
+  "now_html",
+  "monitoring_section",
+  "disabled_reason",
+  "monitoring_column",
+  "disabled_by",
+  "details_section",
+  "telemetry_id",
+  "path",
+  "terminated_at",
+  "details_column",
+  "is_checked",
+  "monitoring_disabled",
+  "removal_held",
+  "row_hash",
+  "missing_fetches"
+ ],
+ "fields": [
+  {
+   "fieldname": "overview_section",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Status",
+   "options": "Pending\nActive\nSuspended\nTerminated",
+   "read_only": 1
+  },
+  {
+   "fieldname": "title",
+   "fieldtype": "Data",
+   "hidden": 1,
+   "label": "Title",
+   "read_only": 1
+  },
+  {
+   "fieldname": "resource_type",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Resource Type",
+   "read_only": 1
+  },
+  {
+   "fieldname": "region",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Region",
+   "options": "Beacon Region",
+   "read_only": 1
+  },
+  {
+   "fieldname": "resource_column",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "resource_id",
+   "fieldtype": "Data",
+   "label": "Resource ID",
+   "read_only": 1
+  },
+  {
+   "fieldname": "parent_resource",
+   "fieldtype": "Link",
+   "label": "Parent",
+   "options": "Beacon Resource",
+   "read_only": 1
+  },
+  {
+   "fieldname": "source",
+   "fieldtype": "Link",
+   "label": "Source",
+   "options": "Beacon Resource Source",
+   "read_only": 1
+  },
+  {
+   "fieldname": "active_since",
+   "fieldtype": "Datetime",
+   "label": "Active Since",
+   "read_only": 1
+  },
+  {
+   "fieldname": "now_section",
+   "fieldtype": "Section Break",
+   "label": "Current alerts"
+  },
+  {
+   "fieldname": "now_html",
+   "fieldtype": "HTML",
+   "label": "Now"
+  },
+  {
+   "depends_on": "monitoring_disabled",
+   "fieldname": "monitoring_section",
+   "fieldtype": "Section Break",
+   "label": "Monitoring disabled"
+  },
+  {
+   "depends_on": "monitoring_disabled",
+   "fieldname": "disabled_reason",
+   "fieldtype": "Small Text",
+   "label": "Reason",
+   "read_only": 1
+  },
+  {
+   "fieldname": "monitoring_column",
+   "fieldtype": "Column Break"
+  },
+  {
+   "depends_on": "monitoring_disabled",
+   "fieldname": "disabled_by",
+   "fieldtype": "Link",
+   "label": "Disabled By",
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "details_section",
+   "fieldtype": "Section Break",
+   "label": "Details"
+  },
+  {
+   "description": "The server ID that Central uses. Pilot metrics use this ID.",
+   "fieldname": "telemetry_id",
+   "fieldtype": "Data",
+   "label": "Telemetry ID",
+   "read_only": 1,
+   "show_description_on_click": 1
+  },
+  {
+   "fieldname": "path",
+   "fieldtype": "Data",
+   "label": "Path",
+   "read_only": 1
+  },
+  {
+   "fieldname": "terminated_at",
+   "fieldtype": "Datetime",
+   "label": "Terminated At",
+   "read_only": 1
+  },
+  {
+   "fieldname": "details_column",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "0",
+   "description": "Yes when this resource and every resource above it are Active, and monitoring is on.",
+   "fieldname": "is_checked",
+   "fieldtype": "Check",
+   "label": "Checked",
+   "read_only": 1,
+   "show_description_on_click": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "monitoring_disabled",
+   "fieldtype": "Check",
+   "label": "Monitoring Disabled",
+   "read_only": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "removal_held",
+   "fieldtype": "Check",
+   "label": "Removal Held",
+   "read_only": 1
+  },
+  {
+   "fieldname": "row_hash",
+   "fieldtype": "Data",
+   "hidden": 1,
+   "label": "Row Hash",
+   "read_only": 1
+  },
+  {
+   "fieldname": "missing_fetches",
+   "fieldtype": "Int",
+   "hidden": 1,
+   "label": "Missing Fetches",
+   "read_only": 1
+  }
+ ],
+ "in_create": 1,
+ "link_display_mode": "Search",
+ "links": [
+  {
+   "group": "Alerts",
+   "link_doctype": "Beacon Alert",
+   "link_fieldname": "resource"
+  },
+  {
+   "group": "Resources",
+   "link_doctype": "Beacon Resource",
+   "link_fieldname": "parent_resource"
+  }
+ ],
+ "modified": "2026-11-14 02:11:06.277305",
+ "modified_by": "Administrator",
+ "module": "Beacon",
+ "name": "Beacon Resource",
+ "naming_rule": "By script",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "read": 1,
+   "role": "Beacon Admin",
+   "write": 1
+  },
+  {
+   "read": 1,
+   "role": "Beacon Responder"
+  },
+  {
+   "read": 1,
+   "role": "System Manager",
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "search_fields": "resource_id,resource_type",
+ "show_title_field_in_link": 1,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [
+  {
+   "color": "Orange",
+   "title": "Pending"
+  },
+  {
+   "color": "Green",
+   "title": "Active"
+  },
+  {
+   "color": "Gray",
+   "title": "Suspended"
+  },
+  {
+   "color": "Gray",
+   "title": "Terminated"
+  }
+ ],
+ "title_field": "title"
+}
