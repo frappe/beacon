@@ -355,7 +355,7 @@ class SourceSync:
 
 
 def create_built_in_rules() -> None:
-	"""Run after migrate. Built-in rules live in code, not in a definition source."""
+	"""Run after install and after migrate. Built-in rules live in code, not in a definition source."""
 	for rule in BUILT_IN_RULES:
 		name = rule["rule_key"]
 		doc = (

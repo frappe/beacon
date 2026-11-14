@@ -37,7 +37,10 @@ website_route_rules = [
 	{"from_route": "/subscription/<token>", "to_route": "status"},
 ]
 
-after_install = ["beacon.core.setup.after_install"]
+after_install = [
+	"beacon.core.setup.after_install",
+	"beacon.core.definitions.create_built_in_rules",
+]
 
 after_migrate = [
 	"beacon.core.setup.after_migrate",
