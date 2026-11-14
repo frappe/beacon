@@ -6,6 +6,7 @@ from frappe.query_builder.functions import Coalesce
 from frappe.utils import now_datetime
 
 TIME_ZONE = "UTC"
+LANGUAGE = "en"
 
 
 class SiteSetup:
@@ -26,6 +27,8 @@ class SiteSetup:
 		settings = frappe.get_single("System Settings")
 		if settings.time_zone != TIME_ZONE:
 			settings.time_zone = TIME_ZONE
+			# The wizard sets the language only with a country, and Beacon gives none.
+			settings.language = settings.language or LANGUAGE
 			settings.save()
 			click.echo(f"Set the site time zone to {TIME_ZONE}.")
 
