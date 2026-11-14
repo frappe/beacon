@@ -7,11 +7,12 @@ Read them in this order:
 | Page | Read it to learn |
 | --- | --- |
 | [Architecture](architecture.md) | The parts of Beacon, who watches what, and the main decisions. |
+| [Telemetry](telemetry.md) | How a sample gets from a producer to Beacon: tokens, the Datum API, the ClickHouse tables and the beacon user. |
 | [Alerts](alerts.md) | How a rule finds a problem, and how an alert changes state. |
 | [Incidents](incidents.md) | How alerts become incidents, how maintenance and silences mute them, and what customers see. |
 | [Paging](paging.md) | Who Beacon calls, when, and how a responder acknowledges. |
 | [Services and SLOs](services.md) | How Beacon measures a service, uses the error budget and sets the status page. |
-| [Integration](integration.md) | What a service team adds so that Beacon watches its service. |
+| [Developer guide](integration.md) | How to send metrics and logs from a service, and add rules, runbooks and SLIs, step by step. |
 
 ## Terms
 

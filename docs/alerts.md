@@ -40,7 +40,7 @@ SELECT ...
 | `pending_for` | Seconds a row must fail before the alert fires. It must be at least `interval`, so an alert fires at the earliest on the second failing run. |
 | `resolve_after` | Seconds without a row before a firing alert recovers. |
 | `scope_includes_descendants` | 1 when the incident must cover everything under the resource, such as the VMs of a host. |
-| `runbook_url` | The URL of the responder steps. A High or Critical rule needs one. |
+| `runbook_url` | The URL of the responder steps. Each High or Critical rule must have one. The sync warns about each one without it. |
 
 ### Severity
 
@@ -74,6 +74,20 @@ Each minute, Beacon queues one job for each region that has due rules. For each 
 ## Alert states
 
 One alert is one problem on one resource, from its start to its end. Beacon writes the alert only when its state changes.
+
+```mermaid
+stateDiagram-v2
+    [*] --> Pending: a new row
+    Pending --> Firing: the row fails for pending_for
+    Pending --> Resolved: Cleared, a good run without the row
+    Firing --> Firing: the row comes back before resolve_after
+    Firing --> Resolved: Recovered, no row for resolve_after
+    Pending --> Resolved: Resource Removed or Disabled
+    Firing --> Resolved: Resource Removed or Disabled
+    Resolved --> [*]
+```
+
+A query error or an Unreachable region changes no state. A Resolved alert stores its resolution: Cleared, Recovered, Resource Removed or Disabled.
 
 | From | Event | To |
 | --- | --- | --- |

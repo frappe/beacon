@@ -23,7 +23,7 @@ Beacon is one Frappe app on one global site. It only reads Datum. It keeps alert
 | Part | What it does |
 | --- | --- |
 | Resources | Each region's Atlas lists what the region runs: hosts, VMs, service nodes and Cargo. Beacon keeps them as a tree. |
-| Rules | Each app keeps its alert rules in `beacon/rules/` of its own repository. A rule is one SQL query on Datum. |
+| Rules | Each app keeps its alert rules in `beacon/rules/` of its own repository. A rule is one SQL query on Datum or one HTTP check. |
 | Incidents | Firing alerts join an open incident. Beacon posts to chat, and calls and emails responders for High and Critical incidents. A High incident stops after 3 rounds by default. A Critical incident continues until a person acknowledges. |
 | Services | An SLI query measures each service each minute. Burn-rate alerts protect the error budget. |
 | Status page | A person decides what customers see. Customers follow one incident by email or RSS. |
@@ -34,7 +34,8 @@ Beacon is one Frappe app on one global site. It only reads Datum. It keeps alert
 | --- | --- |
 | Learn how Beacon works | [Design](docs/README.md) |
 | Find where code lives | [Specification](SPEC.md) |
-| Add an alert rule or a service | [Integration](docs/integration.md) |
+| Send metrics from a service, or add a rule or an SLI | [Developer guide](docs/integration.md) |
+| Learn how data gets to Beacon | [Telemetry](docs/telemetry.md) |
 | Make a code change | [Contributor guide](CLAUDE.md) |
 
 ## Development
