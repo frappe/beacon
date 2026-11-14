@@ -21,7 +21,6 @@
   "monitoring_column",
   "disabled_by",
   "details_section",
-  "telemetry_id",
   "path",
   "terminated_at",
   "details_column",
@@ -141,14 +140,6 @@
    "label": "Details"
   },
   {
-   "description": "The server ID that Central uses. Pilot metrics use this ID.",
-   "fieldname": "telemetry_id",
-   "fieldtype": "Data",
-   "label": "Telemetry ID",
-   "read_only": 1,
-   "show_description_on_click": 1
-  },
-  {
    "fieldname": "path",
    "fieldtype": "Data",
    "label": "Path",
@@ -216,7 +207,7 @@
    "link_fieldname": "parent_resource"
   }
  ],
- "modified": "2026-11-14 02:11:06.277305",
+ "modified": "2026-11-14 12:00:00.000000",
  "modified_by": "Administrator",
  "module": "Beacon",
  "name": "Beacon Resource",

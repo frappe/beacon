@@ -49,7 +49,7 @@ def queue_region_schedule(region: str) -> None:
 	)
 
 
-def queue_source_sync(source: str, use_etag: bool) -> None:
+def queue_source_sync(source: str) -> None:
 	frappe.enqueue_doc(
 		"Beacon Resource Source",
 		source,
@@ -57,7 +57,7 @@ def queue_source_sync(source: str, use_etag: bool) -> None:
 		queue=QUEUE,
 		job_id=f"beacon-sync-source:{source}",
 		deduplicate=True,
-		use_etag=use_etag,
+		use_etag=True,
 	)
 
 

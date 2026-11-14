@@ -10,7 +10,7 @@ if TYPE_CHECKING:
 	from beacon.beacon.doctype.beacon_resource_source.beacon_resource_source import BeaconResourceSource
 
 FETCH_TIMEOUT_SECONDS = 30
-PATHS = {"Resources": "/beacon/resources", "Telemetry IDs": "/beacon/telemetry-ids"}
+RESOURCES_PATH = "/beacon/resources"
 
 
 class ResourceSourceClient:
@@ -30,7 +30,7 @@ class ResourceSourceClient:
 
 		try:
 			response = requests.get(
-				self.source.base_url.rstrip("/") + PATHS[self.source.kind],
+				self.source.base_url.rstrip("/") + RESOURCES_PATH,
 				headers=headers,
 				timeout=FETCH_TIMEOUT_SECONDS,
 			)

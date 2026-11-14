@@ -23,9 +23,6 @@ HELD_REMOVAL_RATIO = 0.1
 # A resource missing from this many good fetches in a row is Terminated.
 MISSING_FETCHES_TO_TERMINATE = 2
 
-# Telemetry IDs are fetched in full on this minute interval, so late matches are applied.
-TELEMETRY_ID_FULL_FETCH_MINUTES = 15
-
 
 @dataclass(frozen=True)
 class SourceRow:
@@ -252,39 +249,3 @@ class ResourceSync:
 				updates.setdefault(name, {})["parent_resource"] = parent
 
 		self.source.orphan_count = orphans
-
-
-class TelemetryIdSync:
-	"""Writes Central's server ID map onto matching resources. It never adds or removes resources."""
-
-	def __init__(self, source: BeaconResourceSource):
-		self.source = source
-
-	def apply(self, payload: dict) -> SyncResult:
-		entries = payload.get("telemetry_ids") if isinstance(payload, dict) else None
-		if not isinstance(entries, list):
-			raise SourceFetchError("The response has no telemetry_ids list.")
-
-		wanted = {}
-		for entry in entries:
-			if not isinstance(entry, dict) or not all(
-				isinstance(entry.get(key), str) and entry.get(key)
-				for key in ("telemetry_id", "region", "resource_id")
-			):
-				raise SourceFetchError(f"A telemetry ID entry is not valid: {entry!r}")
-			wanted[ResourceRegistry.make_name(entry["region"], entry["resource_id"])] = entry["telemetry_id"]
-
-		current = dict(
-		 frappe.get_all(
-		  "Beacon Resource", filters={"name": ("in", list(wanted))}, fields=["name", "telemetry_id"], as_list=True
-		 )
-		) if wanted else {}  # fmt: skip
-		updates = {
-			name: {"telemetry_id": telemetry_id}
-			for name, telemetry_id in wanted.items()
-			if name in current and current[name] != telemetry_id
-		}
-		frappe.db.bulk_update("Beacon Resource", updates)
-
-		self.source.row_count = len(entries)
-		return SyncResult(changed=len(updates))

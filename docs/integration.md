@@ -273,8 +273,6 @@ The status is one of Pending, Active, Suspended and Terminated. A Suspended reso
 
 Beacon marks a resource as Terminated when it is missing from 2 good fetches. When one fetch would remove more than 10% of the resources, Beacon holds the removal, and an admin must apply it.
 
-A Resource Source can also serve `GET <base>/beacon/telemetry-ids` with a `telemetry_ids` list. Beacon uses this list to map telemetry IDs onto resources that already exist. It does not add or remove resources. Beacon requests the full list every 15 minutes and uses the ETag between full requests. Central does not serve this list yet.
-
 ## 9. Sync and watch
 
 Each app keeps its Beacon files in `beacon/` of its own repository:

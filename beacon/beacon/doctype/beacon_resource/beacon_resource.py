@@ -35,7 +35,6 @@ class BeaconResource(Document):
 		row_hash: DF.Data | None
 		source: DF.Link | None
 		status: DF.Literal["Pending", "Active", "Suspended", "Terminated"]
-		telemetry_id: DF.Data | None
 		terminated_at: DF.Datetime | None
 		title: DF.Data | None
 	# end: auto-generated types
@@ -66,6 +65,5 @@ class BeaconResource(Document):
 
 def on_doctype_update() -> None:
 	frappe.db.add_index("Beacon Resource", ["region", "path"])
-	frappe.db.add_index("Beacon Resource", ["region", "telemetry_id"])
 	frappe.db.add_index("Beacon Resource", ["parent_resource"])
 	frappe.db.add_index("Beacon Resource", ["source", "status"])

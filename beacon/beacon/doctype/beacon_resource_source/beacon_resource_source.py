@@ -10,12 +10,7 @@ from frappe.utils import now_datetime
 
 from beacon.core.exceptions import SourceFetchError
 from beacon.core.incident.outbox import NotificationOutbox
-from beacon.core.resource.source import (
-	TELEMETRY_ID_FULL_FETCH_MINUTES,
-	ResourceSync,
-	SyncResult,
-	TelemetryIdSync,
-)
+from beacon.core.resource.source import ResourceSync, SyncResult
 from beacon.core.resource.source_client import ResourceSourceClient
 from beacon.core.transaction import RecordTransaction
 
@@ -24,7 +19,7 @@ FAILED_FETCHES_TO_REPORT = 5
 
 
 class BeaconResourceSource(Document):
-	"""A service that lists the resources of a region, or Central's map of server IDs."""
+	"""A service that lists the resources of a region."""
 
 	# begin: auto-generated types
 	# This code is auto-generated. Do not modify anything in this block.
@@ -41,12 +36,11 @@ class BeaconResourceSource(Document):
 		failed_fetches: DF.Int
 		held_removals: DF.Int
 		held_since: DF.Datetime | None
-		kind: DF.Literal["Resources", "Telemetry IDs"]
 		last_attempt_at: DF.Datetime | None
 		last_error: DF.SmallText | None
 		last_success_at: DF.Datetime | None
 		orphan_count: DF.Int
-		region: DF.Link | None
+		region: DF.Link
 		row_count: DF.Int
 		source_key: DF.Data
 		title: DF.Data
@@ -54,11 +48,7 @@ class BeaconResourceSource(Document):
 	# end: auto-generated types
 
 	def autoname(self) -> None:
-		self.name = f"{self.region}-{self.source_key}" if self.region else self.source_key
-
-	def validate(self) -> None:
-		if self.kind == "Telemetry IDs" and self.region:
-			frappe.throw(_("A Telemetry IDs source serves every region. Leave Region empty."))
+		self.name = f"{self.region}-{self.source_key}"
 
 	@frappe.whitelist(methods=["POST"])
 	def sync(self, use_etag: bool = False, allow_removals: bool = False) -> dict:
@@ -107,16 +97,11 @@ class BeaconResourceSource(Document):
 
 	@staticmethod
 	def queue_due_syncs() -> None:
-		"""Queue one sync for each enabled source. A Telemetry IDs source reads its full list every few minutes."""
+		"""Queue one sync for each enabled source."""
 		from beacon.core.jobs import queue_source_sync
 
-		is_full_fetch_due = now_datetime().minute % TELEMETRY_ID_FULL_FETCH_MINUTES == 0
-		for source in frappe.get_all(
-			"Beacon Resource Source", filters={"enabled": 1}, fields=["name", "kind"]
-		):
-			queue_source_sync(
-				source.name, use_etag=not (source.kind == "Telemetry IDs" and is_full_fetch_due)
-			)
+		for name in frappe.get_all("Beacon Resource Source", filters={"enabled": 1}, pluck="name"):
+			queue_source_sync(name)
 
 	def _apply(
 		self,
@@ -133,11 +118,7 @@ class BeaconResourceSource(Document):
 			if error:
 				raise SourceFetchError(error)
 			if payload is not None:
-				result = (
-					ResourceSync(source).apply(payload, allow_removals)
-					if source.kind == "Resources"
-					else TelemetryIdSync(source).apply(payload)
-				)
+				result = ResourceSync(source).apply(payload, allow_removals)
 				# A missed resource is removed only when the next fetch also misses it, so that fetch must read the full list.
 				is_removal_waiting = frappe.db.exists(
 					"Beacon Resource", {"source": source.name, "missing_fetches": (">", 0)}

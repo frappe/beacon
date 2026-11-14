@@ -18,7 +18,6 @@ RESOURCE_FIELDS = (
 	"status",
 	"is_checked",
 	"active_since",
-	"telemetry_id",
 	"removal_held",
 	"source",
 )
@@ -56,16 +55,15 @@ class ResourceRegistry:
 		self.region = region
 		rows = frappe.get_all("Beacon Resource", filters={"region": region}, fields=RESOURCE_FIELDS)
 		self.by_name = {row.name: row for row in rows}
-		self.by_reported_id = {row.resource_id: row for row in rows}
-		self.by_reported_id.update({row.telemetry_id: row for row in rows if row.telemetry_id})
+		self.by_resource_id = {row.resource_id: row for row in rows}
 
 	@staticmethod
 	def make_name(region: str, resource_id: str) -> str:
 		return f"{region}:{resource_id}"
 
-	def find(self, reported_id: str) -> frappe._dict | None:
-		"""Find a resource by the ID that telemetry reports: its own ID or its telemetry ID."""
-		return self.by_reported_id.get(reported_id)
+	def find(self, resource_id: str) -> frappe._dict | None:
+		"""Find a resource by the ID that telemetry reports."""
+		return self.by_resource_id.get(resource_id)
 
 	def get(self, name: str) -> frappe._dict | None:
 		return self.by_name.get(name)

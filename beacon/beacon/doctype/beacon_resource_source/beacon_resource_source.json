@@ -6,7 +6,6 @@
  "field_order": [
   "overview_section",
   "title",
-  "kind",
   "overview_column",
   "region",
   "enabled",
@@ -44,15 +43,6 @@
    "reqd": 1
   },
   {
-   "default": "Resources",
-   "fieldname": "kind",
-   "fieldtype": "Select",
-   "label": "Kind",
-   "options": "Resources\nTelemetry IDs",
-   "reqd": 1,
-   "set_only_once": 1
-  },
-  {
    "fieldname": "overview_column",
    "fieldtype": "Column Break"
   },
@@ -62,9 +52,9 @@
    "in_list_view": 1,
    "in_standard_filter": 1,
    "label": "Region",
-   "mandatory_depends_on": "eval:doc.kind == 'Resources'",
    "options": "Beacon Region",
-   "set_only_once": 1
+   "set_only_once": 1,
+   "reqd": 1
   },
   {
    "default": "1",
@@ -160,7 +150,7 @@
    "label": "Connection"
   },
   {
-   "description": "The API root of the service, such as https://atlas.example.com/api/atlas. Beacon adds /beacon/resources or /beacon/telemetry-ids.",
+   "description": "The API root of the service, such as https://atlas.example.com/api/atlas. Beacon adds /beacon/resources.",
    "fieldname": "base_url",
    "fieldtype": "Data",
    "label": "Base URL",
@@ -210,7 +200,7 @@
    "link_fieldname": "source"
   }
  ],
- "modified": "2026-11-14 03:00:00.000000",
+ "modified": "2026-11-14 12:00:00.000000",
  "modified_by": "Administrator",
  "module": "Beacon",
  "name": "Beacon Resource Source",
