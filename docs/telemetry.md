@@ -105,7 +105,7 @@ Each host, Atlas service VM, Cargo machine and the Cargo VM sends these metrics 
 | --- | --- | --- |
 | `system_boot_time_seconds` | Gauge. The heartbeat of the machine. | |
 | `system_cpu_count` | Gauge | |
-| `system_cpu_seconds_total` | Counter | `cpu`, `mode`: a field of `/proc/stat`, such as `user`, `idle` or `iowait`. Linux counts `guest` in `user` too, so the Datum agent leaves out `guest` and `guest_nice`. |
+| `system_cpu_seconds_total` | Counter | `cpu`: a CPU number, or `all` for the total of all CPUs, which metald sends for a host. `mode`: a field of `/proc/stat`, such as `user`, `idle` or `iowait`. Linux counts `guest` in `user` too, so metald and the Datum agent do not send `guest` and `guest_nice`. |
 | `system_load_average` | Gauge | `window`: `5m`, `15m`. metald also sends `1m` for a host. |
 | `system_memory_total_bytes` | Gauge | |
 | `system_memory_available_bytes` | Gauge. `MemAvailable` of Linux. | |
