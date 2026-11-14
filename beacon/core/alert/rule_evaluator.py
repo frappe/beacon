@@ -7,6 +7,7 @@ import frappe
 from frappe.utils import now_datetime
 
 from beacon.core.alert.reconciler import AlertChanges, AlertReconciler, RuleFailure
+from beacon.core.alert.rules import AlertRules
 from beacon.core.alert.states import SEVERITIES
 from beacon.core.exceptions import ClickHouseError, RuleContractError
 from beacon.core.incident.coordinator import IncidentCoordinator
@@ -20,7 +21,16 @@ from beacon.core.transaction import RecordTransaction
 MAX_ROWS = 50_000
 BROKEN_AFTER_ERRORS = 3
 ROW_COLUMNS = ("resource_id", "alert_key", "value", "detail")
-RULE_FIELDS = ("name", "title", "severity", "query", "interval", "pending_for", "resolve_after")
+RULE_FIELDS = (
+	"name",
+	"title",
+	"severity",
+	"resource_type",
+	"query",
+	"interval",
+	"pending_for",
+	"resolve_after",
+)
 
 
 class RegionEvaluation:
@@ -153,9 +163,11 @@ class RuleEvaluator:
 		failing: list[RuleFailure] = []
 		unknown = 0
 		seen: set[tuple[str, str]] = set()
+		# Any token in the region can send any metric, so a row for a resource of another type is not trusted.
+		resource_types = AlertRules.get_resource_types(self.rule.resource_type)
 		for row in rows:
 			resource = self.registry.find(row["resource_id"])
-			if not resource:
+			if not resource or (resource_types and resource.resource_type not in resource_types):
 				unknown += 1
 				continue
 

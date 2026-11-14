@@ -13,6 +13,7 @@ from frappe.utils import now_datetime
 from beacon.core.alert.endpoint_check import ENDPOINT_KINDS
 from beacon.core.alert.evaluation_schedule import EvaluationSchedule
 from beacon.core.alert.rule_evaluator import RuleQuery
+from beacon.core.alert.rules import AlertRules
 from beacon.core.exceptions import ClickHouseError, DefinitionSourceError, RuleContractError
 from beacon.core.github_client import GitHubClient
 from beacon.core.resource.clickhouse import ClickHouseClient
@@ -208,8 +209,16 @@ class SourceSync:
 				"Beacon Region Item", filters={"parent": rule.key, "parenttype": "Beacon Alert Rule"}, limit=1
 			)
 		]
+		known_types = set(frappe.get_all("Beacon Resource", pluck="resource_type", distinct=True))
 		return (
 			[
+				f"{rule.path}: no resource has the type {name}. Check resource_type: Beacon drops rows of other types."
+				for rule in rules
+				for name in sorted(
+					AlertRules.get_resource_types(rule.values.get("resource_type")) - known_types
+				)
+			]
+			+ [
 				f"{rule.path}: a {rule.values['severity']} rule pages, so add a runbook_url."
 				for rule in rules
 				if rule.values.get("severity") in PAGING_SEVERITIES and not rule.values.get("runbook_url")

@@ -15,3 +15,8 @@ class AlertRules:
 	@staticmethod
 	def get_burn_rule_name(service: str) -> str:
 		return f"slo-burn-{service}"
+
+	@staticmethod
+	def get_resource_types(resource_type: str | None) -> set[str]:
+		"""The types in a rule's comma-separated `resource_type`. An empty set takes every type."""
+		return {name.strip() for name in (resource_type or "").split(",") if name.strip()}

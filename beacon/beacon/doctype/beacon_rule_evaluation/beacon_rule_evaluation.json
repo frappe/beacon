@@ -114,7 +114,7 @@
    "read_only": 1
   },
   {
-   "description": "Rows for resources that Beacon does not know.",
+   "description": "Rows for resources that Beacon does not know, or that are not of the rule's resource type.",
    "fieldname": "unknown_rows",
    "fieldtype": "Int",
    "label": "Unknown Rows",
@@ -125,7 +125,7 @@
  "in_create": 1,
  "link_display_mode": "Search",
  "links": [],
- "modified": "2026-11-13 19:30:37.734265",
+ "modified": "2026-11-14 15:49:40.066148",
  "modified_by": "Administrator",
  "module": "Beacon",
  "name": "Beacon Rule Evaluation",

@@ -4,6 +4,7 @@ import json
 import time
 from typing import TYPE_CHECKING, Any
 
+import frappe
 import requests
 
 from beacon.core.exceptions import ClickHouseError
@@ -31,10 +32,17 @@ class ClickHouseClient:
 			region.clickhouse_user,
 			region.get_password("clickhouse_password", raise_exception=False) or "",
 		)
+		# A query that adds many resources into one row cannot leave them out after it runs, so it filters on this list.
+		excluded = frappe.get_all(
+			"Beacon Resource", filters={"region": self.region, "monitoring_disabled": 1}, pluck="resource_id"
+		)
+		quoted = (name.replace("\\", "\\\\").replace("'", "\\'") for name in excluded)
+		self.excluded = "[" + ",".join(f"'{name}'" for name in quoted) + "]"
 
 	def query(self, sql: str, **parameters: Any) -> list[dict[str, Any]]:
-		"""Run one SELECT and return its rows. `{region:String}` is always available to the query."""
-		parameters = {"region": self.region, **parameters}
+		"""Run one SELECT and return its rows. `{region:String}` and `{excluded:Array(String)}`, the resources
+		with monitoring disabled, are always available to the query."""
+		parameters = {"region": self.region, "excluded": self.excluded, **parameters}
 		params = {
 			"database": self.database,
 			"default_format": "JSONEachRow",

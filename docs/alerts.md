@@ -36,7 +36,7 @@ SELECT ...
 | Field | Meaning |
 | --- | --- |
 | `severity` | The highest severity of the rule. A row can set a lower one. |
-| `resource_type` | The registry type of the resources in the rows, such as `Metal Host`. When the rows can have more types, write a list, such as `Metal Host, Virtual Machine`. Beacon shows it and does not use it to match rows. |
+| `resource_type` | The registry type of the resources in the rows, such as `Metal Host`. When the rows can have more types, write a list, such as `Metal Host, Virtual Machine`. Beacon drops each row for a resource of another type. The sync warns about a type that no resource has. |
 | `interval` | Seconds between two runs. |
 | `pending_for` | Seconds a row must fail before the alert fires. It must be at least `interval`, so an alert fires at the earliest on the second failing run. |
 | `resolve_after` | Seconds without a row before a firing alert recovers. |
@@ -83,7 +83,7 @@ Each minute, Beacon queues one job for each region that has due rules. For each 
 2. Run the query as the read-only `beacon` user, with a time limit.
 3. When the query fails, add 1 to the error count and stop. Nothing changes. After 3 errors in a row the rule is Broken, and the control panel shows it in red.
 4. When the last good run is older than 3 intervals, restart the pending and clean timers, because the time is no longer continuous.
-5. Drop the rows of unknown resources, of resources that are not checked, and of resources that are new in the last 10 minutes.
+5. Drop the rows of unknown resources, of resources that are not of the rule's resource type, of resources that are not checked, and of resources that are new in the last 10 minutes.
 6. Compare the rows with the open alerts and write only the changes.
 7. When an alert starts firing or becomes more severe, make sure that it belongs to an incident. When alerts recover, a separate job checks whether their incident can close.
 

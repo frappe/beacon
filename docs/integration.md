@@ -180,7 +180,7 @@ SELECT 'cargo' AS resource_id, cluster AS alert_key, age AS value,
 FROM (
     SELECT labels['cluster'] AS cluster, argMax(value, ts) AS age
     FROM datum.samples_recent
-    WHERE metric = 'cargo_object_storage_metadata_backup_age_seconds' AND ts > now() - INTERVAL 3 HOUR
+    WHERE metric = 'cargo_object_storage_metadata_backup_age_seconds' AND resource_id = 'cargo' AND ts > now() - INTERVAL 3 HOUR
     GROUP BY cluster
 )
 WHERE age > 86400
@@ -216,10 +216,11 @@ Return a `severity` column when one rule has a soft limit and a hard limit. Set 
 - **`samples` is slow for one metric across the region.** Read `samples_recent`.
 - **A counter needs 2 samples in the window.** Make the window at least 2 send intervals.
 - **A row with an unknown resource ID is dropped.** See step 2.
+- **The metric name, the labels and the log fields do not say who sent a row.** Every token of the region can send any of them. Only `resource_id` comes from the token. Filter on the sender, such as `resource_id = 'atlas'` for a metric that Atlas sends. Take a resource ID from a label only when the sender of the label is filtered, such as the `atlas_machine` inventory of `resource_id = 'atlas'`.
 
 ### Test the rule before you merge it
 
-Run the query on a ClickHouse with data. `{region:String}` is the region name. Rule and SLI queries both get it.
+Run the query on a ClickHouse with data. `{region:String}` is the region name. `{excluded:Array(String)}` is the list of resource IDs in the region with monitoring disabled. Rule and SLI queries both get them. Beacon drops the rows of such a resource after the query runs. A query that adds the data of many resources into one row must filter them itself: `resource_id NOT IN {excluded:Array(String)}`.
 
 ```sh
 clickhouse-client --param_region=bom < beacon/rules/object-storage-backup-stale.sql
