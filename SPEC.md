@@ -1,6 +1,6 @@
 # Beacon specification
 
-This file is the code contract: where each behavior lives, the jobs, the extension points and the invariants. The [design](https://sites.tanmoysarkar.me/plans/beacon-incident-manager/) describes what Beacon does and why.
+This file is the code contract: where each behavior lives, the jobs, the extension points and the invariants. The [design](docs/README.md) describes what Beacon does and why.
 
 ## Module map
 
@@ -77,16 +77,13 @@ For example, acknowledge an incident with `POST /api/v2/document/Beacon%20Incide
 
 ## Coverage
 
-Each rule file names the producer it reads, and lives in the repository of that producer. A rule about one app raises its alert on that app's resource, so an Atlas failure does not join an incident of every region resource.
+Each rule file lives in the repository of the producer it reads. A rule about one app raises its alert on the resource of that app, so a failure of one app does not join an incident of every region resource. For example:
 
-| Area | Producer | Resource | Rules | Repository |
-| --- | --- | --- | --- | --- |
-| Atlas control plane | Atlas gauges and Error Logs (`datum.samples`, `datum.logs`, resource `atlas-<region>`), TLS certificate expiry | `atlas` | `atlas-*`, `tls-certificate-expiring` | `frappe/atlas` |
-| Hosts | Atlas host inventory and sync age, metald build info, VM states and reconcile loops, host system metrics (ZFS, RAID, disks, memory errors, CPU, network, systemd, kernel limits), BMC readings and events, host logs | Host | `host-*`, `atlas-cannot-sync-host`, `vms-unavailable-on-host`, `metald-unhealthy`, `bmc-problems`, `vm-migrations-failed`, `repeated-errors`, service `servers` | `frappe/atlas` |
-| Regional services | Atlas readiness probes, Vector on each node (load, disk, memory, proxy counters) | service node | `service-node-*`, `atlas-service-nodes-failed`, `proxy-error-spike`, service `networking` | `frappe/atlas` |
-| Cargo | Cargo build and metadata backup gauges (hourly), Garage metrics, Cargo Error Logs | `cargo` | `cargo-*`, `object-storage-*` | `frappe/cargo` |
-| Central | Central Error Logs, sent to the Datum of the region in the `telemetry_region` site config | Region | `central-errors` | `frappe/central` |
-| Pilot | `pilot_sites` gauge and `notifications.json.log` | Server | `pilot-*`, service `sites` | `frappe/pilot` |
+| Area | Producer | Resource |
+| --- | --- | --- |
+| Hosts | Atlas host sync age, metald VM states and host system metrics | Host |
+| Regional services | Atlas readiness probes, Vector on each node | Service node |
+| Sites | Pilot `pilot_sites` gauge | Server |
 
 ## Invariants
 

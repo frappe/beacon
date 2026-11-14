@@ -10,7 +10,7 @@
 
 <p align="center">
   <a href="SPEC.md">Specification</a> ·
-  <a href="https://sites.tanmoysarkar.me/plans/beacon-incident-manager/">Design</a> ·
+  <a href="docs/README.md">Design</a> ·
   <a href="CLAUDE.md">Contributor guide</a>
 </p>
 
@@ -18,15 +18,13 @@ Beacon watches every Frappe Cloud region. It reads the telemetry of each region 
 
 Beacon is one Frappe app on one global site. It only reads Datum. It keeps alert, incident and SLO state in MariaDB, and it serves the status page at `/`.
 
-Beacon is in pre-production.
-
 ## How it works
 
 | Part | What it does |
 | --- | --- |
 | Resources | Each region's Atlas lists what the region runs: hosts, VMs, service nodes and Cargo. Beacon keeps them as a tree. |
 | Rules | Each app keeps its alert rules in `beacon/rules/` of its own repository. A rule is one SQL query on Datum. |
-| Incidents | Firing alerts join an open incident. Beacon pages by phone, chat and email, and escalates until a person acknowledges. |
+| Incidents | Firing alerts join an open incident. Beacon posts to chat, and calls and emails responders for High and Critical incidents. A High incident stops after 3 rounds by default. A Critical incident continues until a person acknowledges. |
 | Services | An SLI query measures each service each minute. Burn-rate alerts protect the error budget. |
 | Status page | A person decides what customers see. Customers follow one incident by email or RSS. |
 
@@ -34,9 +32,9 @@ Beacon is in pre-production.
 
 | Task | Guide |
 | --- | --- |
+| Learn how Beacon works | [Design](docs/README.md) |
 | Find where code lives | [Specification](SPEC.md) |
-| Add an alert rule or a service | [Extension points](SPEC.md#extension-points) |
-| See which rules cover which app | [Coverage](SPEC.md#coverage) |
+| Add an alert rule or a service | [Integration](docs/integration.md) |
 | Make a code change | [Contributor guide](CLAUDE.md) |
 
 ## Development
@@ -53,7 +51,7 @@ Run `pre-commit install` once. Pre-commit runs ruff, eslint and prettier.
 
 ## Contributing
 
-1. [Issue Guidelines](https://github.com/frappe/erpnext/wiki/Issue-Guidelines)
+1. [Report issues in Beacon](https://github.com/frappe/beacon/issues)
 2. [Report Security Vulnerabilities](https://frappe.io/security)
 
 <br>

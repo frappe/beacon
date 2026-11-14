@@ -10,7 +10,7 @@ Beacon is the incident manager, SLO control panel and public status page for Fra
 
 ## Start here
 
-Read the [root specification](SPEC.md) for the module map, the jobs and the invariants. Read the [design](https://sites.tanmoysarkar.me/plans/beacon-incident-manager/) before you change behavior. The design describes what Beacon does; `SPEC.md` describes where the code is.
+Read the [root specification](SPEC.md) for the module map, the jobs and the invariants. Read the [design](docs/README.md) before you change behavior. The design describes what Beacon does; `SPEC.md` describes where the code is.
 
 ## Core principles
 
