@@ -11,7 +11,8 @@ flowchart LR
         producers["Producers<br/>Pilot, metald, Vector,<br/>Atlas, Cargo, Central"]
         datum["Datum API<br/>checks the token,<br/>validates, writes"]
         subgraph clickhouse["ClickHouse"]
-            samples[("samples<br/>90 days")]
+            samples[("samples<br/>system_* 15 days,<br/>others 90 days")]
+            rollup[("samples_5m<br/>system_* 90 days")]
             recent[("samples_recent<br/>2 days")]
             logs[("logs<br/>30 days")]
             stats[("daily_ingestion_stats<br/>daily_log_stats")]
@@ -20,6 +21,7 @@ flowchart LR
         datum --> samples
         datum --> logs
         samples -- "materialized view" --> recent
+        samples -- "materialized view" --> rollup
         samples -- "materialized view" --> stats
         logs -- "materialized view" --> stats
     end
@@ -37,7 +39,7 @@ flowchart LR
 
 1. A producer collects a value and sends it to the Datum of its region with a token.
 2. Datum checks the token, validates the request and writes the rows. Datum writes the resource ID of the token on each row. The producer cannot set it.
-3. Materialized views in ClickHouse copy each new sample to `samples_recent` and count it in `daily_ingestion_stats`.
+3. Materialized views in ClickHouse copy each new sample to `samples_recent`, add each `system_*` sample to its 5-minute row in `samples_5m`, and count each sample in `daily_ingestion_stats`.
 4. Beacon runs each rule at its interval on the ClickHouse of each region as the `beacon` user. Each minute, it runs the SLI query of each regional service in each region, and of each global service in its `query_region`. A rule returns failing rows. An SLI returns good and valid counts.
 5. Beacon turns the rows into alerts, the alerts into incidents, and the incidents into pages.
 
@@ -182,16 +184,18 @@ Datum refuses the whole request when one sample is not valid. Datum does not ret
 
 | Object | Contents | Sort key | Kept |
 | --- | --- | --- | --- |
-| `samples` | All metrics | `resource_id`, `metric`, `ts` | 90 days |
+| `samples` | All metrics | `resource_id`, `metric`, `ts` | `system_*` 15 days, others 90 days |
 | `samples_recent` | The last 2 days of `samples` | `metric`, `ts`, `resource_id` | 2 days |
+| `samples_5m` | One row for each 5 minutes of each `system_*` series | `resource_id`, `metric`, `labels`, `bucket` | 90 days |
 | `logs` | All log lines | `resource_id`, `product`, `service`, `ts` | 30 days |
 | `traces` | Spans | | 7 days |
 | `daily_ingestion_stats` | Samples for each day and `resource_id` | `date`, `resource_id` | No TTL |
 | `daily_log_stats` | Log lines for each day, `resource_id`, product, service and level | | No TTL |
 | `latest_value(metric, window)` | The newest value of each series in the window | | View |
 | `counter_increase(metric, window)` | The growth of each counter series in the window. A drop is a reset. | | View |
+| `system_history` | The `system_*` metrics: all samples of the last 14 days, and one row for each 5 minutes before that. A counter has its last sample, and a gauge its average and `peak`. | | View |
 
-A rule reads one metric across the region at its interval, often each minute. In `samples`, the sort key starts with `resource_id`, so that query reads every resource. In `samples_recent`, the sort key starts with `metric`. Read `samples_recent` for windows up to 2 days. Read `samples` only for a longer window, and filter on `resource_id` and `metric`.
+A rule reads one metric across the region at its interval, often each minute. In `samples`, the sort key starts with `resource_id`, so that query reads every resource. In `samples_recent`, the sort key starts with `metric`. Read `samples_recent` for windows up to 2 days. Read `samples` only for a longer window, and filter on `resource_id` and `metric`. For a `system_*` metric older than 14 days, read `system_history`.
 
 Both views leave out samples more than 1 minute in the future, so a sender with a fast clock cannot keep an old value.
 
