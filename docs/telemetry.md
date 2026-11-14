@@ -45,13 +45,13 @@ Datum only writes, and Beacon only reads. Datum owns the schema. Beacon issues n
 
 ## Producers
 
-Each producer sends what it watches. The rules and runbooks of each producer are in `beacon/` of its own repository.
+Each producer sends only what a rule, an SLI or a dashboard reads. All other metrics and logs stay on the machine. The rules and runbooks of each producer are in `beacon/` of its own repository.
 
 | Producer | Runs on | Sends |
 | --- | --- | --- |
 | metald | Each host | The machine metrics of the host, VM states, storage, hardware |
-| Datum agent | Each Atlas service VM, each Cargo machine; each host for logs only | The machine metrics, logs, and the metrics of the role, such as proxy requests or Garage |
-| Pilot | Each Pilot VM, and the Cargo VM | The machine metrics, processes, MariaDB, sites, backups, logs |
+| Datum agent | Each Atlas service VM, the Cargo VM, each Cargo machine; each host for logs only | The machine metrics, logs, and the metrics of the role, such as proxy requests or Garage |
+| Pilot | Each Pilot VM, and the Cargo VM | Its heartbeat, sites, backups, the database state, disk space, calls to Central, update events |
 | Atlas | The Atlas site of the region | Inventory, the expected machines, jobs, API calls, Error Logs |
 | Cargo | The Cargo site of the region | Image builds, object storage health and backups, Error Logs |
 | Central | The global Central site | API requests, payments, resource actions, webhooks, Error Logs |
@@ -69,7 +69,7 @@ Each machine and each application sends with one resource ID: the ID that the Be
 | Sender | Resource ID | Issuer |
 | --- | --- | --- |
 | A host | The name of the Metal Server | Atlas |
-| A VM: a Pilot VM, an Atlas service VM, a Cargo machine or the Cargo VM | The name of the Atlas Virtual Machine | Central for Pilot and Cargo, Atlas for its service VMs |
+| A VM: a Pilot VM, an Atlas service VM, a Cargo machine or the Cargo VM | The name of the Atlas Virtual Machine | Central for Pilot and a Cargo machine, Atlas for the Datum agent on an Atlas service VM and the Cargo VM |
 | The Atlas site | `atlas` | Atlas |
 | The Cargo site | `cargo` | Central |
 | Central | `central` | Central |
@@ -99,7 +99,7 @@ A name is `<namespace>_<target>_<unit>`, with `_total` at the end of a counter. 
 
 ### Machine metrics
 
-Each machine sends these metrics at least once each 60 seconds, with these names and labels. metald sends them for a host, the Datum agent for an Atlas service VM or a Cargo machine, and Pilot for a Pilot VM. A producer can send more `system_` metrics, but only with a name that no other producer uses for another value.
+Each host, Atlas service VM, Cargo machine and the Cargo VM sends these metrics at least once each 60 seconds, with these names and labels. metald sends them for a host, and the Datum agent for a VM. A tenant VM sends no machine metrics. Pilot sends only `system_filesystem_size_bytes` and `system_filesystem_available_bytes` for a Pilot VM. A producer can send more `system_` metrics, but only with a name that no other producer uses for another value.
 
 | Metric | Type | Labels |
 | --- | --- | --- |
@@ -119,21 +119,21 @@ Each machine sends these metrics at least once each 60 seconds, with these names
 | `system_network_receive_errors_total` | Counter | `interface` |
 | `system_network_transmit_errors_total` | Counter | `interface` |
 
-Each minute, Atlas sends `atlas_machine{machine, kind}` with the value 1 for each machine that must send now: each Running host, and each VM that runs and does not sleep. `kind` is `host`, `service` for a tenant-0 VM, or `tenant`. The `machine-silent` rule compares this list with `system_boot_time_seconds`.
+Each minute, Atlas sends `atlas_machine{machine, kind}` with the value 1 for each machine that must send now: each Running host, and each VM that runs and does not sleep. `kind` is `host`, `service` for a tenant-0 VM, or `tenant`. The `machine-silent` rule compares this list, without the tenant VMs, with `system_boot_time_seconds`. The `pilot-silent` rule checks a Pilot VM.
 
 ### Log lines
 
 | Field | Rule |
 | --- | --- |
 | `ts` | UTC, with the zone. |
-| `product` | The owner of the machine or the application: `metal` on a host, `atlas` on an Atlas service VM and for the Atlas site, `cargo` on a Cargo machine and for the Cargo site, `pilot` on a Pilot VM, `central`. |
+| `product` | The owner of the machine or the application: `metal` on a host, `atlas` on an Atlas service VM and for the Atlas site, `cargo` on a Cargo machine, on the Cargo VM and for the Cargo site, `pilot` for Pilot, `central`. |
 | `service` | The systemd unit without `.service`, `kernel`, or the name of the application. |
-| `source` | `journal`, `file`, `error_log` for the Error Logs of an application, or `bmc` for the event log of a BMC that Atlas reads. |
+| `source` | `journal`, `file`, `error_log` for the Error Logs of an application, `bmc` for the event log of a BMC that Atlas reads, or `event` for one event that a program records, such as the result of a Pilot update. |
 | `level` | One of `emergency`, `alert`, `critical`, `error`, `warning`, `notice`, `info`, `debug`. Datum refuses other values. |
 | `message` | 8,192 characters at most. Remove secrets and signed URLs before the line leaves the machine. |
 | `attributes` | Names in lowercase with `_`. No identity of the sender. |
 
-Each machine sends the journal lines at `warning` and higher. The main service of the machine also sends its `info` lines: metald on a host, Garage on a Garage node, Datum on the Datum host. A program that writes its errors to a file sends that file, such as the nginx error log. Do not send access logs or health checks: metrics count requests. An application sends its Error Logs at `error`.
+Each host, Atlas service VM, Cargo machine and the Cargo VM sends the journal lines at `warning` and higher. A tenant VM sends no logs. Pilot sends only its update events. The main service of the machine also sends its `info` lines: metald on a host, Garage on a Garage node, Datum on the Datum host. A program that writes its errors to a file sends that file, such as the nginx error log. Do not send access logs or health checks: metrics count requests. An application sends its Error Logs at `error`.
 
 ### The Datum agent
 
@@ -163,7 +163,7 @@ A role file names each transform that gives contract metrics `metrics_<name>`, a
 | --- | --- | --- |
 | `POST /v1/ingest` | `{"samples": [{"metric", "value", "ts", "labels"}]}` | Metrics from code, such as a Frappe app. |
 | `POST /v1/ingest/remote` | Prometheus remote write | Metrics from Vector or another Prometheus sender. |
-| `POST /v1/logs/ingest` | `{"lines": [...]}` or a bare array of lines | Logs from Fluent Bit, Vector or code. |
+| `POST /v1/logs/ingest` | `{"lines": [...]}` or a bare array of lines | Logs from Vector or code. |
 | `POST /v1/traces` | OTLP traces | Spans. |
 
 Each request needs `Authorization: Bearer <token>`. The limits for one request are:
