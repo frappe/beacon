@@ -105,8 +105,8 @@ Each host, Atlas service VM, Cargo machine and the Cargo VM sends these metrics 
 | --- | --- | --- |
 | `system_boot_time_seconds` | Gauge. The heartbeat of the machine. | |
 | `system_cpu_count` | Gauge | |
-| `system_cpu_seconds_total` | Counter | `cpu`, `mode`: a field of `/proc/stat`, such as `user`, `idle` or `iowait`. Linux counts `guest` in `user` too. |
-| `system_load_average` | Gauge | `window`: `1m`, `5m`, `15m` |
+| `system_cpu_seconds_total` | Counter | `cpu`, `mode`: a field of `/proc/stat`, such as `user`, `idle` or `iowait`. Linux counts `guest` in `user` too, so the Datum agent leaves out `guest` and `guest_nice`. |
+| `system_load_average` | Gauge | `window`: `5m`, `15m`. metald also sends `1m` for a host. |
 | `system_memory_total_bytes` | Gauge | |
 | `system_memory_available_bytes` | Gauge. `MemAvailable` of Linux. | |
 | `system_memory_swap_used_bytes` | Gauge | |
@@ -133,7 +133,7 @@ Each minute, Atlas sends `atlas_machine{machine, kind}` with the value 1 for eac
 | `message` | 8,192 characters at most. Remove secrets and signed URLs before the line leaves the machine. |
 | `attributes` | Names in lowercase with `_`. No identity of the sender. |
 
-Each host, Atlas service VM, Cargo machine and the Cargo VM sends the journal lines at `warning` and higher. A tenant VM sends no logs. Pilot sends only its update events. The main service of the machine also sends its `info` lines: metald on a host, Garage on a Garage node, Datum on the Datum host. A program that writes its errors to a file sends that file, such as the nginx error log. Do not send access logs or health checks: metrics count requests. An application sends its Error Logs at `error`.
+Each host, Atlas service VM, Cargo machine and the Cargo VM sends the journal lines at `warning` and higher. A tenant VM sends no logs. Pilot sends only its update events. metald also sends its `info` lines for a host. A program that writes its errors to a file sends that file, such as the nginx error log at `error` and higher. The Datum agent sends at most 1,000 log lines per minute for each service of a machine. The other lines stay in the local journal. Do not send access logs or health checks: metrics count requests. An application sends its Error Logs at `error`.
 
 ### The Datum agent
 
