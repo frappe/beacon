@@ -133,7 +133,7 @@ Each minute, Atlas sends `atlas_machine{machine, kind}` with the value 1 for eac
 | `message` | 8,192 characters at most. Remove secrets and signed URLs before the line leaves the machine. |
 | `attributes` | Names in lowercase with `_`. No identity of the sender. |
 
-Each host, Atlas service VM, Cargo machine and the Cargo VM sends the journal lines at `warning` and higher. A tenant VM sends no logs. Pilot sends only its update events. metald also sends its `info` lines for a host. A program that writes its errors to a file sends that file, such as the nginx error log at `error` and higher. The Datum agent sends at most 1,000 log lines per minute for each service of a machine. The other lines stay in the local journal. Do not send access logs or health checks: metrics count requests. An application sends its Error Logs at `error`.
+Each host, Atlas service VM, Cargo machine and the Cargo VM sends the journal lines at `warning` and higher. A tenant VM sends no logs. Pilot sends only its update events. metald also sends its `info` lines for a host. A program that writes its errors to a file sends that file, such as the nginx error log at `error` and higher. Do not send access logs or health checks: metrics count requests. An application sends its Error Logs at `error`.
 
 ### The Datum agent
 
