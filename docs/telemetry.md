@@ -137,14 +137,14 @@ Each machine sends the journal lines at `warning` and higher. The main service o
 
 ### The Datum agent
 
-The Datum agent is Vector with one configuration. The Datum repository owns it in `datum_client/agent/`. Atlas and Cargo install it with the same script, and they add one role file for the role of the machine.
+The Datum agent is Vector with one configuration. The Datum repository owns it in `datum_client/agent/`. Atlas and Cargo install it with the same script, and they add one role file for each role of the machine.
 
 ```mermaid
 flowchart LR
     subgraph agent["/etc/vector/datum.d/"]
         metrics["metrics.yaml<br/>host_metrics to<br/>machine metrics"]
         logs["logs.yaml<br/>journal at warning<br/>and higher"]
-        role["role.yaml<br/>metrics_* and logs_*<br/>of the role"]
+        role["role-1.yaml, role-2.yaml<br/>metrics_* and logs_*<br/>of each role"]
     end
     env["/etc/vector/datum.env<br/>DATUM_ENDPOINT, DATUM_TOKEN"]
     metrics --> sink1["datum_metrics sink<br/>reads metrics_*"]
