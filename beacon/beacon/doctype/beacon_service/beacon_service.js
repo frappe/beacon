@@ -1,7 +1,7 @@
 frappe.ui.form.on("Beacon Service", {
 	refresh(frm) {
 		const view = new beacon.RecordView(frm);
-		view.managed(["enabled"]);
+		view.managed(["enabled", "query_region"]);
 		if (frm.is_new()) return;
 		view.related("health_html", "Beacon Service State", { service: frm.doc.name }, [
 			["region", "Region"],

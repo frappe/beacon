@@ -64,6 +64,8 @@ SERVICE_HEADER_FIELDS = {
 }
 
 LAYOUT_FIELD_TYPES = ("Tab Break", "Section Break", "Column Break", "HTML")
+# The fields that Desk can change on a record from a file. The query region of a global service depends on the site, so a file can leave it out.
+DESK_FIELDS = {"Beacon Alert Rule": ("enabled",), "Beacon Service": ("enabled", "query_region")}
 
 BUILT_IN_RULES = (
 	{
@@ -192,11 +194,16 @@ class SourceSync:
 				raise DefinitionSourceError(f"{rule.path}: add the header {', '.join(missing)}")
 
 	def _get_warnings(self, rules: list[DefinitionFile]) -> list[str]:
+		unmeasured = frappe.get_all(
+			"Beacon Service",
+			filters={"source": self.repository, "scope": "Global", "query_region": ("is", "not set")},
+			pluck="name",
+		)
 		return [
 			f"{rule.path}: a {rule.values['severity']} rule pages, so add a runbook_url."
 			for rule in rules
 			if rule.values.get("severity") in PAGING_SEVERITIES and not rule.values.get("runbook_url")
-		]
+		] + [f"{name}: a global service needs a Query Region. Set it in Desk." for name in unmeasured]
 
 	def _check_owners(self, doctype: str, files: list[DefinitionFile]) -> None:
 		"""A name belongs to one source. Built-in and burn rules have no source, so a file cannot take them.
@@ -328,7 +335,7 @@ def create_built_in_rules() -> None:
 
 
 def check_desk_change(doc: Document) -> None:
-	"""Rules and services come from definition sources, where Desk can only turn them on or off. A rule made in Desk is Custom."""
+	"""Rules and services come from definition sources, where Desk can change only DESK_FIELDS. A rule made in Desk is Custom."""
 	if doc.flags.loading_definitions:
 		return
 	if doc.is_new() and doc.meta.has_field("is_custom"):
@@ -337,11 +344,13 @@ def check_desk_change(doc: Document) -> None:
 		return
 	if doc.is_new():
 		frappe.throw(_("Add a file to a definition source, then sync it in Beacon Settings."))
+	editable = DESK_FIELDS[doc.doctype]
 	if any(
 		doc.has_value_changed(df.fieldname)
 		for df in doc.meta.fields
-		if df.fieldtype not in LAYOUT_FIELD_TYPES and df.fieldname != "enabled"
+		if df.fieldtype not in LAYOUT_FIELD_TYPES and df.fieldname not in editable
 	):
+		labels = ", ".join(_(doc.meta.get_label(field)) for field in editable)
 		frappe.throw(
-			_("This comes from {0}. You can only change Enabled here.").format(doc.source or "Beacon")
+			_("This comes from {0}. You can only change {1} here.").format(doc.source or "Beacon", labels)
 		)

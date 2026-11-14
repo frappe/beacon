@@ -257,7 +257,7 @@ FROM (
 WHERE last_ts IS NOT NULL AND last_ts > toDateTime64(0, 3)
 ```
 
-Count only failures that the platform causes. A failure of the customer's own app or a normal 4xx answer is good. A global service sets `scope: Global` and `query_region`, the region whose ClickHouse has its data. A global application, such as Central, is not in a resource list, so its SLI reports `{region:String} AS resource_id`, the region resource.
+Count only failures that the platform causes. A failure of the customer's own app or a normal 4xx answer is good. A global service sets `scope: Global` and `query_region`, the region whose ClickHouse has its data. When that region depends on the site, leave `query_region` out and set Query Region in Desk. A global application, such as Central, is not in a resource list, so its SLI reports `{region:String} AS resource_id`, the region resource.
 
 ## 8. Serve a resource list
 
@@ -292,7 +292,7 @@ The sync applies all files of a source, or none. It applies none when one file h
 
 When a rule or service file is missing, Beacon disables that record and marks it Removed From Source. Beacon enables it again when the file comes back. A source can take a name when its old source removed the file or is no longer configured. So a rule can move between repositories.
 
-Desk can only turn a file rule on or off. To change a rule, change its file.
+Desk can only turn a file rule or service on or off, and set the Query Region of a global service. To change anything else, change its file.
 
 After the sync, open the rule in Desk. A rule that fails 3 times in a row is Broken, and the control panel shows it in red. Fix it in the same week.
 
