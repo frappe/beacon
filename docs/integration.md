@@ -162,7 +162,7 @@ flowchart TD
 
 ## 6. Write a rule and a runbook
 
-Add a rule only when it points to one fix. Each rule is one file, `beacon/rules/<rule-key>.sql`. It returns only failing rows, with `resource_id`, `alert_key`, `value`, `detail` and an optional `severity`. See [Alerts](alerts.md) for the contract and the header.
+Add a rule only when it points to one fix. Each rule is one file, `beacon/rules/<rule-key>.sql`. Write the rule key, the service key, the runbook name and a fixed `alert_key` in lowercase with `-`, such as `host-disk-full`, because they are file names and parts of URLs. Metric and label names use `_`, because Datum refuses `-` in them. It returns only failing rows, with `resource_id`, `alert_key`, `value`, `detail` and an optional `severity`. See [Alerts](alerts.md) for the contract and the header.
 
 ### An example
 
