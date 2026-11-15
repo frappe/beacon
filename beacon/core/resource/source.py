@@ -150,8 +150,9 @@ class ResourceSync:
 		return changes
 
 	def _get_removals(self, updates: dict, missing: dict, existing: dict) -> set[str]:
-		"""Names of checked resources that this list would stop checking."""
-		leaving = {name for name, changes in updates.items() if changes["status"] != "Active"}
+		"""Names of checked resources that this list would terminate. A Suspended or Pending status is a state
+		that the source reports on purpose, such as a sleeping VM, so it is not a removal."""
+		leaving = {name for name, changes in updates.items() if changes["status"] == "Terminated"}
 		at_limit = {
 			name
 			for name, current in missing.items()
