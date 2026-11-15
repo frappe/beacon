@@ -61,6 +61,7 @@ SERVICE_HEADER_FIELDS = {
 	"query_region": str,
 	"slo_target": float,
 	"sla_target": float,
+	"major_outage_below": float,
 	"show_on_status_page": int,
 	"sort_order": int,
 	"page_on_burn": int,

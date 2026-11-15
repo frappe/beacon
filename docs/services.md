@@ -60,7 +60,7 @@ The status of a service in a region comes from the SLI of the last minute.
 
 1. When the worst impact of the open Public incidents and maintenances on this service is Maintenance, the status is Maintenance.
 2. Else, when the region is not OK or the service has no valid measurement, the status is Unknown.
-3. Else the SLI sets it: 99.5% or more is Operational, 95% or more is Degraded, 80% or more is Partial Outage, and less is Major Outage.
+3. Else the SLI sets it: 99.5% or more is Operational, 95% or more is Degraded, the Major Outage Below value of the service (80% by default) or more is Partial Outage, and less is Major Outage.
 
 A worse status must stay for 3 minutes before Beacon shows it. A better status must stay for 2 minutes.
 

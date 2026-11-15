@@ -163,7 +163,7 @@ class ServiceMeasurement:
 			return "Maintenance"
 		if self.context.region.telemetry_state != "OK" or not sample or sample.ratio is None:
 			return "Unknown"
-		return ServiceStatus.from_ratio(sample.ratio)
+		return ServiceStatus.from_ratio(sample.ratio, self.service.major_outage_below)
 
 	def _reconcile_burn_alerts(self) -> None:
 		policy = BurnPolicy(self.service, self.region, self.minute)
