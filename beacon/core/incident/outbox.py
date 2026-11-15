@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 import frappe
 from frappe.utils import now_datetime
 
-from beacon.core.incident.notifiers import NOTIFIERS
+from beacon.core.incident.notifiers import NOTIFIERS, Notifier
 from beacon.core.jobs import queue_notification
 from beacon.core.transaction import RecordTransaction
 
@@ -69,15 +69,18 @@ class NotificationDelivery:
 	def send(self) -> None:
 		"""Send one queued notification. A failure is recorded on the row, not retried.
 
-		The provider call runs before the row is locked. Only the write is retried, so a lock conflict
-		cannot send the notification twice.
+		The row is claimed first, so a second job for it sends nothing. The provider call runs after that commit,
+		with no lock held. A job that stops during the call leaves the row in Sending, and nobody resends it,
+		because the provider may already have it.
 		"""
 		notification = self.notification
-		if notification.status != "Queued":
+		notifier = NOTIFIERS[notification.channel](frappe.get_cached_doc("Beacon Settings"))
+		if not RecordTransaction("Beacon Notification", notification.name).retry(
+			lambda: self._claim(notifier)
+		):
 			return
 
 		try:
-			notifier = NOTIFIERS[notification.channel](frappe.get_cached_doc("Beacon Settings"))
 			values = {
 				"provider_ref": notifier.send(notification),
 				"status": "Sent",
@@ -93,10 +96,32 @@ class NotificationDelivery:
 
 		RecordTransaction("Beacon Notification", notification.name).retry(lambda: self._record(values))
 
+	def _claim(self, notifier: Notifier) -> bool:
+		"""Move the row from Queued to Sending. A pause, a disabled channel or a disabled responder that came
+		after the row was queued cancels it. An escalation pages again when paging resumes."""
+		name = self.notification.name
+		if frappe.db.get_value("Beacon Notification", name, "status", for_update=True) != "Queued":
+			return False
+
+		responder = self.notification.responder
+		if not notifier.is_enabled() or (responder and not frappe.db.get_value("User", responder, "enabled")):
+			frappe.db.set_value(
+				"Beacon Notification",
+				name,
+				{
+					"status": "Cancelled",
+					"error": "Paging was paused, or the channel or responder was disabled.",
+				},
+			)
+			return False
+
+		frappe.db.set_value("Beacon Notification", name, "status", "Sending")
+		return True
+
 	def _record(self, values: dict) -> None:
 		"""A phone callback can set the status first. Then only the provider reference is kept."""
 		status = frappe.db.get_value("Beacon Notification", self.notification.name, "status", for_update=True)
-		if status != "Queued":
+		if status != "Sending":
 			values = {"provider_ref": values.get("provider_ref"), "sent_at": values.get("sent_at")}
 		frappe.db.set_value("Beacon Notification", self.notification.name, values)
 

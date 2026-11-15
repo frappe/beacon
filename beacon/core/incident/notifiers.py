@@ -8,7 +8,7 @@ from xml.sax.saxutils import escape
 
 import frappe
 import requests
-from frappe.utils import get_url
+from frappe.utils import escape_html, get_url
 from frappe.utils.password import get_encryption_key
 
 if TYPE_CHECKING:
@@ -66,7 +66,7 @@ class EmailNotifier(Notifier):
 			recipients=[email],
 			sender=sender,
 			subject=f"[Beacon] {notification.incident}",
-			message=notification.message,
+			message=f"<p>{escape_html(notification.message)}</p>",
 			reference_doctype="Beacon Incident",
 			reference_name=notification.incident,
 		)
@@ -105,7 +105,7 @@ class CallNotifier(Notifier):
 			"Beacon Incident", notification.incident, ["severity", "title"], as_dict=True
 		)
 		speech = escape(
-			f"Beacon alert. A {incident.severity} severity incident: {incident.title.split(' · ')[0]}."
+			f"Beacon alert. A {incident.severity} severity incident: {incident.title.rsplit(' · ', 1)[0]}."
 			if incident
 			else notification.message
 		)
