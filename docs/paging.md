@@ -42,6 +42,16 @@ POST /api/v2/document/Beacon%20Incident/<name>/method/acknowledge
 
 "Paging Paused" in Beacon Settings stops all calls and emails, for example after a database restore. Escalations continue when the pause ends.
 
+## Emails to responders
+
+Each email is a report card from `beacon/templates/emails/` with the incident's severity, status, start time, regions and alerts, and a link to the incident. The subject is `[Severity][Incident] Title`.
+
+| Email | Sent to | When |
+| --- | --- | --- |
+| New incident | Every active responder | An incident starts, unless it is Low |
+| Escalation page | The responder that Beacon calls | Each page round, with the call |
+| Incident resolved | Every active responder | The incident resolves, unless it is Low. It shows the closing note. |
+
 ## Delivery
 
 Beacon writes each notification row in the same transaction as the change that caused it. A job sends it after the commit, on the `short` queue, so a page does not wait behind slow region runs. The job first moves the row from Queued to Sending, so a second job sends nothing. When paging is paused, or the channel or the responder is disabled when the job runs, the row becomes Cancelled. A row that stays in Sending means that the job stopped during the call to the provider. Beacon does not send it again, because the provider may have it.

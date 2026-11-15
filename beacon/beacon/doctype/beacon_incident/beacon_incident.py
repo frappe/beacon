@@ -179,7 +179,7 @@ class BeaconIncident(Document):
 		self.add_update(message, is_public, status="Resolved")
 		self.lifecycle.move_to("Resolved")
 		self.save()
-		NotificationOutbox().announce(self, f"Resolved {self.name}: {message}")
+		NotificationOutbox().announce(self, f"Resolved {self.name}: {message}", email=True)
 
 	@document_action
 	def reopen(self) -> None:
