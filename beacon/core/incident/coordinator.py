@@ -153,7 +153,9 @@ class IncidentCoordinator:
 		incident.add_group_key(group_key)
 		if is_more_severe:
 			incident.severity = alert.severity
-			NotificationOutbox().announce(incident, f"Severity raised to {alert.severity} by {alert.title}")
+			NotificationOutbox().announce(
+				incident, f"Severity raised to {alert.severity} by {alert.title}\n{alert.detail}".rstrip()
+			)
 		if is_monitoring:
 			incident.lifecycle.move_to("Investigating")
 		incident.save(ignore_permissions=True)
@@ -169,7 +171,7 @@ class IncidentCoordinator:
 		incident = frappe.get_doc(
 			{
 				"doctype": "Beacon Incident",
-				"title": f"{rule.title} · {resource.resource_id}",
+				"title": f"{rule.title} · {resource.title or resource.resource_id}",
 				"type": "Incident",
 				"severity": alert.severity,
 				"status": "Triggered",
@@ -194,7 +196,9 @@ class IncidentCoordinator:
 		self.incidents.insert(0, item)
 
 		NotificationOutbox().announce(
-			incident, f"New incident {incident.name}: {incident.title} ({incident.severity})", email=True
+			incident,
+			f"New incident {incident.name} ({incident.severity}): {incident.title}\n{alert.detail}".rstrip(),
+			email=True,
 		)
 		if incident.severity in PAGED_SEVERITIES:
 			IncidentEscalation(incident).start(wait=bool(resource.parent_resource))
@@ -246,7 +250,7 @@ class IncidentCoordinator:
 				"suppressed": 0,
 				"incident": ("is", "not set"),
 			},
-			fields=["name", "title", "rule", "resource", "severity", "fired_at"],
+			fields=["name", "title", "rule", "resource", "severity", "fired_at", "detail"],
 			order_by="fired_at asc",
 		)
 		return sorted(alerts, key=lambda alert: alert.rule in self.burn_rules)

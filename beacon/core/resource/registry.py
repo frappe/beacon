@@ -10,6 +10,7 @@ NEW_RESOURCE_GRACE = timedelta(minutes=10)
 
 RESOURCE_FIELDS = (
 	"name",
+	"title",
 	"region",
 	"resource_id",
 	"resource_type",

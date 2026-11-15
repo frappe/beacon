@@ -107,7 +107,7 @@ class AlertReconciler:
 				"modified": self.now,
 				"owner": "Administrator",
 				"modified_by": "Administrator",
-				"title": f"{self.rule.title} · {row.resource.resource_id}",
+				"title": f"{self.rule.title} · {row.resource.title or row.resource.resource_id}",
 				"status": "Firing" if is_firing else "Pending",
 				"severity": row.severity or self.rule.severity,
 				"rule": self.rule.name,

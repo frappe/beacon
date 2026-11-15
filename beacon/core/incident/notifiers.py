@@ -8,7 +8,7 @@ from xml.sax.saxutils import escape
 
 import frappe
 import requests
-from frappe.utils import get_url
+from frappe.utils import get_url, get_url_to_form
 from frappe.utils.password import get_encryption_key
 
 from beacon.core.incident.emails import IncidentEmail
@@ -47,11 +47,11 @@ class ChatNotifier(Notifier):
 
 	def send(self, notification: BeaconNotification) -> None:
 		url = self.settings.get_password("chat_webhook_url")
-		text = (
-			f"[{notification.incident}] {notification.message}"
-			if notification.incident
-			else notification.message
-		)
+		text = notification.message
+		if notification.incident:
+			if notification.incident not in text:
+				text = f"[{notification.incident}] {text}"
+			text += f"\n{get_url_to_form('Beacon Incident', notification.incident)}"
 		requests.post(url, json={"text": text}, timeout=REQUEST_TIMEOUT_SECONDS).raise_for_status()
 
 
