@@ -42,6 +42,13 @@ class ServiceStatus:
 		return next((status for threshold, status in STATUS_THRESHOLDS if ratio >= threshold), "Major Outage")
 
 	@staticmethod
+	def with_impact(measured: str, impact: str) -> str:
+		"""A published impact can only make the measured status worse. It replaces an unknown measurement."""
+		if measured == "Unknown":
+			return "Unknown" if impact == "Operational" else impact
+		return max(measured, impact, key=STATUS_ORDER.index)
+
+	@staticmethod
 	def get_rank(status: str) -> int:
 		"""Unknown ranks after every known status."""
 		return STATUS_ORDER.index(status) if status in STATUS_ORDER else len(STATUS_ORDER)

@@ -11,7 +11,7 @@ from frappe.utils import add_days, get_datetime, getdate, now_datetime
 
 from beacon.core.incident.merge import IncidentMerge
 from beacon.core.resource.regions import RegionSelection
-from beacon.core.service.status import STATUS_ORDER
+from beacon.core.service.status import STATUS_ORDER, ServiceStatus
 
 CACHE_SECONDS = 60
 HISTORY_DAYS = 90
@@ -330,10 +330,7 @@ class StatusPage:
 		age = now_datetime() - get_datetime(state.checked_at) if state.checked_at else None
 		stale = age is None or age < timedelta(0) or age > MEASUREMENT_MAX_AGE
 		measured_status = "Unknown" if stale else state.status
-		if measured_status == "Unknown":
-			status = "Unknown" if impact == "Operational" else impact
-		else:
-			status = max(measured_status, impact, key=STATUS_ORDER.index)
+		status = ServiceStatus.with_impact(measured_status, impact)
 		history = days.get((service, region), [])
 		good, valid = sum(day.good for day in history), sum(day.valid for day in history)
 		return {

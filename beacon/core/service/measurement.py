@@ -14,7 +14,8 @@ from beacon.core.resource.clickhouse import ClickHouseClient
 from beacon.core.resource.registry import ResourceMatch, ResourceRegistry
 from beacon.core.service.burn import BurnPolicy
 from beacon.core.service.history import ServiceHistory, ServiceSample
-from beacon.core.service.status import ServiceStatus
+from beacon.core.service.status import STATUS_ORDER, ServiceStatus
+from beacon.core.status_page import CLOSED_STATUSES
 from beacon.core.transaction import RecordTransaction
 
 if TYPE_CHECKING:
@@ -101,9 +102,12 @@ class ServiceMeasurement:
 		if self._is_counted():
 			return
 
-		ServiceStatus(self.state, self.minute).apply(self._compute_status(sample))
+		impact = self._get_published_impact()
+		ServiceStatus(self.state, self.minute).apply(self._compute_status(sample, impact))
 		if sample and sample.valid:
-			ServiceHistory(self.service.name, self.region).record(self.minute, sample, self.state.status)
+			# The day history counts a declared outage too. The SLO budget counts only good and valid.
+			status = ServiceStatus.with_impact(self.state.status, impact)
+			ServiceHistory(self.service.name, self.region).record(self.minute, sample, status)
 
 		self.state.checked_at = self.now
 		self.state.last_counted_minute = self.minute
@@ -151,8 +155,8 @@ class ServiceMeasurement:
 			sample.bad_reporters += int(good < valid)
 		return sample
 
-	def _compute_status(self, sample: ServiceSample | None) -> str:
-		if self._is_in_public_maintenance():
+	def _compute_status(self, sample: ServiceSample | None, impact: str) -> str:
+		if impact == "Maintenance":
 			return "Maintenance"
 		if self.context.region.telemetry_state != "OK" or not sample or sample.ratio is None:
 			return "Unknown"
@@ -170,25 +174,25 @@ class ServiceMeasurement:
 		changes = reconciler.reconcile(policy.get_failures(registry.region_resource))
 		IncidentRecovery.queue(changes.recovered_incidents)
 
-	def _is_in_public_maintenance(self) -> bool:
+	def _get_published_impact(self) -> str:
+		"""The worst impact on this service in this region of the open Public incidents and maintenances."""
 		incident = frappe.qb.DocType("Beacon Incident")
 		impact = frappe.qb.DocType("Beacon Incident Service")
-		return bool(
+		impacts = (
 			frappe.qb.from_(incident)
 			.join(impact)
 			.on(impact.parent == incident.name)
-			.select(incident.name)
+			.select(impact.impact)
+			.distinct()
 			.where(
-				(incident.type == "Maintenance")
-				& (incident.status == "In Progress")
-				& (incident.visibility == "Public")
+				(incident.visibility == "Public")
+				& incident.status.notin((*CLOSED_STATUSES, "Scheduled"))
 				& (impact.service == self.service.name)
-				& (impact.impact == "Maintenance")
 				& ((impact.region == self.region) | impact.region.isnull() | (impact.region == ""))
 			)
-			.limit(1)
-			.run()
+			.run(pluck=True)
 		)
+		return max(impacts, key=STATUS_ORDER.index, default="Operational")
 
 	def _load_state(self) -> BeaconServiceState:
 		name = frappe.db.get_value("Beacon Service State", self.filters, for_update=True)
