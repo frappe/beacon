@@ -28,7 +28,8 @@
   "twilio_from_number",
   "column_break_3",
   "twilio_account_sid",
-  "twilio_auth_token",
+  "twilio_api_key_sid",
+  "twilio_api_key_secret",
   "email_and_chat_section",
   "email_enabled",
   "email_account",
@@ -185,9 +186,14 @@
    "label": "Twilio Account SID"
   },
   {
-   "fieldname": "twilio_auth_token",
+   "fieldname": "twilio_api_key_sid",
+   "fieldtype": "Data",
+   "label": "Twilio API Key SID"
+  },
+  {
+   "fieldname": "twilio_api_key_secret",
    "fieldtype": "Password",
-   "label": "Twilio Auth Token"
+   "label": "Twilio API Key Secret"
   },
   {
    "fieldname": "email_and_chat_section",
@@ -309,7 +315,7 @@
  "issingle": 1,
  "link_display_mode": "Search",
  "links": [],
- "modified": "2026-11-14 13:00:00.000000",
+ "modified": "2026-11-15 09:00:00.000000",
  "modified_by": "Administrator",
  "module": "Beacon",
  "name": "Beacon Settings",

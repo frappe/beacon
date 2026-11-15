@@ -19,7 +19,7 @@ A High incident stops after the maximum rounds, 3 by default, and Beacon posts t
 
 ## Acknowledge
 
-The call asks the responder to press 1. Only the digit 1 acknowledges. Beacon checks the Twilio signature, finds the notification of the call, follows a merge to the open incident, and ignores repeated callbacks.
+The call says the incident message. When the responder answers the call, Beacon acknowledges the incident. Twilio reports the answer to a callback URL that holds a token for that call, so Beacon needs a Twilio API key and not the account Auth Token. Beacon checks the token, follows a merge to the open incident, and ignores repeated callbacks.
 
 Staff acknowledge with the Acknowledge action. Chat tools and scripts can call the same action:
 
@@ -34,7 +34,7 @@ POST /api/v2/document/Beacon%20Incident/<name>/method/acknowledge
 | None | Incident created, and its resource has a parent | Waiting, for the page delay |
 | None, Waiting | The page delay ends, the resource has no parent, or Page On-call | Calling |
 | Calling | No acknowledge in the backup time | Calling the next responder |
-| Calling | The Acknowledge action or a key press | Done |
+| Calling | The Acknowledge action or an answered call | Done |
 | Calling | The maximum rounds without an answer, and the severity is High | Done, and a chat post |
 | Waiting, Calling | The incident merges or resolves | Done |
 

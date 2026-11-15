@@ -48,7 +48,7 @@ one update stream, one private link
 | From | Event | To |
 | --- | --- | --- |
 | none | The coordinator creates it | Triggered |
-| Triggered | The Acknowledge action, or a key press on the call | Investigating |
+| Triggered | The Acknowledge action, or an answered call | Investigating |
 | Investigating, Identified, Monitoring | Post an update | The status of the update |
 | Monitoring | An alert joins | Investigating, and paging starts again |
 | Any open | All alerts recover, and it is Internal and made by Beacon | Resolved |
