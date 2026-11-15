@@ -29,7 +29,10 @@ class OpenIncident:
 	burn_resources: set[str] = field(default_factory=set)
 
 	def covers(self, resource: frappe._dict | None) -> bool:
-		return bool(resource) and any(match.covers(resource) for match in self.matches)
+		# Every region-level rule reports on the region resource, so a scope on it would join unrelated rules.
+		if not resource or resource.resource_type == "Region":
+			return False
+		return any(match.covers(resource) for match in self.matches)
 
 	def is_young(self, now: datetime) -> bool:
 		return self.creation > now - YOUNG_INCIDENT
