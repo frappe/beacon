@@ -17,6 +17,14 @@ CACHE_SECONDS = 60
 HISTORY_DAYS = 90
 MINUTES_PER_DAY = 1440
 CLOSED_STATUSES = ("Resolved", "Merged", "Completed", "Cancelled")
+# A declared service shows these minutes for each day. A Partial Outage minute is also an outage minute.
+DAY_MINUTE_FIELDS = ("degraded_minutes", "outage_minutes", "partial_outage_minutes", "maintenance_minutes")
+IMPACT_MINUTE_FIELDS = {
+	"Degraded": ("degraded_minutes",),
+	"Partial Outage": ("outage_minutes", "partial_outage_minutes"),
+	"Major Outage": ("outage_minutes",),
+	"Maintenance": ("maintenance_minutes",),
+}
 MEASUREMENT_MAX_AGE = timedelta(minutes=3)
 PUBLIC_UPDATE_FIELDS = ["posted_at", "status", "message"]
 
@@ -60,6 +68,7 @@ class StatusPage:
 		incidents = self._get_open_published_incidents()
 		impacts = self._get_impacts(incidents)
 		days = self._get_days()
+		self.declared_days = self._get_declared_days()
 		visible_services = self._get_services()
 		self.states = self._get_states()
 
@@ -233,7 +242,16 @@ class StatusPage:
 		services = frappe.get_all(
 			"Beacon Service",
 			filters={"show_on_status_page": 1, "enabled": 1},
-			fields=["name", "title", "description", "scope", "query_region"],
+			fields=[
+				"name",
+				"title",
+				"description",
+				"scope",
+				"query_region",
+				"measurement",
+				"status_page_group",
+				"creation",
+			],
 			order_by="sort_order asc, title asc",
 		)
 		selection = RegionSelection("Beacon Service")
@@ -273,32 +291,59 @@ class StatusPage:
 		return days
 
 	def _get_service(self, service: frappe._dict, region: str, impacts: dict, days: dict) -> dict:
-		state = self.states.get((service.name, region)) or frappe._dict(status="Unknown")
-		age = now_datetime() - get_datetime(state.checked_at) if state.checked_at else None
-		stale = age is None or age < timedelta(0) or age > MEASUREMENT_MAX_AGE
-		measured_status = "Unknown" if stale else state.status
 		impact = max(
 			impacts.get((service.name, region), "Operational"),
 			impacts.get((service.name, ""), "Operational"),
 			key=STATUS_ORDER.index,
 		)
+		row = {
+			"service": service.name,
+			"title": service.title,
+			"description": service.description,
+			"group": service.status_page_group or None,
+			"measurement": service.measurement,
+			"declared_impact": impact,
+			"history_days": HISTORY_DAYS,
+		}
+		if service.measurement == "Declared":
+			return {**row, **self._get_declared_service(service, region, impact)}
+		return {**row, **self._get_measured_service(service.name, region, impact, days)}
+
+	def _get_declared_service(self, service: frappe._dict, region: str, impact: str) -> dict:
+		"""No SLI: the status is the impact of open published incidents, and each day shows their minutes."""
+		history = {
+			**self.declared_days.get((service.name, ""), {}),
+			**self.declared_days.get((service.name, region), {}),
+		}
+		return {
+			"status": impact,
+			"measurement_status": "Declared",
+			"stale": False,
+			"checked_at": None,
+			"last_counted_minute": None,
+			"coverage": None,
+			"uptime": None,
+			"declared_since": str(getdate(service.creation)),
+			"days": [{"date": date, **minutes} for date, minutes in sorted(history.items())],
+		}
+
+	def _get_measured_service(self, service: str, region: str, impact: str, days: dict) -> dict:
+		state = self.states.get((service, region)) or frappe._dict(status="Unknown")
+		age = now_datetime() - get_datetime(state.checked_at) if state.checked_at else None
+		stale = age is None or age < timedelta(0) or age > MEASUREMENT_MAX_AGE
+		measured_status = "Unknown" if stale else state.status
 		if measured_status == "Unknown":
 			status = "Unknown" if impact == "Operational" else impact
 		else:
 			status = max(measured_status, impact, key=STATUS_ORDER.index)
-		history = days.get((service.name, region), [])
+		history = days.get((service, region), [])
 		good, valid = sum(day.good for day in history), sum(day.valid for day in history)
 		return {
-			"service": service.name,
-			"title": service.title,
-			"description": service.description,
 			"status": status,
 			"measurement_status": measured_status,
-			"declared_impact": impact,
 			"stale": stale,
 			"checked_at": self._to_utc_iso(state.checked_at),
 			"last_counted_minute": self._to_utc_iso(state.last_counted_minute),
-			"history_days": HISTORY_DAYS,
 			"coverage": round(
 				sum(day.observed_minutes for day in history) / (HISTORY_DAYS * MINUTES_PER_DAY), 4
 			),
@@ -319,6 +364,43 @@ class StatusPage:
 				for day in history
 			],
 		}
+
+	def _get_declared_days(self) -> dict[tuple[str, str], dict[str, dict[str, int]]]:
+		"""For each (service, region), the minutes of each published impact on each UTC day of the history.
+		A blank region means every region. An open incident counts until now. Maintenance counts from its
+		scheduled start."""
+		now = now_datetime()
+		start = get_datetime(add_days(getdate(), -HISTORY_DAYS + 1))
+		incidents = {
+			incident.name: incident
+			for incident in frappe.get_all(
+				"Beacon Incident",
+				filters={"visibility": "Public", "status": ("not in", ("Merged", "Cancelled", "Scheduled"))},
+				or_filters=[["resolved_at", "is", "not set"], ["resolved_at", ">=", start]],
+				fields=["name", "creation", "scheduled_start", "resolved_at"],
+			)
+		}
+		rows = frappe.get_all(
+			"Beacon Incident Service",
+			filters={"parent": ("in", list(incidents) or [""])},
+			fields=["parent", "service", "region", "impact"],
+		)
+		days: dict[tuple[str, str], dict[str, dict[str, int]]] = {}
+		for row in rows:
+			incident = incidents[row.parent]
+			moment = max(get_datetime(incident.scheduled_start or incident.creation), start)
+			end = get_datetime(incident.resolved_at) if incident.resolved_at else now
+			while moment < end:
+				day_end = min(get_datetime(add_days(moment.date(), 1)), end)
+				minutes = days.setdefault((row.service, row.region or ""), {}).setdefault(
+					str(moment.date()), dict.fromkeys(DAY_MINUTE_FIELDS, 0)
+				)
+				for field in IMPACT_MINUTE_FIELDS[row.impact]:
+					minutes[field] = min(
+						minutes[field] + int((day_end - moment).total_seconds() // 60), MINUTES_PER_DAY
+					)
+				moment = day_end
+		return days
 
 	@staticmethod
 	def _to_utc_iso(value: str | datetime | None) -> str | None:

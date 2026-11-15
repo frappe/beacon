@@ -10,6 +10,7 @@
   "description",
   "overview_column",
   "enabled",
+  "measurement",
   "slo_target",
   "sla_target",
   "page_on_burn",
@@ -19,6 +20,7 @@
   "show_on_status_page",
   "status_page_column",
   "sort_order",
+  "status_page_group",
   "advanced_section",
   "service_key",
   "advanced_column",
@@ -61,6 +63,15 @@
    "fieldname": "enabled",
    "fieldtype": "Check",
    "label": "Enabled",
+   "show_description_on_click": 1
+  },
+  {
+   "default": "Measured",
+   "description": "A Declared service has no SLI. Published incidents set its status.",
+   "fieldname": "measurement",
+   "fieldtype": "Select",
+   "label": "Measurement",
+   "options": "Measured\nDeclared",
    "show_description_on_click": 1
   },
   {
@@ -119,6 +130,13 @@
    "fieldname": "sort_order",
    "fieldtype": "Int",
    "label": "Sort Order"
+  },
+  {
+   "description": "Services with the same group show under one heading.",
+   "fieldname": "status_page_group",
+   "fieldtype": "Data",
+   "label": "Status Page Group",
+   "show_description_on_click": 1
   },
   {
    "collapsible": 1,
@@ -217,7 +235,7 @@
    "link_fieldname": "service"
   }
  ],
- "modified": "2026-11-14 02:32:35.127451",
+ "modified": "2026-11-15 11:00:00.000000",
  "modified_by": "Administrator",
  "module": "Beacon",
  "name": "Beacon Service",

@@ -33,6 +33,7 @@ class BeaconService(Document):
 		description: DF.SmallText | None
 		enabled: DF.Check
 		is_removed: DF.Check
+		measurement: DF.Literal["Measured", "Declared"]
 		page_on_burn: DF.Check
 		query_region: DF.Link | None
 		regions: DF.TableMultiSelect[BeaconRegionItem]
@@ -44,6 +45,7 @@ class BeaconService(Document):
 		slo_target: DF.Percent
 		source: DF.Data | None
 		sort_order: DF.Int
+		status_page_group: DF.Data | None
 		title: DF.Data
 	# end: auto-generated types
 

@@ -70,6 +70,12 @@ The status page shows the worse of the measured status and the impact of open pu
 
 Uptime on the status page is the measured SLI: good divided by valid, for each day and for 90 days. Each day also shows its coverage, the share of the day's minutes that Beacon measured. The color of a bar comes from the minutes that the page showed each status on that day. The downtime of a day is the Major Outage minutes plus 0.3 times the Partial Outage minutes, as on Atlassian Statuspage. A day with 15 or more minutes of downtime is red, and a day with less downtime is orange. A day with no downtime and with Degraded minutes is yellow. Else the day is green, or blue when it had Maintenance minutes. So a bad minute that does not hold long enough to change the status lowers the uptime but does not change the color of the bar.
 
+## Declared services and groups
+
+A service with `measurement: Declared` has no SLI, and Beacon does not measure it. Its status is the impact of the open published incidents on it, else Operational. Its bars show the minutes of published impact on each day since Beacon added it, with the same colors. The page says "Set by incidents, not measured" in place of the uptime. Use a declared service for a part that customers see but that has no metric yet.
+
+Services with the same `status_page_group` show under one heading with that name. The group takes the place of its first service in the sort order.
+
 ## The status page
 
 The status page is a Vue app at `/` of the Beacon site. It reads only these guest methods: `get_status`, `get_history`, `get_incident` and `get_unlisted_incident`. They return only published data and cache each result for 60 seconds, so traffic during an outage does not reach ClickHouse. An action that changes published data clears the cache keys that it changes.

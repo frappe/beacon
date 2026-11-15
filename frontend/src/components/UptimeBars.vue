@@ -19,7 +19,7 @@
 			<strong>{{ detail.date }} UTC</strong><span>{{ detail.label }}</span>
 		</div>
 		<dl v-if="detail.sample" class="day-facts">
-			<div>
+			<div v-if="!declaredSince">
 				<dt>Uptime</dt>
 				<dd>{{ detail.sample.uptime }}%</dd>
 			</div>
@@ -41,7 +41,17 @@
 </template>
 <script setup>
 import { computed, ref } from "vue";
-const props = defineProps({ days: { type: Array, required: true } });
+const props = defineProps({
+	days: { type: Array, required: true },
+	// A declared service lists only the days with a published impact. Every other day since it was added had none.
+	declaredSince: { type: String, default: "" },
+});
+const NO_IMPACT = {
+	degraded_minutes: 0,
+	outage_minutes: 0,
+	partial_outage_minutes: 0,
+	maintenance_minutes: 0,
+};
 const focused = ref(89),
 	selected = ref(null);
 const slots = computed(() => {
@@ -51,8 +61,9 @@ const slots = computed(() => {
 		const date = new Date(today);
 		date.setUTCDate(today.getUTCDate() - (89 - index));
 		const key = date.toISOString().slice(0, 10),
-			day = byDate[key];
-		if (!day || day.uptime === null)
+			declared = props.declaredSince && key >= props.declaredSince,
+			day = byDate[key] || (declared ? { date: key, ...NO_IMPACT } : undefined);
+		if (!day || (day.uptime === null && !declared))
 			return {
 				date: key,
 				class: "bar-empty",
@@ -65,7 +76,9 @@ const slots = computed(() => {
 		return {
 			date: key,
 			sample: day,
-			title: `${key}: ${description.label}, ${day.uptime}% uptime`,
+			title: declared
+				? `${key}: ${description.label}`
+				: `${key}: ${description.label}, ${day.uptime}% uptime`,
 			...description,
 		};
 	});

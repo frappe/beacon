@@ -76,7 +76,7 @@ class RegionSchedule:
 	def _get_services(self) -> list[frappe._dict]:
 		services = frappe.get_all(
 			"Beacon Service",
-			filters={"enabled": 1},
+			filters={"enabled": 1, "measurement": "Measured"},
 			fields=["name", "scope", "query_region", "sli_query", "slo_target", "sla_target", "page_on_burn"],
 		)
 		selection = RegionSelection("Beacon Service")
