@@ -1,11 +1,15 @@
 from __future__ import annotations
 
+import hashlib
+import hmac
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, ClassVar
+from xml.sax.saxutils import escape
 
 import frappe
 import requests
 from frappe.utils import get_url
+from frappe.utils.password import get_encryption_key
 
 if TYPE_CHECKING:
 	from beacon.beacon.doctype.beacon_incident.beacon_incident import BeaconIncident
@@ -74,20 +78,29 @@ class CallNotifier(Notifier):
 
 	def send(self, notification: BeaconNotification) -> str:
 		phone = frappe.db.get_value("Beacon Responder", {"user": notification.responder}, "phone")
-		account = self.settings.twilio_account_sid
+		token = self.get_callback_token(notification.name)
 		response = requests.post(
-			f"https://api.twilio.com/2010-04-01/Accounts/{account}/Calls.json",
-			auth=(account, self.settings.get_password("twilio_auth_token")),
+			f"https://api.twilio.com/2010-04-01/Accounts/{self.settings.twilio_account_sid}/Calls.json",
+			auth=(self.settings.twilio_api_key_sid, self.settings.get_password("twilio_api_key_secret")),
 			data={
 				"To": phone,
 				"From": self.settings.twilio_from_number,
-				"Url": get_url(f"/api/method/beacon.api.twilio.voice?notification={notification.name}"),
-				"StatusCallback": get_url("/api/method/beacon.api.twilio.status"),
+				"Twiml": f"<Response><Say>Beacon. {escape(notification.message)}</Say></Response>",
+				"StatusCallback": get_url(
+					f"/api/method/beacon.api.twilio.status?notification={notification.name}&token={token}"
+				),
+				"StatusCallbackEvent": ["answered", "completed"],
 			},
 			timeout=REQUEST_TIMEOUT_SECONDS,
 		)
 		response.raise_for_status()
 		return response.json()["sid"]
+
+	@staticmethod
+	def get_callback_token(notification: str) -> str:
+		"""Twilio signs callbacks only with the account Auth Token, which Beacon does not keep. So the
+		callback URL of each call carries this token."""
+		return hmac.new(get_encryption_key().encode(), notification.encode(), hashlib.sha256).hexdigest()
 
 
 NOTIFIERS = {notifier.channel: notifier for notifier in (ChatNotifier, EmailNotifier, CallNotifier)}

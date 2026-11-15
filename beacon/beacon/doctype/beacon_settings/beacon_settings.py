@@ -56,7 +56,8 @@ class BeaconSettings(Document):
 		status_page_domain: DF.Data | None
 		status_page_title: DF.Data | None
 		twilio_account_sid: DF.Data | None
-		twilio_auth_token: DF.Password | None
+		twilio_api_key_secret: DF.Password | None
+		twilio_api_key_sid: DF.Data | None
 		twilio_from_number: DF.Data | None
 	# end: auto-generated types
 

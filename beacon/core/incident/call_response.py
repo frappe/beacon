@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+import hmac
+
 import frappe
 from frappe.utils import now_datetime
 
 from beacon.core.incident.merge import IncidentMerge
+from beacon.core.incident.notifiers import CallNotifier
 from beacon.core.transaction import RecordTransaction
 
 CALL_STATUSES = {
@@ -17,24 +20,13 @@ CALL_STATUSES = {
 
 
 class CallResponse:
-	"""Applies a verified phone response to its notification and incident."""
+	"""Applies a Twilio call status to its notification. An answered call acknowledges the incident."""
 
 	def __init__(self, notification: str):
 		self.notification = notification
 
-	@classmethod
-	def from_call_sid(cls, call_sid: str) -> CallResponse | None:
-		name = frappe.db.get_value("Beacon Notification", {"provider_ref": call_sid}, "name")
-		if not name:
-			frappe.log_error("Beacon got a Twilio status for an unknown call", call_sid)
-			return None
-		return cls(name)
-
-	def get_message(self) -> str:
-		return frappe.db.get_value("Beacon Notification", self.notification, "message") or "Beacon test call."
-
-	def acknowledge(self) -> None:
-		RecordTransaction("Beacon Notification", self.notification).retry(self._acknowledge)
+	def is_valid_token(self, token: str) -> bool:
+		return hmac.compare_digest(CallNotifier.get_callback_token(self.notification), token)
 
 	def record_status(self, status: str) -> None:
 		if status not in CALL_STATUSES:
@@ -45,9 +37,11 @@ class CallResponse:
 			)
 			return
 
-		RecordTransaction("Beacon Notification", self.notification).retry(
-			lambda: self._record_status(CALL_STATUSES[status])
-		)
+		transaction = RecordTransaction("Beacon Notification", self.notification)
+		if CALL_STATUSES[status] == "Answered":
+			transaction.retry(self._acknowledge)
+		else:
+			transaction.retry(lambda: self._record_status(CALL_STATUSES[status]))
 
 	def _acknowledge(self) -> None:
 		"""Lock the incident before the notification, in the same order as every other incident action."""
@@ -62,7 +56,7 @@ class CallResponse:
 		)
 		previous_user = frappe.session.user
 		try:
-			frappe.set_user(row.responder)  # nosemgrep: the verified key press acts as the called responder
+			frappe.set_user(row.responder)  # nosemgrep: the answered call acts as the called responder
 			incident.acknowledge()
 			frappe.db.set_value(
 				"Beacon Notification",
