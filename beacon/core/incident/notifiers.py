@@ -8,7 +8,7 @@ from xml.sax.saxutils import escape
 
 import frappe
 import requests
-from frappe.utils import get_url
+from frappe.utils import escape_html, get_url
 from frappe.utils.password import get_encryption_key
 
 if TYPE_CHECKING:
@@ -17,6 +17,8 @@ if TYPE_CHECKING:
 	from beacon.beacon.doctype.beacon_settings.beacon_settings import BeaconSettings
 
 REQUEST_TIMEOUT_SECONDS = 10
+# A neural voice. Twilio's basic voice spells out names such as INC-00008.
+CALL_VOICE = "Polly.Joanna-Neural"
 
 
 class Notifier(ABC):
@@ -64,7 +66,7 @@ class EmailNotifier(Notifier):
 			recipients=[email],
 			sender=sender,
 			subject=f"[Beacon] {notification.incident}",
-			message=notification.message,
+			message=f"<p>{escape_html(notification.message)}</p>",
 			reference_doctype="Beacon Incident",
 			reference_name=notification.incident,
 		)
@@ -85,7 +87,7 @@ class CallNotifier(Notifier):
 			data={
 				"To": phone,
 				"From": self.settings.twilio_from_number,
-				"Twiml": f"<Response><Say>Beacon. {escape(notification.message)}</Say></Response>",
+				"Twiml": self.get_twiml(notification),
 				"StatusCallback": get_url(
 					f"/api/method/beacon.api.twilio.status?notification={notification.name}&token={token}"
 				),
@@ -95,6 +97,20 @@ class CallNotifier(Notifier):
 		)
 		response.raise_for_status()
 		return response.json()["sid"]
+
+	def get_twiml(self, notification: BeaconNotification) -> str:
+		"""Say the severity and what happened twice, so the responder hears it after picking up. An
+		alert title ends with " · <resource>", and an ID read aloud means nothing, so it is left out."""
+		incident = frappe.db.get_value(
+			"Beacon Incident", notification.incident, ["severity", "title"], as_dict=True
+		)
+		speech = escape(
+			f"Beacon alert. A {incident.severity} severity incident: {incident.title.rsplit(' · ', 1)[0]}."
+			if incident
+			else notification.message
+		)
+		say = f'<Say voice="{CALL_VOICE}">{speech}</Say>'
+		return f'<Response>{say}<Pause length="1"/>{say}</Response>'
 
 	@staticmethod
 	def get_callback_token(notification: str) -> str:

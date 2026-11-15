@@ -31,7 +31,7 @@
    "fieldtype": "Select",
    "in_standard_filter": 1,
    "label": "Status",
-   "options": "Queued\nSent\nAnswered\nNo Answer\nAcknowledged\nFailed",
+   "options": "Queued\nSending\nSent\nAnswered\nNo Answer\nAcknowledged\nFailed\nCancelled",
    "read_only": 1
   },
   {
@@ -119,7 +119,7 @@
  "in_create": 1,
  "link_display_mode": "Search",
  "links": [],
- "modified": "2026-11-13 19:30:37.733426",
+ "modified": "2026-11-15 10:00:00.000000",
  "modified_by": "Administrator",
  "module": "Beacon",
  "name": "Beacon Notification",

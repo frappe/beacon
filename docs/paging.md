@@ -13,13 +13,13 @@ The times are defaults in Beacon Settings. An admin can change them.
 
 ## Who Beacon calls
 
-Beacon Settings has an ordered list of responders. Beacon calls the primary override until its end time, when that person is an active responder. Else it calls the first active responder. When the responder does not acknowledge in the backup time, Beacon calls the next one. After the last responder, Beacon starts another round after the repeat interval, 15 minutes by default.
+Beacon Settings has an ordered list of responders. Each active responder must be an enabled user with the Beacon Responder or Beacon Admin role, because an answered call acknowledges as that person. Beacon calls the primary override until its end time, when that person is an active responder. Else it calls the first active responder. When the responder does not acknowledge in the backup time, Beacon calls the next one. After the last responder, Beacon starts another round after the repeat interval, 15 minutes by default.
 
 A High incident stops after the maximum rounds, 3 by default, and Beacon posts to chat that nobody acknowledged. A Critical incident continues until a person acknowledges.
 
 ## Acknowledge
 
-The call says the incident message. When the responder answers the call, Beacon acknowledges the incident. Twilio reports the answer to a callback URL that holds a token for that call, so Beacon needs a Twilio API key and not the account Auth Token. Beacon checks the token, follows a merge to the open incident, and ignores repeated callbacks.
+The call says the severity of the incident and what happened, without IDs, twice, in a neural voice. When the responder answers the call, Beacon acknowledges the incident. Twilio reports the answer to a callback URL that holds a token for that call, so Beacon needs a Twilio API key and not the account Auth Token. Beacon accepts a callback only with the token of a call notification, from the Twilio account in Beacon Settings, for the same call, and for 1 hour after the call. It follows a merge to the open incident and ignores repeated callbacks. A call that is answered after the incident closed acknowledges nothing. When Twilio reports that the call failed, Beacon posts to chat once.
 
 Staff acknowledge with the Acknowledge action. Chat tools and scripts can call the same action:
 
@@ -44,7 +44,9 @@ POST /api/v2/document/Beacon%20Incident/<name>/method/acknowledge
 
 ## Delivery
 
-Beacon writes each notification row in the same transaction as the change that caused it. A job sends it after the commit, on the `short` queue, so a page does not wait behind slow region runs. When a call or an email fails, Beacon posts the error to chat.
+Beacon writes each notification row in the same transaction as the change that caused it. A job sends it after the commit, on the `short` queue, so a page does not wait behind slow region runs. The job first moves the row from Queued to Sending, so a second job sends nothing. When paging is paused, or the channel or the responder is disabled when the job runs, the row becomes Cancelled. A row that stays in Sending means that the job stopped during the call to the provider. Beacon does not send it again, because the provider may have it.
+
+When a call or an email fails, Beacon posts the error to chat. For an email, Sent means that Frappe accepted it into the Email Queue. Frappe sends it later and records a delivery error on the Email Queue row, not on the notification.
 
 ## Heartbeat
 

@@ -24,7 +24,9 @@ class BeaconNotification(Document):
 		provider_ref: DF.Data | None
 		responder: DF.Link | None
 		sent_at: DF.Datetime | None
-		status: DF.Literal["Queued", "Sent", "Answered", "No Answer", "Acknowledged", "Failed"]
+		status: DF.Literal[
+			"Queued", "Sending", "Sent", "Answered", "No Answer", "Acknowledged", "Failed", "Cancelled"
+		]
 	# end: auto-generated types
 
 

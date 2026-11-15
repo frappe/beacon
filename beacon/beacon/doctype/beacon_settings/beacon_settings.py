@@ -12,6 +12,8 @@ from beacon.core.incident.notifiers import NOTIFIERS
 from beacon.core.incident.outbox import NotificationOutbox
 from beacon.core.transaction import document_action
 
+RESPONDER_ROLES = {"Beacon Responder", "Beacon Admin"}
+
 ADMIN_ROLES = ("Beacon Admin", "System Manager")
 REPOSITORY = re.compile(r"^[\w.-]+/[\w.-]+$")
 SOURCE_PATH = re.compile(r"^(?!.*\.\.)[\w./-]*$")
@@ -64,6 +66,17 @@ class BeaconSettings(Document):
 	def validate(self) -> None:
 		if self.phone_calls_enabled and not any(row.active and row.phone for row in self.responders):
 			frappe.throw(_("Phone calls need at least one active responder with a phone number."))
+		for row in self.responders:
+			# An answered call acknowledges as the responder, so the responder must be able to.
+			if row.active and not (
+				frappe.db.get_value("User", row.user, "enabled")
+				and RESPONDER_ROLES & set(frappe.get_roles(row.user))
+			):
+				frappe.throw(
+					_(
+						"Row {0}: {1} must be an enabled user with the Beacon Responder or Beacon Admin role."
+					).format(row.idx, row.user)
+				)
 		for source in self.definition_sources:
 			source.path = (source.path or "").strip("/")
 			if not REPOSITORY.match(source.repository) or not SOURCE_PATH.match(source.path):

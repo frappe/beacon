@@ -128,7 +128,11 @@ class BeaconIncident(Document):
 		IncidentEscalation(self).stop()
 		frappe.db.set_value(
 			"Beacon Notification",
-			{"incident": self.name, "channel": "Call", "status": ("in", ("Queued", "Sent", "Answered"))},
+			{
+				"incident": self.name,
+				"channel": "Call",
+				"status": ("in", ("Queued", "Sending", "Sent", "Answered")),
+			},
 			"status",
 			"Acknowledged",
 		)
