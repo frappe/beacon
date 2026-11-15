@@ -23,7 +23,7 @@ Each minute, the region run measures each service:
 2. Drop the rows of resources that are not checked, and of resources in a Public maintenance that was published before its start.
 3. A reporter with no sample for 3 minutes counts its last valid events as bad only when it, or a parent of it, has a Firing cause alert, such as "Host down". Else Beacon leaves it out. So a dead host counts its VMs and sites as down, but a Pilot restart or a Datum gap never looks like an outage.
 4. Compute the status.
-5. Store good, valid, the count of bad reporters and the status in a Service Minute (kept 3 days). Add good and valid to the Service Day, and count the minute as a degraded or outage minute of the day when the status is Degraded or an outage.
+5. Store good, valid, the count of bad reporters and the status in a Service Minute (kept 3 days). The stored status is the worse of the measured status and the impact of the open Public incidents on the service, so a declared outage also shows in the history. Add good and valid to the Service Day, and count the minute as a degraded or outage minute of the day when the stored status is Degraded or an outage. A declared outage does not change good and valid, so the uptime and the error budget stay measured.
 6. Compute the burn alerts.
 
 When the query fails or returns no valid events, Beacon adds no Service Minute or Service Day totals. It sets the measured status to Unknown, unless a matching Public maintenance sets it to Maintenance.
@@ -58,7 +58,7 @@ The error budget for 30 days sums the Service Days. Until 30 days are measured, 
 
 The status of a service in a region comes from the SLI of the last minute.
 
-1. When a Public maintenance with this service is In Progress, the status is Maintenance.
+1. When the worst impact of the open Public incidents and maintenances on this service is Maintenance, the status is Maintenance.
 2. Else, when the region is not OK or the service has no valid measurement, the status is Unknown.
 3. Else the SLI sets it: 99.5% or more is Operational, 95% or more is Degraded, 80% or more is Partial Outage, and less is Major Outage.
 
