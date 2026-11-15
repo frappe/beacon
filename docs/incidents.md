@@ -62,7 +62,7 @@ one update stream, one private link
 
 The Publish action sets the visibility, the affected services with their impact, and the first public message. Unlisted makes a private link with a random token. Support can send that link to the customers who are affected.
 
-A public update shows on the status page. Visitors can follow one published incident by email or RSS. A new public update emails each confirmed subscriber.
+A public update shows on the status page. Visitors can follow one published incident by email or RSS. The confirm and stop links open a page with a button, so a link scanner changes nothing. A new public update emails each confirmed subscriber. Every update of one incident has the same subject, so mail clients keep them in one thread.
 
 ## Postmortem
 

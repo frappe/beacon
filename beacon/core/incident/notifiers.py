@@ -8,8 +8,10 @@ from xml.sax.saxutils import escape
 
 import frappe
 import requests
-from frappe.utils import escape_html, get_url
+from frappe.utils import get_url
 from frappe.utils.password import get_encryption_key
+
+from beacon.core.incident.emails import IncidentEmail
 
 if TYPE_CHECKING:
 	from beacon.beacon.doctype.beacon_incident.beacon_incident import BeaconIncident
@@ -62,11 +64,15 @@ class EmailNotifier(Notifier):
 	def send(self, notification: BeaconNotification) -> None:
 		email = frappe.db.get_value("User", notification.responder, "email")
 		sender = frappe.db.get_value("Email Account", self.settings.email_account, "email_id")
+		subject, args = IncidentEmail(notification.incident).get_responder_email(
+			notification.page_round, self.settings
+		)
 		frappe.sendmail(
 			recipients=[email],
 			sender=sender,
-			subject=f"[Beacon] {notification.incident}",
-			message=f"<p>{escape_html(notification.message)}</p>",
+			subject=subject,
+			template="beacon_incident_responder",
+			args=args,
 			reference_doctype="Beacon Incident",
 			reference_name=notification.incident,
 		)

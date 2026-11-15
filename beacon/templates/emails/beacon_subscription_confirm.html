@@ -1,0 +1,9 @@
+{% extends "templates/emails/beacon_base.html" %}
+{% import "templates/emails/beacon_base.html" as card %}
+{% block content %}
+<h1>Confirm your updates</h1>
+<p>You asked for an email when we post an update on this incident:</p>
+<p class="beacon-quote">{{ title | e }}</p>
+{{ card.button("Confirm updates", url, center=True) }}
+{% endblock %}
+{% block footer %}If you did not ask for this, ignore this email. You will get nothing more.{% endblock %}

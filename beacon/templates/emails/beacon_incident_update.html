@@ -1,0 +1,15 @@
+{% extends "templates/emails/beacon_base.html" %}
+{% import "templates/emails/beacon_base.html" as card %}
+{% block content %}
+<span class="beacon-pill beacon-pill-{{ pill_class }}">{{ status | e }}</span>
+<h1>{{ title | e }}</h1>
+<p class="beacon-quote">{{ message | e }}</p>
+{{ card.facts(facts) }}
+{% if services %}
+<p class="beacon-label">Affected services</p>
+{% for service in services %}<div class="beacon-item"><span class="beacon-item-note">{{ service.impact | e }}</span>{{ service.title | e }}</div>{% endfor %}
+{% endif %}
+<br>
+{{ card.button("View incident", url, center=True) }}
+{% endblock %}
+{% block footer %}You get this email because you asked for updates on this incident. <a href="{{ unsubscribe_url | e }}">Stop updates for this incident</a>.{% endblock %}

@@ -174,8 +174,9 @@ a {
 
 .subscribe { display: flex; gap: 8px; flex-wrap: wrap; }
 .subscribe input { flex: 1 1 14rem; padding: 8px 10px; border: 1px solid var(--border, #c8ced6); border-radius: 6px; font: inherit; }
-.subscribe button { padding: 8px 14px; border: 0; border-radius: 6px; background: #1f6feb; color: #fff; font: inherit; cursor: pointer; }
-.subscribe button:disabled { opacity: 0.6; }
+.subscribe button, .action { padding: 8px 14px; border: 0; border-radius: 6px; background: #1f6feb; color: #fff; font: inherit; cursor: pointer; }
+.subscribe button:disabled, .action:disabled { opacity: 0.6; }
+.action { margin-top: 12px; }
 @media (max-width: 40rem) {
 	.bars {
 		height: 1.25rem;

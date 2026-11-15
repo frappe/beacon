@@ -11,12 +11,24 @@
 			}}
 			<a :href="incidentUrl">Open the incident</a>
 		</p>
-		<p v-else class="muted">Saving…</p>
+		<template v-else>
+			<h2>
+				{{
+					action === "unsubscribe"
+						? "Stop updates for this incident?"
+						: "Get updates for this incident?"
+				}}
+			</h2>
+			<!-- A link scanner opens the page but does not click, so nothing changes until a person does. -->
+			<button class="action" :disabled="saving" @click="save">
+				{{ action === "unsubscribe" ? "Stop updates" : "Confirm updates" }}
+			</button>
+		</template>
 	</section>
 </template>
 
 <script setup>
-import { onMounted, ref } from "vue";
+import { ref } from "vue";
 import { useRoute } from "vue-router";
 import { post } from "../api.js";
 
@@ -24,12 +36,16 @@ const props = defineProps({ token: String });
 const action = useRoute().query.action === "unsubscribe" ? "unsubscribe" : "confirm";
 const incidentUrl = ref("");
 const error = ref("");
+const saving = ref(false);
 
-onMounted(async () => {
+async function save() {
+	saving.value = true;
 	try {
 		incidentUrl.value = await post("change_subscription", { token: props.token, action });
 	} catch (failure) {
 		error.value = failure.message;
+	} finally {
+		saving.value = false;
 	}
-});
+}
 </script>

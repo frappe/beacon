@@ -4,8 +4,9 @@ from typing import TYPE_CHECKING
 
 import frappe
 from frappe import _
-from frappe.utils import escape_html, now_datetime, validate_email_address
+from frappe.utils import now_datetime, validate_email_address
 
+from beacon.core.incident.emails import IncidentEmail
 from beacon.core.jobs import queue_subscriber_update
 
 if TYPE_CHECKING:
@@ -47,9 +48,14 @@ class IncidentSubscription:
 		subscriber.save(ignore_permissions=True)
 		self._send(
 			email,
-			_("Confirm updates for {0}").format(self.incident.title),
-			_("Open this link to get an email for each update of {0}:").format(self.incident.title),
-			self._get_subscription_url(subscriber.token, "confirm"),
+			_("Confirm updates: {0}").format(self.incident.title),
+			"beacon_subscription_confirm",
+			{
+				"brand": frappe.get_cached_doc("Beacon Settings").status_page_title,
+				"center": True,
+				"title": self.incident.title,
+				"url": self._get_subscription_url(subscriber.token, "confirm"),
+			},
 		)
 
 	def notify(self, update_name: str) -> None:
@@ -57,7 +63,7 @@ class IncidentSubscription:
 		update = frappe.db.get_value(
 			"Beacon Incident Update",
 			{"name": update_name, "parent": self.incident.name, "is_public": 1},
-			["name", "status", "message", "subscribers_notified_at"],
+			["name", "status", "message", "posted_at", "subscribers_notified_at"],
 			as_dict=True,
 			for_update=True,
 		)
@@ -76,14 +82,12 @@ class IncidentSubscription:
 			filters={"incident": self.incident.name, "status": "Confirmed"},
 			fields=["email", "token"],
 		)
+		email = IncidentEmail(self.incident.name)
 		for subscriber in subscribers:
-			self._send(
-				subscriber.email,
-				f"[{update.status}] {self.incident.title}",
-				update.message,
-				self.page_url,
-				unsubscribe_url=self._get_subscription_url(subscriber.token, "unsubscribe"),
+			subject, args = email.get_update_email(
+				update, self.page_url, self._get_subscription_url(subscriber.token, "unsubscribe")
 			)
+			self._send(subscriber.email, subject, "beacon_incident_update", args)
 
 	@staticmethod
 	def change(token: str, action: str) -> str:
@@ -129,18 +133,12 @@ class IncidentSubscription:
 			f"/subscription/{token}?action={action}"
 		)
 
-	def _send(
-		self, email: str, subject: str, message: str, url: str, unsubscribe_url: str | None = None
-	) -> None:
-		footer = (
-			f'<p><a href="{unsubscribe_url}">{_("Stop updates for this incident")}</a></p>'
-			if unsubscribe_url
-			else ""
-		)
+	def _send(self, email: str, subject: str, template: str, args: dict) -> None:
 		frappe.sendmail(
 			recipients=[email],
 			subject=subject,
-			message=f'<p>{escape_html(message)}</p><p><a href="{url}">{url}</a></p>{footer}',
+			template=template,
+			args=args,
 			reference_doctype="Beacon Incident",
 			reference_name=self.incident.name,
 		)
