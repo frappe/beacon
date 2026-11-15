@@ -115,7 +115,7 @@ class BeaconSettings(Document):
 		NotificationOutbox().post_to_chat(f"Paging resumed by {frappe.session.user}.")
 
 	@document_action
-	def send_test_page(self, user: str, channel: str) -> None:
+	def send_test_page(self, channel: str, user: str | None = None) -> None:
 		frappe.only_for(ADMIN_ROLES)
 		outbox = NotificationOutbox()
 		if channel not in NOTIFIERS:
