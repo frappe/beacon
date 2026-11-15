@@ -56,7 +56,7 @@ Each email is a report card from `beacon/templates/emails/` with the incident's 
 
 Beacon writes each notification row in the same transaction as the change that caused it. A job sends it after the commit, on the `short` queue, so a page does not wait behind slow region runs. The job first moves the row from Queued to Sending, so a second job sends nothing. When paging is paused, or the channel or the responder is disabled when the job runs, the row becomes Cancelled. A row that stays in Sending means that the job stopped during the call to the provider. Beacon does not send it again, because the provider may have it.
 
-A chat message about an incident ends with the Desk link of the incident. The message for a new incident or a raised severity also shows the detail of the alert. Alert and incident titles name the resource by its title, or by its ID when it has no title.
+Chat messages use Markdown, and the incident name links to the incident in Desk. The message for a new incident or a raised severity starts with the severity, the incident and the region, then shows a table with the resource, value and detail of the alert. The message for joined alerts shows the same table with the alert title, for up to 5 alerts. Alert and incident titles are `<rule> on <resource>`, with the resource title, or the resource ID when it has no title.
 
 When a call or an email fails, Beacon posts to chat who did not get it, with a link to the notification. The error stays on the notification, because a provider response can hold data that chat must not show. For an email, Sent means that Frappe accepted it into the Email Queue. Frappe sends it later and records a delivery error on the Email Queue row, not on the notification.
 

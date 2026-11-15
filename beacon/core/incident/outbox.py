@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING
 import frappe
 from frappe.utils import get_fullname, get_url_to_form, now_datetime
 
+from beacon.core.incident.chat_message import ChatMessage
 from beacon.core.incident.notifiers import NOTIFIERS, Notifier
 from beacon.core.jobs import queue_notification
 from beacon.core.transaction import RecordTransaction
@@ -131,8 +132,9 @@ class NotificationDelivery:
 		if values.get("status") == "Failed" and notification.channel != "Chat":
 			NotificationOutbox().queue(
 				"Chat",
-				f"Beacon could not {'call' if notification.channel == 'Call' else 'email'}"
-				f" {get_fullname(notification.responder)}. Contact them directly.\n"
-				f"Error: {get_url_to_form('Beacon Notification', notification.name)}",
+				f"⚠️ **Could not {'call' if notification.channel == 'Call' else 'email'}**"
+				f" {get_fullname(notification.responder)}"
+				f"{f' for {ChatMessage.link(notification.incident)}' if notification.incident else ''}."
+				f" Contact them directly. [Error]({get_url_to_form('Beacon Notification', notification.name)})",
 				notification.incident,
 			)
