@@ -5,7 +5,7 @@ import re
 import frappe
 from frappe import _
 from frappe.model.document import Document
-from frappe.utils import get_datetime, get_url, now_datetime
+from frappe.utils import get_datetime, get_fullname, get_url, now_datetime
 
 from beacon.core.definitions import DefinitionSync
 from beacon.core.incident.notifiers import NOTIFIERS
@@ -104,7 +104,9 @@ class BeaconSettings(Document):
 		self.paging_paused = 1
 		self.paused_reason = reason
 		self.save()
-		NotificationOutbox().post_to_chat(f"Paging paused by {frappe.session.user}: {reason}")
+		NotificationOutbox().post_to_chat(
+			f"Calls and emails paused by {get_fullname()}: {reason}\nChat continues. An admin must resume them."
+		)
 
 	@document_action
 	def resume_paging(self) -> None:
@@ -112,7 +114,7 @@ class BeaconSettings(Document):
 		self.paging_paused = 0
 		self.paused_reason = None
 		self.save()
-		NotificationOutbox().post_to_chat(f"Paging resumed by {frappe.session.user}.")
+		NotificationOutbox().post_to_chat(f"Calls and emails resumed by {get_fullname()}.")
 
 	@document_action
 	def send_test_page(self, channel: str, user: str | None = None) -> None:
@@ -131,7 +133,9 @@ class BeaconSettings(Document):
 			if channel == "Email" and not frappe.db.get_value("User", user, "email"):
 				frappe.throw(_("This responder's user account has no email address."))
 		outbox.queue(
-			channel, "Beacon test page. No action is needed.", responder=None if channel == "Chat" else user
+			channel,
+			f"Beacon test notification by {channel.lower()}. No action is needed.",
+			responder=None if channel == "Chat" else user,
 		)
 
 	def get_active_responders(self) -> list[BeaconResponder]:

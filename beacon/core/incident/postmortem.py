@@ -70,8 +70,11 @@ class Postmortem:
 		for incident in incidents:
 			if is_empty(incident.rca):
 				days = (now - get_datetime(incident.resolved_at)).days
-				outbox.post_to_chat(
-					f"The postmortem of {incident.name} ({incident.title}) is still empty, {days} days after the resolve."
+				outbox.queue(
+					"Chat",
+					f"The postmortem of {incident.name} ({incident.title}) is still empty, {days} days after"
+					" the resolve. Write it on the incident.",
+					incident.name,
 				)
 
 

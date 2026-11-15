@@ -84,10 +84,12 @@ class IncidentEscalation:
 		"""Call and mail the current responder, then plan the next step. High incidents stop after max_rounds."""
 		responders = self.settings.get_active_responders()
 		if not responders:
-			self._finish("No active responder to notify.")
+			self._finish("no responder is active. Contact a responder directly.")
 			return
 		if self.incident.severity == "High" and self.incident.page_round > self.settings.max_rounds:
-			self._finish(f"Nobody acknowledged after {self.settings.max_rounds} rounds.")
+			self._finish(
+				f"nobody acknowledged after {self.settings.max_rounds} rounds. Contact a responder directly."
+			)
 			return
 
 		self.incident.escalation = "Calling"
@@ -110,4 +112,6 @@ class IncidentEscalation:
 	def _finish(self, reason: str) -> None:
 		self.incident.escalation = "Done"
 		self.incident.next_page_at = None
-		NotificationOutbox().announce(self.incident, reason)
+		NotificationOutbox().announce(
+			self.incident, f"Automatic calls stopped for {self.incident.name}: {reason}"
+		)

@@ -66,6 +66,12 @@ class EmailNotifier(Notifier):
 	def send(self, notification: BeaconNotification) -> None:
 		email = frappe.db.get_value("User", notification.responder, "email")
 		sender = frappe.db.get_value("Email Account", self.settings.email_account, "email_id")
+		if not notification.incident:
+			frappe.sendmail(
+				recipients=[email], sender=sender, subject=notification.message, message=notification.message
+			)
+			return
+
 		subject, args = IncidentEmail(notification.incident).get_responder_email(
 			notification.page_round, self.settings
 		)

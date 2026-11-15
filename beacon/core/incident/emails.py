@@ -48,11 +48,16 @@ class IncidentEmail:
 		}
 		if page_round:
 			rounds = f" of {settings.max_rounds}" if incident.severity == "High" else ""
-			args["instruction"] = (
-				"Beacon is calling you now. Answer the call, or open the incident and choose Acknowledge. If nobody"
-				f" acknowledges in {settings.get_backup_after_minutes(incident.severity)} minutes, Beacon calls the next responder."
+			action = (
+				"Answer the call, or open the incident and choose Acknowledge."
+				if settings.phone_calls_enabled
+				else "Open the incident and choose Acknowledge."
 			)
-			args["facts"] = [*facts, ("Page round", f"{page_round}{rounds}")]
+			args["instruction"] = (
+				f"{action} If nobody acknowledges in {settings.get_backup_after_minutes(incident.severity)} minutes,"
+				" Beacon notifies the next responder."
+			)
+			args["facts"] = [*facts, ("Round", f"{page_round}{rounds}")]
 		else:
 			args["instruction"] = "A new incident started. Open it and choose Acknowledge if you take it."
 			args["facts"] = facts
