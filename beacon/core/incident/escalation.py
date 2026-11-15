@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING
 import frappe
 from frappe.utils import get_datetime, now_datetime
 
+from beacon.core.incident.chat_message import ChatMessage
 from beacon.core.incident.outbox import NotificationOutbox
 from beacon.core.transaction import RecordTransaction
 
@@ -113,5 +114,6 @@ class IncidentEscalation:
 		self.incident.escalation = "Done"
 		self.incident.next_page_at = None
 		NotificationOutbox().announce(
-			self.incident, f"Automatic calls stopped for {self.incident.name}: {reason}"
+			self.incident,
+			f"⛔ **Automatic calls stopped** on {ChatMessage.link(self.incident.name)}: {reason}",
 		)

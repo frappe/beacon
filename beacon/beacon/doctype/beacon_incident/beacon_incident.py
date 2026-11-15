@@ -9,6 +9,7 @@ from frappe.utils import get_datetime, now_datetime
 
 from beacon.beacon.doctype.beacon_silence.beacon_silence import BeaconSilence
 from beacon.core.exceptions import IncidentActionError
+from beacon.core.incident.chat_message import ChatMessage
 from beacon.core.incident.escalation import IncidentEscalation
 from beacon.core.incident.lifecycle import IncidentLifecycle
 from beacon.core.incident.merge import IncidentMerge
@@ -179,7 +180,9 @@ class BeaconIncident(Document):
 		self.add_update(message, is_public, status="Resolved")
 		self.lifecycle.move_to("Resolved")
 		self.save()
-		NotificationOutbox().announce(self, f"Resolved {self.name}: {message}", email=True)
+		NotificationOutbox().announce(
+			self, f"✅ **Resolved** {ChatMessage.link(self.name)}: {message}", email=True
+		)
 
 	@document_action
 	def reopen(self) -> None:
@@ -313,7 +316,7 @@ class BeaconIncident(Document):
 		self.acknowledged_by = None
 		self.acknowledged_at = None
 		self.save(ignore_permissions=True)
-		NotificationOutbox().announce(self, f"Reopened {self.name}: {self.title}")
+		NotificationOutbox().announce(self, f"🔁 **Reopened** {ChatMessage.link(self.name)}: {self.title}")
 
 	def add_group_key(self, key: str) -> None:
 		keys = (self.group_keys or "").split()

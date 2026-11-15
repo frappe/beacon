@@ -3,6 +3,7 @@ from __future__ import annotations
 import frappe
 
 from beacon.core.alert.states import OPEN_ALERT_STATUSES
+from beacon.core.incident.chat_message import ChatMessage
 from beacon.core.incident.outbox import NotificationOutbox
 from beacon.core.transaction import RecordTransaction
 
@@ -38,5 +39,6 @@ class IncidentRecovery:
 			incident.resolve("All alerts recovered.")
 		else:
 			NotificationOutbox().announce(
-				incident, f"No open alerts remain for {name}. Check the service, then resolve the incident."
+				incident,
+				f"⏸️ **No open alerts remain** on {ChatMessage.link(name)}. Check the service, then resolve it.",
 			)

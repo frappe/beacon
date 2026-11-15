@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING
 import frappe
 from frappe.utils import get_datetime, now_datetime, strip_html_tags
 
+from beacon.core.incident.chat_message import ChatMessage
 from beacon.core.incident.outbox import NotificationOutbox
 
 if TYPE_CHECKING:
@@ -72,8 +73,8 @@ class Postmortem:
 				days = (now - get_datetime(incident.resolved_at)).days
 				outbox.queue(
 					"Chat",
-					f"The postmortem of {incident.name} ({incident.title}) is still empty, {days} days after"
-					" the resolve. Write it on the incident.",
+					f"📝 **Postmortem missing** on {ChatMessage.link(incident.name)}: {incident.title}."
+					f" Resolved {days} days ago.",
 					incident.name,
 				)
 

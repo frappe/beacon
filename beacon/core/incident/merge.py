@@ -7,6 +7,7 @@ from frappe import _
 
 from beacon.core.alert.states import OPEN_ALERT_STATUSES
 from beacon.core.exceptions import IncidentActionError
+from beacon.core.incident.chat_message import ChatMessage
 from beacon.core.incident.outbox import NotificationOutbox
 
 if TYPE_CHECKING:
@@ -55,7 +56,10 @@ class IncidentMerge:
 		self.source.merged_into = self.target.name
 		self.source.lifecycle.move_to("Merged")
 		self.source.save(ignore_permissions=True)
-		NotificationOutbox().announce(self.target, f"{self.source.name} merged into {self.target.name}.")
+		NotificationOutbox().announce(
+			self.target,
+			f"🔀 {ChatMessage.link(self.source.name)} **merged into** {ChatMessage.link(self.target.name)}",
+		)
 
 	def _check_target(self) -> None:
 		target = self.target

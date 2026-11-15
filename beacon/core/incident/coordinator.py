@@ -9,6 +9,7 @@ from frappe.utils import now_datetime
 
 from beacon.core.alert.rules import AlertRules
 from beacon.core.alert.states import OPEN_ALERT_STATUSES, PAGED_SEVERITIES, Severity
+from beacon.core.incident.chat_message import ChatMessage
 from beacon.core.incident.escalation import IncidentEscalation
 from beacon.core.incident.lifecycle import OPEN_STATUSES
 from beacon.core.incident.matcher import IncidentMatcher, OpenIncident, Placement
@@ -20,8 +21,8 @@ from beacon.core.transaction import RecordTransaction
 if TYPE_CHECKING:
 	from beacon.beacon.doctype.beacon_incident.beacon_incident import BeaconIncident
 
-# A joined-alerts chat message names this many alerts, then gives the count of the rest.
-JOINED_TITLES_SHOWN = 3
+# A joined-alerts chat message lists this many alerts, then gives the count of the rest.
+JOINED_ALERTS_SHOWN = 5
 
 
 class IncidentCoordinator:
@@ -41,7 +42,7 @@ class IncidentCoordinator:
 			self.registry = ResourceRegistry(self.region)
 			self.burn_resources = self._load_burn_resources()
 			self.incidents = self._load_open_incidents()
-			self.joined: dict[str, list[str]] = {}
+			self.joined: dict[str, list[frappe._dict]] = {}
 			for alert in alerts:
 				self._assign_in_transaction(alert)
 			self._announce_joined()
@@ -62,11 +63,14 @@ class IncidentCoordinator:
 	def _announce_joined(self) -> None:
 		"""One chat message for each incident, so a region outage does not post one message per alert."""
 		outbox = NotificationOutbox()
-		for name, titles in self.joined.items():
-			shown = ", ".join(titles[:JOINED_TITLES_SHOWN])
-			rest = len(titles) - JOINED_TITLES_SHOWN
-			more = f" and {rest} more" if rest > 0 else ""
-			outbox.queue("Chat", f"{len(titles)} alerts joined {name}: {shown}{more}", name)
+		for name, alerts in self.joined.items():
+			count = f"{len(alerts)} alert joined" if len(alerts) == 1 else f"{len(alerts)} alerts joined"
+			message = f"📥 **{count}** {ChatMessage.link(name)} in {self.region}\n\n"
+			message += ChatMessage.alert_table(alerts[:JOINED_ALERTS_SHOWN], with_rule=True)
+			rest = len(alerts) - JOINED_ALERTS_SHOWN
+			if rest > 0:
+				message += f"\n\nand {rest} more"
+			outbox.queue("Chat", message, name)
 		frappe.db.commit()  # nosemgrep: the messages only insert new rows
 
 	def _assign_incident(self, alert: frappe._dict) -> None:
@@ -142,19 +146,25 @@ class IncidentCoordinator:
 		incident = frappe.get_doc("Beacon Incident", item.name, for_update=True)
 		frappe.db.set_value("Beacon Alert", alert.name, "incident", item.name, update_modified=False)
 		item.add_alert(alert.name, is_burn, resources)
-		self.joined.setdefault(item.name, []).append(alert.title)
 
 		is_new_key = group_key not in (incident.group_keys or "").split()
 		is_more_severe = Severity.is_higher(alert.severity, incident.severity)
+		if not is_more_severe:
+			self.joined.setdefault(item.name, []).append(self._describe(alert))
 		is_monitoring = incident.status == "Monitoring"
 		if not (is_new_key or is_more_severe or is_monitoring):
 			return
 
 		incident.add_group_key(group_key)
 		if is_more_severe:
-			message = f"{incident.name} severity raised from {incident.severity} to {alert.severity} by {alert.title}"
+			row = self._describe(alert)
+			message = (
+				f"{ChatMessage.header(alert.severity, incident.name, self.region)}\n\n"
+				f"**Severity raised from {incident.severity} to {alert.severity}** by {row.rule_title}\n\n"
+				f"{ChatMessage.alert_table([row])}"
+			)
 			incident.severity = alert.severity
-			NotificationOutbox().announce(incident, f"{message}\n{alert.detail}".rstrip())
+			NotificationOutbox().announce(incident, message)
 		if is_monitoring:
 			incident.lifecycle.move_to("Investigating")
 		incident.save(ignore_permissions=True)
@@ -170,7 +180,7 @@ class IncidentCoordinator:
 		incident = frappe.get_doc(
 			{
 				"doctype": "Beacon Incident",
-				"title": f"{rule.title} · {resource.title or resource.resource_id}",
+				"title": f"{rule.title} on {resource.title or resource.resource_id}",
 				"type": "Incident",
 				"severity": alert.severity,
 				"status": "Triggered",
@@ -194,11 +204,11 @@ class IncidentCoordinator:
 		self._take_covered_alerts(item)
 		self.incidents.insert(0, item)
 
-		NotificationOutbox().announce(
-			incident,
-			f"New incident {incident.name} ({incident.severity}): {incident.title}\n{alert.detail}".rstrip(),
-			email=True,
+		message = (
+			f"{ChatMessage.header(incident.severity, incident.name, self.region)}\n\n"
+			f"**{rule.title}**\n\n{ChatMessage.alert_table([self._describe(alert)])}"
 		)
+		NotificationOutbox().announce(incident, message, email=True)
 		if incident.severity in PAGED_SEVERITIES:
 			IncidentEscalation(incident).start(wait=bool(resource.parent_resource))
 
@@ -240,6 +250,16 @@ class IncidentCoordinator:
 		incident.save(ignore_permissions=True)
 		item.matches.append(ResourceMatch.from_row(frappe._dict(row)))
 
+	def _describe(self, alert: frappe._dict) -> frappe._dict:
+		"""The alert as a row of a chat table."""
+		resource = self.registry.get(alert.resource)
+		return frappe._dict(
+			rule_title=frappe.get_cached_value("Beacon Alert Rule", alert.rule, "title"),
+			resource_title=resource.title or resource.resource_id,
+			value=alert.value,
+			detail=alert.detail,
+		)
+
 	def _load_orphan_alerts(self) -> list[frappe._dict]:
 		alerts = frappe.get_all(
 			"Beacon Alert",
@@ -249,7 +269,7 @@ class IncidentCoordinator:
 				"suppressed": 0,
 				"incident": ("is", "not set"),
 			},
-			fields=["name", "title", "rule", "resource", "severity", "fired_at", "detail"],
+			fields=["name", "title", "rule", "resource", "severity", "fired_at", "detail", "value"],
 			order_by="fired_at asc",
 		)
 		return sorted(alerts, key=lambda alert: alert.rule in self.burn_rules)

@@ -8,7 +8,7 @@ from xml.sax.saxutils import escape
 
 import frappe
 import requests
-from frappe.utils import get_url, get_url_to_form
+from frappe.utils import get_url
 from frappe.utils.password import get_encryption_key
 
 from beacon.core.incident.emails import IncidentEmail
@@ -47,14 +47,9 @@ class ChatNotifier(Notifier):
 
 	def send(self, notification: BeaconNotification) -> None:
 		url = self.settings.get_password("chat_webhook_url")
-		lines = notification.message.splitlines()
-		if notification.incident:
-			if notification.incident not in lines[0]:
-				lines[0] = f"[{notification.incident}] {lines[0]}"
-			lines.append(get_url_to_form("Beacon Incident", notification.incident))
-		# The chat renders Markdown, where a single line break joins the lines.
-		text = "\n\n".join(lines)
-		requests.post(url, json={"text": text}, timeout=REQUEST_TIMEOUT_SECONDS).raise_for_status()
+		requests.post(
+			url, json={"text": notification.message}, timeout=REQUEST_TIMEOUT_SECONDS
+		).raise_for_status()
 
 
 class EmailNotifier(Notifier):
@@ -114,12 +109,12 @@ class CallNotifier(Notifier):
 
 	def get_twiml(self, notification: BeaconNotification) -> str:
 		"""Say the severity and what happened twice, so the responder hears it after picking up. An
-		alert title ends with " · <resource>", and an ID read aloud means nothing, so it is left out."""
+		incident title ends with " on <resource>", and an ID read aloud means nothing, so it is left out."""
 		incident = frappe.db.get_value(
 			"Beacon Incident", notification.incident, ["severity", "title"], as_dict=True
 		)
 		speech = escape(
-			f"Beacon alert. A {incident.severity} severity incident: {incident.title.rsplit(' · ', 1)[0]}."
+			f"Beacon alert. A {incident.severity} severity incident: {incident.title.rsplit(' on ', 1)[0]}."
 			if incident
 			else notification.message
 		)
