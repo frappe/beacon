@@ -64,6 +64,8 @@ SERVICE_HEADER_FIELDS = {
 	"show_on_status_page": int,
 	"sort_order": int,
 	"page_on_burn": int,
+	"measurement": str,
+	"status_page_group": str,
 }
 
 LAYOUT_FIELD_TYPES = ("Tab Break", "Section Break", "Column Break", "HTML")
@@ -169,7 +171,16 @@ class SourceSync:
 		self._apply_endpoint_rules("HTTP", http_rules)
 		self._apply_endpoint_rules("TLS", tls_rules)
 		for service in services:
-			self._apply("Beacon Service", service.key, {**service.values, "sli_query": service.query})
+			self._apply(
+				"Beacon Service",
+				service.key,
+				{
+					"measurement": "Measured",
+					"status_page_group": "",
+					**service.values,
+					"sli_query": service.query,
+				},
+			)
 		removed = self._prune("Beacon Alert Rule", rules) + self._prune("Beacon Service", services)
 
 		summary = f"{len(rules)} rules, {len(services)} services, {removed} removed"
@@ -197,7 +208,12 @@ class SourceSync:
 	def _get_warnings(self, rules: list[DefinitionFile]) -> list[str]:
 		unmeasured = frappe.get_all(
 			"Beacon Service",
-			filters={"source": self.repository, "scope": "Global", "query_region": ("is", "not set")},
+			filters={
+				"source": self.repository,
+				"scope": "Global",
+				"measurement": "Measured",
+				"query_region": ("is", "not set"),
+			},
 			pluck="name",
 		)
 		unplaced = [

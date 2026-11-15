@@ -14,19 +14,11 @@
 				<h2>{{ region.title }}</h2>
 				<StatusBadge :status="region.status" />
 			</div>
-			<ServiceHealth
-				v-for="service in region.services"
-				:key="service.service"
-				:service="service"
-			/>
+			<ServiceList :services="region.services" />
 		</section>
 		<section v-if="data.global_services?.length" class="card">
 			<h2>Global services</h2>
-			<ServiceHealth
-				v-for="service in data.global_services"
-				:key="service.service"
-				:service="service"
-			/>
+			<ServiceList :services="data.global_services" />
 		</section>
 	</template>
 	<p v-else class="muted">Loading…</p>
@@ -38,7 +30,7 @@ import { watch } from "vue";
 import { formatTime, useCall } from "../api.js";
 import IncidentList from "../components/IncidentList.vue";
 import StatusBadge from "../components/StatusBadge.vue";
-import ServiceHealth from "../components/ServiceHealth.vue";
+import ServiceList from "../components/ServiceList.vue";
 import { SUMMARY, statusClass } from "../status.js";
 
 const emit = defineEmits(["title"]);
