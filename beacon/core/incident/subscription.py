@@ -8,13 +8,12 @@ from frappe.utils import now_datetime, validate_email_address
 
 from beacon.core.incident.emails import IncidentEmail
 from beacon.core.jobs import queue_subscriber_update
+from beacon.core.status_page import PUBLISHED_VISIBILITIES
 
 if TYPE_CHECKING:
 	from frappe.model.document import Document
 
 	from beacon.beacon.doctype.beacon_incident.beacon_incident import BeaconIncident
-
-PUBLISHED_VISIBILITIES = ("Public", "Unlisted")
 
 
 class IncidentSubscription:
@@ -22,20 +21,16 @@ class IncidentSubscription:
 
 	def __init__(self, incident: str):
 		self.incident = frappe.db.get_value(
-			"Beacon Incident", incident, ["name", "title", "visibility", "share_token"], as_dict=True
+			"Beacon Incident", incident, ["name", "title", "visibility", "public_id"], as_dict=True
 		)
 		if not self.incident or self.incident.visibility not in PUBLISHED_VISIBILITIES:
 			raise frappe.DoesNotExistError
 
 	@property
 	def page_url(self) -> str:
-		incident = self.incident
-		path = (
-			f"/i/{incident.share_token}"
-			if incident.visibility == "Unlisted"
-			else f"/incidents/{incident.name}"
+		return frappe.get_cached_doc("Beacon Settings").get_status_page_url(
+			f"/incidents/{self.incident.public_id}"
 		)
-		return frappe.get_cached_doc("Beacon Settings").get_status_page_url(path)
 
 	def subscribe(self, email: str) -> None:
 		"""Send a confirmation email. A repeated request sends it again and does not tell whether the address is known."""

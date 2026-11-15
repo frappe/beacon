@@ -319,21 +319,21 @@ class IncidentForm {
 						__("Make this incident {0}?", [__(visibility)]),
 						visibility === "Public"
 							? __("The status page lists it for everyone.")
-							: __("Only people with the private link can see it."),
+							: __(
+									"The status page does not list it. Only people with its link can see it."
+							  ),
 					],
 					prepare: () => ({ visibility }),
 				}
 			);
-			if (this.doc.visibility === "Unlisted") {
-				beacon.add_action(
-					this.frm,
-					__("Copy Private Link"),
-					"get_private_link",
-					null,
-					(link) => frappe.utils.copy_to_clipboard(link),
-					{ read: true }
-				);
-			}
+			beacon.add_action(
+				this.frm,
+				__("Copy Link"),
+				"get_public_link",
+				null,
+				(link) => frappe.utils.copy_to_clipboard(link),
+				{ read: true }
+			);
 		}
 	}
 
@@ -367,16 +367,16 @@ class IncidentForm {
 				}
 			);
 		if (
-			this.doc.visibility === "Unlisted" &&
+			this.doc.visibility !== "Internal" &&
 			!["Merged", "Cancelled"].includes(this.doc.status)
 		)
 			beacon.add_action(
 				this.frm,
-				__("Regenerate Private Link"),
-				"regenerate_private_link",
+				__("Regenerate Link"),
+				"regenerate_public_link",
 				null,
 				null,
-				{ confirm: [__("Make a new private link?"), __("The old link stops working.")] }
+				{ confirm: [__("Make a new link?"), __("The old link stops working.")] }
 			);
 	}
 }

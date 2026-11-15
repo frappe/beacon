@@ -13,8 +13,7 @@ const router = createRouter({
 	routes: [
 		{ path: "/", component: StatusPage },
 		{ path: "/history", component: HistoryPage },
-		{ path: "/incidents/:name", component: IncidentPage, props: true },
-		{ path: "/i/:token", component: IncidentPage, props: true },
+		{ path: "/incidents/:publicId", component: IncidentPage, props: true },
 		{ path: "/subscription/:token", component: SubscriptionPage, props: true },
 	],
 });

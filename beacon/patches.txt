@@ -6,6 +6,7 @@ beacon.patches.remove_telemetry_id_sources
 [post_model_sync]
 # Patches added in this section will be executed after doctypes are migrated
 beacon.patches.set_definition_sources
+beacon.patches.set_incident_public_ids
 
 [post_fixture_sync]
 # Patches added in this section will be executed after fixtures and customizations

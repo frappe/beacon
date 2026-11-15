@@ -61,5 +61,5 @@ A host has 30 VMs and 400 sites.
 3. The Atlas sync of the host is older than 5 minutes, and metald is silent. The "Host down" rule returns the host. The alert fires after its pending time.
 4. Beacon opens an incident with the scope "this host and everything under it", and pages at once because the host has no parent.
 5. Now a cause alert covers the silent reporters, so the SLIs count them as bad. A burn alert that fires later joins the same incident.
-6. The responder presses 1 on the call. The incident moves to Investigating. The responder publishes it as Unlisted and sends the private link to support.
+6. The responder answers the call. Beacon acknowledges the incident. The responder publishes it as Unlisted and sends its link to support.
 7. The host comes back. The cause alert recovers after its resolve time. The responder posts a final update and resolves the incident. The control panel shows how much error budget the outage used.

@@ -17,6 +17,7 @@ CACHE_SECONDS = 60
 HISTORY_DAYS = 90
 MINUTES_PER_DAY = 1440
 CLOSED_STATUSES = ("Resolved", "Merged", "Completed", "Cancelled")
+PUBLISHED_VISIBILITIES = ("Public", "Unlisted")
 # A declared service shows these minutes for each day. A Partial Outage minute is also an outage minute.
 DAY_MINUTE_FIELDS = ("degraded_minutes", "outage_minutes", "partial_outage_minutes", "maintenance_minutes")
 IMPACT_MINUTE_FIELDS = {
@@ -44,19 +45,12 @@ class StatusCache:
 		return value
 
 	@staticmethod
-	def incident_key(name: str) -> str:
-		return f"beacon:status-page:incident:{name}"
+	def incident_key(public_id: str) -> str:
+		return f"beacon:status-page:incident:{public_id}"
 
 	@staticmethod
-	def unlisted_key(token: str) -> str:
-		return f"beacon:status-page:unlisted:{token}"
-
-	@staticmethod
-	def clear(incident: str, share_token: str | None = None) -> None:
-		keys = [StatusCache.STATUS, StatusCache.HISTORY, StatusCache.incident_key(incident)]
-		if share_token:
-			keys.append(StatusCache.unlisted_key(share_token))
-		for key in keys:
+	def clear(public_id: str) -> None:
+		for key in (StatusCache.STATUS, StatusCache.HISTORY, StatusCache.incident_key(public_id)):
 			frappe.cache.delete_value(key)
 
 
@@ -121,6 +115,7 @@ class StatusPage:
 			},
 			fields=[
 				"name",
+				"public_id",
 				"title",
 				"type",
 				"status",
@@ -138,14 +133,16 @@ class StatusPage:
 			"incidents": [self._summarize(item) for item in incidents],
 		}
 
-	def get_incident(self, name: str) -> dict | None:
-		incident = frappe.db.get_value("Beacon Incident", {"name": name, "visibility": "Public"}, "name")
-		return self._get_detail(incident) if incident else None
+	def get_incident(self, public_id: str) -> dict | None:
+		name = self.find_incident(public_id)
+		return self._get_detail(name) if name else None
 
-	def get_unlisted_incident(self, token: str) -> dict | None:
+	def find_incident(self, public_id: str) -> str | None:
+		"""The published incident of a link. The link of a merged incident opens the incident that it was
+		merged into, unless that one is Internal."""
 		incident = frappe.db.get_value(
 			"Beacon Incident",
-			{"share_token": token, "visibility": "Unlisted"},
+			{"public_id": public_id, "visibility": ("in", PUBLISHED_VISIBILITIES)},
 			["name", "status", "merged_into"],
 			as_dict=True,
 		)
@@ -157,7 +154,7 @@ class StatusPage:
 				as_dict=True,
 			)
 			incident = target if target and target.visibility != "Internal" else None
-		return self._get_detail(incident.name) if incident else None
+		return incident.name if incident else None
 
 	def _get_detail(self, name: str) -> dict:
 		incident = frappe.get_doc("Beacon Incident", name)
@@ -193,7 +190,7 @@ class StatusPage:
 
 	def _summarize(self, incident: frappe._dict) -> dict:
 		return {
-			"name": incident.name,
+			"id": incident.public_id,
 			"title": incident.title,
 			"type": incident.type,
 			"status": incident.status,
@@ -209,6 +206,7 @@ class StatusPage:
 			filters={"visibility": "Public", "status": ("not in", CLOSED_STATUSES)},
 			fields=[
 				"name",
+				"public_id",
 				"title",
 				"type",
 				"status",
@@ -436,7 +434,7 @@ class IncidentFeed:
 				title=f"{update['status']}: {self.incident['title']}",
 				link=self.link,
 				description=update["message"],
-				guid=f"{self.incident['name']}:{update['posted_at']}",
+				guid=f"{self.incident['id']}:{update['posted_at']}",
 				pubDate=format_datetime(posted_at.replace(tzinfo=posted_at.tzinfo or UTC)),
 			)
 			item.find("guid").set("isPermaLink", "false")

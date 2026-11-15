@@ -3,8 +3,8 @@
 		<h2>{{ heading }}</h2>
 		<router-link
 			v-for="incident in incidents"
-			:key="incident.name"
-			:to="`/incidents/${incident.name}`"
+			:key="incident.id"
+			:to="`/incidents/${incident.id}`"
 			class="incident-row"
 		>
 			<span class="incident-title">{{ incident.title }}</span>

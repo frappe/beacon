@@ -21,26 +21,11 @@ def get_history() -> dict:
 
 @frappe.whitelist(allow_guest=True, methods=["GET"])
 @frappe.read_only()
-def get_incident(name: str) -> dict:
-	return _found(
-		StatusCache.get_or_build(
-			StatusCache.incident_key(name), lambda: StatusPage().get_incident(name) or {}
-		)
+def get_incident(public_id: str) -> dict:
+	"""An empty result is cached too, so unknown links cannot reach the database every time."""
+	incident = StatusCache.get_or_build(
+		StatusCache.incident_key(public_id), lambda: StatusPage().get_incident(public_id) or {}
 	)
-
-
-@frappe.whitelist(allow_guest=True, methods=["GET"])
-@frappe.read_only()
-def get_unlisted_incident(token: str) -> dict:
-	return _found(
-		StatusCache.get_or_build(
-			StatusCache.unlisted_key(token), lambda: StatusPage().get_unlisted_incident(token) or {}
-		)
-	)
-
-
-def _found(incident: dict) -> dict:
-	"""An empty result is cached too, so unknown names and tokens cannot reach the database every time."""
 	if not incident:
 		raise frappe.DoesNotExistError
 	return incident
@@ -48,8 +33,11 @@ def _found(incident: dict) -> dict:
 
 @frappe.whitelist(allow_guest=True, methods=["POST"])
 @rate_limit(limit=10, seconds=3600)
-def subscribe(email: str, name: str | None = None, token: str | None = None) -> None:
-	IncidentSubscription(_get_published_incident(name, token)).subscribe(email)
+def subscribe(email: str, public_id: str) -> None:
+	incident = StatusPage().find_incident(public_id)
+	if not incident:
+		raise frappe.DoesNotExistError
+	IncidentSubscription(incident).subscribe(email)
 
 
 @frappe.whitelist(allow_guest=True, methods=["POST"])
@@ -61,12 +49,8 @@ def change_subscription(token: str, action: str) -> str:
 
 @frappe.whitelist(allow_guest=True, methods=["GET"])
 @frappe.read_only()
-def get_incident_feed(name: str | None = None, token: str | None = None) -> Response:
-	incident = get_unlisted_incident(token) if token else get_incident(name)
-	path = f"/i/{token}" if token else f"/incidents/{incident['name']}"
-	return Response(IncidentFeed(incident, get_url(path)).build(), mimetype="application/rss+xml")
-
-
-def _get_published_incident(name: str | None, token: str | None) -> str:
-	incident = get_unlisted_incident(token) if token else get_incident(name)
-	return incident["name"]
+def get_incident_feed(public_id: str) -> Response:
+	incident = get_incident(public_id)
+	return Response(
+		IncidentFeed(incident, get_url(f"/incidents/{public_id}")).build(), mimetype="application/rss+xml"
+	)
