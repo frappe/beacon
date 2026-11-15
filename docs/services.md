@@ -68,7 +68,7 @@ The status page shows the worse of the measured status and the impact of open pu
 
 ## Uptime
 
-Uptime on the status page is the measured SLI: good divided by valid, for each day and for 90 days. Each day also shows its coverage, the share of the day's minutes that Beacon measured. A bar shows the worst status that the page showed on that day, with the impact of published incidents. So a bad minute that does not hold long enough to change the status lowers the uptime but does not change the color of the bar.
+Uptime on the status page is the measured SLI: good divided by valid, for each day and for 90 days. Each day also shows its coverage, the share of the day's minutes that Beacon measured. The color of a bar comes from the minutes that the page showed each status on that day. The downtime of a day is the Major Outage minutes plus 0.3 times the Partial Outage minutes, as on Atlassian Statuspage. A day with 15 or more minutes of downtime is red, and a day with less downtime is orange. A day with no downtime and with Degraded minutes is yellow. Else the day is green, or blue when it had Maintenance minutes. So a bad minute that does not hold long enough to change the status lowers the uptime but does not change the color of the bar.
 
 ## The status page
 

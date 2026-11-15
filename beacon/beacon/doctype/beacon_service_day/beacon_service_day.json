@@ -15,6 +15,7 @@
   "column_break_47",
   "degraded_minutes",
   "outage_minutes",
+  "partial_outage_minutes",
   "maintenance_minutes"
  ],
  "fields": [
@@ -85,6 +86,14 @@
    "show_description_on_click": 1
   },
   {
+   "description": "The outage minutes that were a Partial Outage.",
+   "fieldname": "partial_outage_minutes",
+   "fieldtype": "Int",
+   "label": "Partial Outage Minutes",
+   "read_only": 1,
+   "show_description_on_click": 1
+  },
+  {
    "fieldname": "maintenance_minutes",
    "fieldtype": "Int",
    "label": "Maintenance Minutes",
@@ -94,7 +103,7 @@
  "in_create": 1,
  "link_display_mode": "Search",
  "links": [],
- "modified": "2026-11-13 13:13:18.963897",
+ "modified": "2026-11-15 08:00:00.000000",
  "modified_by": "Administrator",
  "module": "Beacon",
  "name": "Beacon Service Day",
