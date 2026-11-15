@@ -15,6 +15,7 @@ class BeaconServiceState(Document):
 	if TYPE_CHECKING:
 		from frappe.types import DF
 
+		bad_reporters: DF.SmallText | None
 		budget_left: DF.Percent
 		burn_rates: DF.Data | None
 		candidate_since: DF.Datetime | None
