@@ -19,7 +19,7 @@ A High incident stops after the maximum rounds, 3 by default, and Beacon posts t
 
 ## Acknowledge
 
-The call says the severity and title of the incident twice, in a neural voice. When the responder answers the call, Beacon acknowledges the incident. Twilio reports the answer to a callback URL that holds a token for that call, so Beacon needs a Twilio API key and not the account Auth Token. Beacon checks the token, follows a merge to the open incident, and ignores repeated callbacks.
+The call says the severity of the incident and what happened, without IDs, twice, in a neural voice. When the responder answers the call, Beacon acknowledges the incident. Twilio reports the answer to a callback URL that holds a token for that call, so Beacon needs a Twilio API key and not the account Auth Token. Beacon checks the token, follows a merge to the open incident, and ignores repeated callbacks.
 
 Staff acknowledge with the Acknowledge action. Chat tools and scripts can call the same action:
 

@@ -99,12 +99,13 @@ class CallNotifier(Notifier):
 		return response.json()["sid"]
 
 	def get_twiml(self, notification: BeaconNotification) -> str:
-		"""Say the severity and title twice, so the responder hears it after picking up."""
+		"""Say the severity and what happened twice, so the responder hears it after picking up. An
+		alert title ends with " · <resource>", and an ID read aloud means nothing, so it is left out."""
 		incident = frappe.db.get_value(
 			"Beacon Incident", notification.incident, ["severity", "title"], as_dict=True
 		)
 		speech = escape(
-			f"Beacon alert. A {incident.severity} severity incident: {incident.title}."
+			f"Beacon alert. A {incident.severity} severity incident: {incident.title.split(' · ')[0]}."
 			if incident
 			else notification.message
 		)
