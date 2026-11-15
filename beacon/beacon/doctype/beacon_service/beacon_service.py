@@ -11,7 +11,7 @@ from beacon.core.exceptions import ClickHouseError
 from beacon.core.resource.clickhouse import ClickHouseClient
 from beacon.core.resource.regions import RegionSelection
 from beacon.core.service.history import ServiceSample
-from beacon.core.service.status import ServiceStatus
+from beacon.core.service.status import STATUS_THRESHOLDS, ServiceStatus
 from beacon.core.transaction import RecordTransaction
 
 BURN_RULE_RESOLVE_AFTER_SECONDS = 300
@@ -33,6 +33,7 @@ class BeaconService(Document):
 		description: DF.SmallText | None
 		enabled: DF.Check
 		is_removed: DF.Check
+		major_outage_below: DF.Percent
 		measurement: DF.Literal["Measured", "Declared"]
 		page_on_burn: DF.Check
 		query_region: DF.Link | None
@@ -53,6 +54,8 @@ class BeaconService(Document):
 		check_desk_change(self)
 		if self.sla_target and self.sla_target > self.slo_target:
 			frappe.throw(frappe._("The SLA target must not be above the SLO target."))
+		if not 0 < self.major_outage_below < STATUS_THRESHOLDS[-1][0]:
+			frappe.throw(frappe._("Major Outage Below must be more than 0 and less than 95."))
 
 	def on_update(self) -> None:
 		"""Every service has one SLO burn rule. The tick computes it from Service Minute."""
@@ -101,7 +104,9 @@ class BeaconService(Document):
 					"good": sample.good,
 					"valid": sample.valid,
 					"ratio": sample.ratio,
-					"status": "Unknown" if sample.ratio is None else ServiceStatus.from_ratio(sample.ratio),
+					"status": "Unknown"
+					if sample.ratio is None
+					else ServiceStatus.from_ratio(sample.ratio, self.major_outage_below),
 				}
 			)
 		return results

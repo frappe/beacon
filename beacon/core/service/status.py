@@ -10,7 +10,8 @@ if TYPE_CHECKING:
 
 # Best first. The status page shows the worst status of a service.
 STATUS_ORDER = ("Operational", "Maintenance", "Degraded", "Partial Outage", "Major Outage")
-STATUS_THRESHOLDS = ((99.5, "Operational"), (95.0, "Degraded"), (80.0, "Partial Outage"))
+# Below Degraded is Partial Outage, down to the Major Outage limit of the service.
+STATUS_THRESHOLDS = ((99.5, "Operational"), (95.0, "Degraded"))
 WORSE_STATUS_HOLD = timedelta(minutes=3)
 BETTER_STATUS_HOLD = timedelta(minutes=2)
 
@@ -38,8 +39,9 @@ class ServiceStatus:
 			self._set(computed)
 
 	@staticmethod
-	def from_ratio(ratio: float) -> str:
-		return next((status for threshold, status in STATUS_THRESHOLDS if ratio >= threshold), "Major Outage")
+	def from_ratio(ratio: float, major_outage_below: float) -> str:
+		thresholds = (*STATUS_THRESHOLDS, (major_outage_below, "Partial Outage"))
+		return next((status for threshold, status in thresholds if ratio >= threshold), "Major Outage")
 
 	@staticmethod
 	def with_impact(measured: str, impact: str) -> str:

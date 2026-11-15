@@ -77,7 +77,16 @@ class RegionSchedule:
 		services = frappe.get_all(
 			"Beacon Service",
 			filters={"enabled": 1, "measurement": "Measured"},
-			fields=["name", "scope", "query_region", "sli_query", "slo_target", "sla_target", "page_on_burn"],
+			fields=[
+				"name",
+				"scope",
+				"query_region",
+				"sli_query",
+				"slo_target",
+				"sla_target",
+				"page_on_burn",
+				"major_outage_below",
+			],
 		)
 		selection = RegionSelection("Beacon Service")
 

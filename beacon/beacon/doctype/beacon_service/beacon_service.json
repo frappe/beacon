@@ -13,6 +13,7 @@
   "measurement",
   "slo_target",
   "sla_target",
+  "major_outage_below",
   "page_on_burn",
   "health_section",
   "health_html",
@@ -89,6 +90,15 @@
    "fieldname": "sla_target",
    "fieldtype": "Percent",
    "label": "SLA Target",
+   "show_description_on_click": 1
+  },
+  {
+   "default": "80",
+   "depends_on": "eval:doc.measurement == 'Measured'",
+   "description": "An SLI below this shows Major Outage. From this value to 95% shows Partial Outage.",
+   "fieldname": "major_outage_below",
+   "fieldtype": "Percent",
+   "label": "Major Outage Below",
    "show_description_on_click": 1
   },
   {
@@ -235,7 +245,7 @@
    "link_fieldname": "service"
   }
  ],
- "modified": "2026-11-15 11:00:00.000000",
+ "modified": "2026-11-15 12:40:00.000000",
  "modified_by": "Administrator",
  "module": "Beacon",
  "name": "Beacon Service",
