@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 import frappe
-from frappe.utils import now_datetime
+from frappe.utils import get_fullname, get_url_to_form, now_datetime
 
 from beacon.core.incident.notifiers import NOTIFIERS, Notifier
 from beacon.core.jobs import queue_notification
@@ -110,7 +110,7 @@ class NotificationDelivery:
 				name,
 				{
 					"status": "Cancelled",
-					"error": "Paging was paused, or the channel or responder was disabled.",
+					"error": "Calls and emails were paused, or the channel or responder was disabled.",
 				},
 			)
 			return False
@@ -125,10 +125,14 @@ class NotificationDelivery:
 			values = {"provider_ref": values.get("provider_ref"), "sent_at": values.get("sent_at")}
 		frappe.db.set_value("Beacon Notification", self.notification.name, values)
 
-		# A failed page must not stay silent. When chat itself fails, only the Error Log has it.
+		# A failed notification must not stay silent. When chat itself fails, only the Error Log has it.
+		# The error stays on the row: provider responses can hold data that chat must not show.
 		notification = self.notification
 		if values.get("status") == "Failed" and notification.channel != "Chat":
-			NotificationOutbox().post_to_chat(
-				f"Beacon could not send the {notification.channel} notification {notification.name}"
-				f" to {notification.responder} for {notification.incident}: {values['error'][:500]}"
+			NotificationOutbox().queue(
+				"Chat",
+				f"Beacon could not {'call' if notification.channel == 'Call' else 'email'}"
+				f" {get_fullname(notification.responder)}. Contact them directly.\n"
+				f"Error: {get_url_to_form('Beacon Notification', notification.name)}",
+				notification.incident,
 			)

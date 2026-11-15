@@ -38,5 +38,5 @@ class IncidentRecovery:
 			incident.resolve("All alerts recovered.")
 		else:
 			NotificationOutbox().announce(
-				incident, f"All alerts of {name} are resolved. A person must resolve it."
+				incident, f"No open alerts remain for {name}. Check the service, then resolve the incident."
 			)

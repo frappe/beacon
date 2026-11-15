@@ -152,10 +152,9 @@ class IncidentCoordinator:
 
 		incident.add_group_key(group_key)
 		if is_more_severe:
+			message = f"{incident.name} severity raised from {incident.severity} to {alert.severity} by {alert.title}"
 			incident.severity = alert.severity
-			NotificationOutbox().announce(
-				incident, f"Severity raised to {alert.severity} by {alert.title}\n{alert.detail}".rstrip()
-			)
+			NotificationOutbox().announce(incident, f"{message}\n{alert.detail}".rstrip())
 		if is_monitoring:
 			incident.lifecycle.move_to("Investigating")
 		incident.save(ignore_permissions=True)

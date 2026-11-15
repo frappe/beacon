@@ -58,7 +58,7 @@ Beacon writes each notification row in the same transaction as the change that c
 
 A chat message about an incident ends with the Desk link of the incident. The message for a new incident or a raised severity also shows the detail of the alert. Alert and incident titles name the resource by its title, or by its ID when it has no title.
 
-When a call or an email fails, Beacon posts the error to chat. For an email, Sent means that Frappe accepted it into the Email Queue. Frappe sends it later and records a delivery error on the Email Queue row, not on the notification.
+When a call or an email fails, Beacon posts to chat who did not get it, with a link to the notification. The error stays on the notification, because a provider response can hold data that chat must not show. For an email, Sent means that Frappe accepted it into the Email Queue. Frappe sends it later and records a delivery error on the Email Queue row, not on the notification.
 
 ## Heartbeat
 

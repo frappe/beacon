@@ -5,7 +5,7 @@ from datetime import timedelta
 from typing import TYPE_CHECKING
 
 import frappe
-from frappe.utils import get_datetime, now_datetime
+from frappe.utils import get_datetime, get_fullname, now_datetime
 
 from beacon.core.incident.merge import IncidentMerge
 from beacon.core.incident.notifiers import CallNotifier
@@ -126,7 +126,9 @@ class CallResponse:
 		values = {"status": status}
 		if status == "Failed":
 			values["error"] = f"Twilio reported the call as {twilio_status}."
-			NotificationOutbox().post_to_chat(
-				f"Beacon could not call {row.responder} for {row.incident}: {values['error']}"
+			NotificationOutbox().queue(
+				"Chat",
+				f"Beacon could not call {get_fullname(row.responder)}: {values['error']} Contact them directly.",
+				row.incident,
 			)
 		frappe.db.set_value("Beacon Notification", self.notification, values)
