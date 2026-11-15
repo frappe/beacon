@@ -47,11 +47,13 @@ class ChatNotifier(Notifier):
 
 	def send(self, notification: BeaconNotification) -> None:
 		url = self.settings.get_password("chat_webhook_url")
-		text = notification.message
+		lines = notification.message.splitlines()
 		if notification.incident:
-			if notification.incident not in text:
-				text = f"[{notification.incident}] {text}"
-			text += f"\n{get_url_to_form('Beacon Incident', notification.incident)}"
+			if notification.incident not in lines[0]:
+				lines[0] = f"[{notification.incident}] {lines[0]}"
+			lines.append(get_url_to_form("Beacon Incident", notification.incident))
+		# The chat renders Markdown, where a single line break joins the lines.
+		text = "\n\n".join(lines)
 		requests.post(url, json={"text": text}, timeout=REQUEST_TIMEOUT_SECONDS).raise_for_status()
 
 
