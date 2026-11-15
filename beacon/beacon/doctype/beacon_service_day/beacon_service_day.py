@@ -21,6 +21,7 @@ class BeaconServiceDay(Document):
 		maintenance_minutes: DF.Int
 		observed_minutes: DF.Int
 		outage_minutes: DF.Int
+		partial_outage_minutes: DF.Int
 		region: DF.Link | None
 		service: DF.Link | None
 		valid: DF.Int

@@ -263,6 +263,7 @@ class StatusPage:
 				"valid",
 				"degraded_minutes",
 				"outage_minutes",
+				"partial_outage_minutes",
 				"maintenance_minutes",
 				"observed_minutes",
 			],
@@ -312,6 +313,7 @@ class StatusPage:
 					"observed_minutes": day.observed_minutes,
 					"degraded_minutes": day.degraded_minutes,
 					"outage_minutes": day.outage_minutes,
+					"partial_outage_minutes": day.partial_outage_minutes,
 					"maintenance_minutes": day.maintenance_minutes,
 				}
 				for day in history

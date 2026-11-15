@@ -52,6 +52,7 @@ class ServiceHistory:
 			.set(day.observed_minutes, day.observed_minutes + 1)
 			.set(day.degraded_minutes, day.degraded_minutes + int(status == "Degraded"))
 			.set(day.outage_minutes, day.outage_minutes + int(status in OUTAGE_STATUSES))
+			.set(day.partial_outage_minutes, day.partial_outage_minutes + int(status == "Partial Outage"))
 			.set(day.maintenance_minutes, day.maintenance_minutes + int(status == "Maintenance"))
 			.where(day.name == self._get_day(minute))
 		).run()

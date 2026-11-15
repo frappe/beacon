@@ -22,8 +22,9 @@ Each minute, the region run measures each service:
 1. Run the SLI query. It returns one row for each reporter, such as a VM, seen in the last 30 minutes: `resource_id`, `good`, `valid`, `last_ts`.
 2. Drop the rows of resources that are not checked, and of resources in a Public maintenance that was published before its start.
 3. A reporter with no sample for 3 minutes counts its last valid events as bad only when it, or a parent of it, has a Firing cause alert, such as "Host down". Else Beacon leaves it out. So a dead host counts its VMs and sites as down, but a Pilot restart or a Datum gap never looks like an outage.
-4. Store good, valid and the count of bad reporters in a Service Minute (kept 3 days), and add good and valid to the Service Day.
-5. Compute the status and the burn alerts.
+4. Compute the status.
+5. Store good, valid, the count of bad reporters and the status in a Service Minute (kept 3 days). Add good and valid to the Service Day, and count the minute as a degraded or outage minute of the day when the status is Degraded or an outage.
+6. Compute the burn alerts.
 
 When the query fails or returns no valid events, Beacon adds no Service Minute or Service Day totals. It sets the measured status to Unknown, unless a matching Public maintenance sets it to Maintenance.
 
@@ -67,7 +68,7 @@ The status page shows the worse of the measured status and the impact of open pu
 
 ## Uptime
 
-Uptime on the status page is the measured SLI: good divided by valid, for each day and for 90 days. Each day also shows its coverage, the share of the day's minutes that Beacon measured. A bar shows the worst status of the day, with the impact of published incidents.
+Uptime on the status page is the measured SLI: good divided by valid, for each day and for 90 days. Each day also shows its coverage, the share of the day's minutes that Beacon measured. The color of a bar comes from the minutes that the page showed each status on that day. The downtime of a day is the Major Outage minutes plus 0.3 times the Partial Outage minutes, as on Atlassian Statuspage. A day with 15 or more minutes of downtime is red, and a day with less downtime is orange. A day with no downtime and with Degraded minutes is yellow. Else the day is green, or blue when it had Maintenance minutes. So a bad minute that does not hold long enough to change the status lowers the uptime but does not change the color of the bar.
 
 ## The status page
 

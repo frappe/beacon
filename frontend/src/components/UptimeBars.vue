@@ -14,15 +14,30 @@
 			@keydown="move($event, index)"
 		></button>
 	</div>
-	<p v-if="detail" class="day-detail" role="status">
-		<strong>{{ detail.date }} UTC</strong> · {{ detail.title
-		}}<template v-if="detail.sample">
-			· {{ detail.sample.observed_minutes }} observed minutes ·
-			{{ (100 * detail.sample.coverage).toFixed(1) }}% coverage ·
-			{{ detail.sample.good }} good / {{ detail.sample.valid }} valid ·
-			{{ detail.sample.maintenance_minutes }} maintenance minutes</template
-		>
-	</p>
+	<div v-if="detail" class="day-detail" role="status">
+		<div class="row">
+			<strong>{{ detail.date }} UTC</strong><span>{{ detail.label }}</span>
+		</div>
+		<dl v-if="detail.sample" class="day-facts">
+			<div>
+				<dt>Uptime</dt>
+				<dd>{{ detail.sample.uptime }}%</dd>
+			</div>
+			<div>
+				<dt>Major outage</dt>
+				<dd>{{ detail.major }} min</dd>
+			</div>
+			<div>
+				<dt>Partial outage</dt>
+				<dd>{{ detail.sample.partial_outage_minutes }} min</dd>
+			</div>
+			<div>
+				<dt>Degraded</dt>
+				<dd>{{ detail.sample.degraded_minutes }} min</dd>
+			</div>
+		</dl>
+		<p class="muted">{{ detail.reason }}</p>
+	</div>
 </template>
 <script setup>
 import { computed, ref } from "vue";
@@ -38,22 +53,60 @@ const slots = computed(() => {
 		const key = date.toISOString().slice(0, 10),
 			day = byDate[key];
 		if (!day || day.uptime === null)
-			return { date: key, class: "bar-empty", title: `${key}: no usable data`, sample: day };
-		const state = day.outage_minutes
-			? "status-major-outage"
-			: day.degraded_minutes
-			? "status-degraded"
-			: day.maintenance_minutes
-			? "status-maintenance"
-			: "status-operational";
+			return {
+				date: key,
+				class: "bar-empty",
+				title: `${key}: no usable data`,
+				label: "No data",
+				reason: "No usable measurement.",
+				sample: day,
+			};
+		const description = describe(day);
 		return {
 			date: key,
-			class: state,
-			title: `${key}: ${day.uptime}% measured uptime, ${day.outage_minutes} min outage, ${day.degraded_minutes} min degraded`,
 			sample: day,
+			title: `${key}: ${description.label}, ${day.uptime}% uptime`,
+			...description,
 		};
 	});
 });
+// Statuspage counts a Partial Outage minute as 0.3 of a Major Outage minute.
+const PARTIAL_OUTAGE_WEIGHT = 0.3,
+	RED_DOWNTIME_MINUTES = 15;
+function describe(day) {
+	const major = day.outage_minutes - day.partial_outage_minutes;
+	const downtime = major + PARTIAL_OUTAGE_WEIGHT * day.partial_outage_minutes;
+	return {
+		major,
+		...colorDay(
+			day,
+			downtime,
+			`${downtime.toFixed(
+				1
+			)} minutes of downtime: ${major} major + ${PARTIAL_OUTAGE_WEIGHT} × ${
+				day.partial_outage_minutes
+			} partial.`
+		),
+	};
+}
+function colorDay(day, downtime, reason) {
+	if (downtime >= RED_DOWNTIME_MINUTES)
+		return { class: "status-major-outage", label: "Downtime", reason };
+	if (downtime > 0) return { class: "status-partial-outage", label: "Minor downtime", reason };
+	if (day.degraded_minutes)
+		return {
+			class: "status-degraded",
+			label: "Degraded",
+			reason: "No downtime. Some minutes were degraded.",
+		};
+	if (day.maintenance_minutes)
+		return {
+			class: "status-maintenance",
+			label: "Maintenance",
+			reason: `No downtime. ${day.maintenance_minutes} minutes of maintenance.`,
+		};
+	return { class: "status-operational", label: "Operational", reason: "No downtime." };
+}
 const detail = computed(() => slots.value.find((day) => day.date === selected.value));
 function move(event, index) {
 	let next;

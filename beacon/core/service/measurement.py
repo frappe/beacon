@@ -101,11 +101,10 @@ class ServiceMeasurement:
 		if self._is_counted():
 			return
 
-		status = self._compute_status(sample)
+		ServiceStatus(self.state, self.minute).apply(self._compute_status(sample))
 		if sample and sample.valid:
-			ServiceHistory(self.service.name, self.region).record(self.minute, sample, status)
+			ServiceHistory(self.service.name, self.region).record(self.minute, sample, self.state.status)
 
-		ServiceStatus(self.state, self.minute).apply(status)
 		self.state.checked_at = self.now
 		self.state.last_counted_minute = self.minute
 		self.state.last_ratio = sample.ratio if sample else None
