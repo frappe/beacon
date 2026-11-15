@@ -15,6 +15,7 @@
   "budget_left",
   "burn_rates",
   "last_counted_minute",
+  "bad_reporters",
   "transition_section",
   "candidate_status",
   "transition_column",
@@ -86,6 +87,13 @@
    "fieldtype": "Datetime",
    "hidden": 1,
    "label": "Last Counted Minute",
+   "read_only": 1
+  },
+  {
+   "fieldname": "bad_reporters",
+   "fieldtype": "Small Text",
+   "hidden": 1,
+   "label": "Bad Reporters",
    "read_only": 1
   },
   {

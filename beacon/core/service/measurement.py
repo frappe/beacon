@@ -112,6 +112,8 @@ class ServiceMeasurement:
 		self.state.checked_at = self.now
 		self.state.last_counted_minute = self.minute
 		self.state.last_ratio = sample.ratio if sample else None
+		# Incident matching reads them to pair a burn alert with the incident of its cause.
+		self.state.bad_reporters = "\n".join(sample.bad_resources) if sample else ""
 		self._reconcile_burn_alerts()
 		self.state.save(ignore_permissions=True)
 
@@ -152,7 +154,8 @@ class ServiceMeasurement:
 			sample.good += good
 			sample.valid += valid
 			sample.reporters += 1
-			sample.bad_reporters += int(good < valid)
+			if good < valid:
+				sample.bad_resources.append(resource.name)
 		return sample
 
 	def _compute_status(self, sample: ServiceSample | None, impact: str) -> str:

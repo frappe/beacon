@@ -39,6 +39,7 @@ class IncidentCoordinator:
 				return
 
 			self.registry = ResourceRegistry(self.region)
+			self.burn_resources = self._load_burn_resources()
 			self.incidents = self._load_open_incidents()
 			self.joined: dict[str, list[str]] = {}
 			for alert in alerts:
@@ -80,16 +81,34 @@ class IncidentCoordinator:
 
 		is_burn = alert.rule in self.burn_rules
 		group_key = f"{alert.rule}@{self.region}"
+		resources = self._get_related_resources(alert, is_burn)
 		placement = IncidentMatcher(self.incidents, self.now).find(
-			resource, group_key, is_burn
+			resource, group_key, is_burn, resources
 		) or self._reopen_recent(group_key)
 		if not placement:
-			self._open_incident(alert, resource, group_key, is_burn)
+			self._open_incident(alert, resource, group_key, is_burn, resources)
 			return
 
 		if placement.add_scope:
 			self._add_scope(placement.incident, resource)
-		self._add_alert(placement.incident, alert, group_key, is_burn)
+		self._add_alert(placement.incident, alert, group_key, is_burn, resources)
+
+	def _get_related_resources(self, alert: frappe._dict, is_burn: bool) -> set[str]:
+		return self.burn_resources.get(alert.rule, set()) if is_burn else {alert.resource}
+
+	def _load_burn_resources(self) -> dict[str, set[str]]:
+		"""For each burn rule, the bad reporters of its service in this region in the last minute, and their
+		parents. An incident with a cause alert on one of them is the incident of that burn."""
+		burn_resources = {}
+		for state in frappe.get_all(
+			"Beacon Service State", filters={"region": self.region}, fields=["service", "bad_reporters"]
+		):
+			resources = set()
+			for name in (state.bad_reporters or "").split():
+				if resource := self.registry.get(name):
+					resources.update(item.name for item in self.registry.get_ancestors(resource))
+			burn_resources[AlertRules.get_burn_rule_name(state.service)] = resources
+		return burn_resources
 
 	def _reopen_recent(self, group_key: str) -> Placement | None:
 		"""Retrigger an Internal Beacon incident of the same group that resolved within the reopen window."""
@@ -117,10 +136,12 @@ class IncidentCoordinator:
 		self.incidents.insert(0, item)
 		return Placement(item)
 
-	def _add_alert(self, item: OpenIncident, alert: frappe._dict, group_key: str, is_burn: bool) -> None:
+	def _add_alert(
+		self, item: OpenIncident, alert: frappe._dict, group_key: str, is_burn: bool, resources: set[str]
+	) -> None:
 		incident = frappe.get_doc("Beacon Incident", item.name, for_update=True)
 		frappe.db.set_value("Beacon Alert", alert.name, "incident", item.name, update_modified=False)
-		item.add_alert(alert.name, is_burn)
+		item.add_alert(alert.name, is_burn, resources)
 		self.joined.setdefault(item.name, []).append(alert.title)
 
 		is_new_key = group_key not in (incident.group_keys or "").split()
@@ -140,7 +161,7 @@ class IncidentCoordinator:
 			IncidentEscalation(incident).start(wait=False)
 
 	def _open_incident(
-		self, alert: frappe._dict, resource: frappe._dict, group_key: str, is_burn: bool
+		self, alert: frappe._dict, resource: frappe._dict, group_key: str, is_burn: bool, resources: set[str]
 	) -> None:
 		rule = frappe.db.get_value(
 			"Beacon Alert Rule", alert.rule, ["title", "scope_includes_descendants"], as_dict=True
@@ -168,7 +189,7 @@ class IncidentCoordinator:
 		frappe.db.set_value("Beacon Alert", alert.name, "incident", incident.name, update_modified=False)
 
 		item = self._load_open_incident(incident)
-		item.add_alert(alert.name, is_burn)
+		item.add_alert(alert.name, is_burn, resources)
 		self._take_covered_alerts(item)
 		self.incidents.insert(0, item)
 
@@ -259,7 +280,10 @@ class IncidentCoordinator:
 			matches=[ResourceMatch.from_row(row) for row in incident.scope if row.region == self.region],
 		)
 		for alert in frappe.get_all(
-			"Beacon Alert", filters={"incident": incident.name, "status": "Firing"}, fields=["name", "rule"]
+			"Beacon Alert",
+			filters={"incident": incident.name, "status": "Firing"},
+			fields=["name", "rule", "resource"],
 		):
-			item.add_alert(alert.name, alert.rule in self.burn_rules)
+			is_burn = alert.rule in self.burn_rules
+			item.add_alert(alert.name, is_burn, self._get_related_resources(alert, is_burn))
 		return item

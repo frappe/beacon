@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 
 import frappe
@@ -15,7 +15,11 @@ class ServiceSample:
 	good: int = 0
 	valid: int = 0
 	reporters: int = 0
-	bad_reporters: int = 0
+	bad_resources: list[str] = field(default_factory=list)
+
+	@property
+	def bad_reporters(self) -> int:
+		return len(self.bad_resources)
 
 	@property
 	def ratio(self) -> float | None:

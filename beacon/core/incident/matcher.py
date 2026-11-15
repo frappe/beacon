@@ -24,6 +24,9 @@ class OpenIncident:
 	matches: list[ResourceMatch]
 	cause_alerts: list[str] = field(default_factory=list)
 	burn_alerts: list[str] = field(default_factory=list)
+	# The resources of the cause alerts, and of the bad reporters of the burn alerts with their parents.
+	cause_resources: set[str] = field(default_factory=set)
+	burn_resources: set[str] = field(default_factory=set)
 
 	def covers(self, resource: frappe._dict | None) -> bool:
 		return bool(resource) and any(match.covers(resource) for match in self.matches)
@@ -31,8 +34,9 @@ class OpenIncident:
 	def is_young(self, now: datetime) -> bool:
 		return self.creation > now - YOUNG_INCIDENT
 
-	def add_alert(self, alert: str, is_burn: bool) -> None:
+	def add_alert(self, alert: str, is_burn: bool, resources: set[str]) -> None:
 		(self.burn_alerts if is_burn else self.cause_alerts).append(alert)
+		(self.burn_resources if is_burn else self.cause_resources).update(resources)
 
 
 @dataclass(frozen=True)
@@ -50,23 +54,30 @@ class IncidentMatcher:
 		self.incidents = incidents
 		self.now = now
 
-	def find(self, resource: frappe._dict, group_key: str, is_burn: bool) -> Placement | None:
-		"""In order: an incident that covers the resource, a cause and burn pair, then the alert's group."""
+	def find(
+		self, resource: frappe._dict, group_key: str, is_burn: bool, resources: set[str]
+	) -> Placement | None:
+		"""In order: an incident that covers the resource, a related cause and burn pair, then the alert's group.
+		resources are the alert's resource for a cause, and the bad reporters with their parents for a burn."""
 		covering = next((item for item in self.incidents if item.covers(resource)), None)
 		if covering:
 			return Placement(covering)
-		return self._find_pair(is_burn) or self._find_group(group_key)
+		return self._find_pair(is_burn, resources) or self._find_group(group_key)
 
-	def _find_pair(self, is_burn: bool) -> Placement | None:
-		"""A burn joins an incident with a cause. A cause joins a burn-only incident and widens its scope."""
+	def _find_pair(self, is_burn: bool, resources: set[str]) -> Placement | None:
+		"""A burn joins an incident with a cause on one of its bad reporters or their parents. A cause joins a
+		burn-only incident that such a burn opened, and widens its scope. Unrelated alerts do not pair."""
 		if is_burn:
-			with_cause = next((item for item in self.incidents if item.cause_alerts), None)
-			young = next((item for item in self.incidents if item.is_young(self.now)), None)
-			incident = with_cause or young
+			incident = next((item for item in self.incidents if item.cause_resources & resources), None)
 			return Placement(incident) if incident else None
 
 		burn_only = next(
-			(item for item in self.incidents if item.burn_alerts and not item.cause_alerts), None
+			(
+				item
+				for item in self.incidents
+				if item.burn_alerts and not item.cause_alerts and item.burn_resources & resources
+			),
+			None,
 		)
 		return Placement(burn_only, add_scope=True) if burn_only else None
 
