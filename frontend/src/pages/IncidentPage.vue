@@ -1,6 +1,6 @@
 <template>
 	<p v-if="error" class="card error">
-		{{ error === "Not found" ? "This incident does not exist or is not public." : error }}
+		{{ error === "Not found" ? "This incident does not exist or is not published." : error }}
 	</p>
 	<template v-else-if="data">
 		<section class="card">
@@ -44,7 +44,7 @@
 			<div v-html="data.public_rca"></div>
 		</section>
 
-		<IncidentSubscribe v-if="!data.resolved_at" :name="data.name" :token="token" />
+		<IncidentSubscribe v-if="!data.resolved_at" :public-id="publicId" />
 	</template>
 	<p v-else class="muted">Loading…</p>
 </template>
@@ -53,10 +53,6 @@
 import IncidentSubscribe from "../components/IncidentSubscribe.vue";
 import { formatTime, useCall } from "../api.js";
 
-const props = defineProps({ name: String, token: String });
-const { data, error } = useCall(
-	() => (props.token ? "get_unlisted_incident" : "get_incident"),
-	() => (props.token ? { token: props.token } : { name: props.name }),
-	60
-);
+const props = defineProps({ publicId: String });
+const { data, error } = useCall("get_incident", () => ({ public_id: props.publicId }), 60);
 </script>

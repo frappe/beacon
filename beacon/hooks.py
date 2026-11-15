@@ -31,8 +31,7 @@ add_to_apps_screen = [
 # The status page is a Vue app served at / and at its own routes.
 home_page = "status"
 website_route_rules = [
-	{"from_route": "/i/<token>", "to_route": "status"},
-	{"from_route": "/incidents/<name>", "to_route": "status"},
+	{"from_route": "/incidents/<public_id>", "to_route": "status"},
 	{"from_route": "/history", "to_route": "status"},
 	{"from_route": "/subscription/<token>", "to_route": "status"},
 ]

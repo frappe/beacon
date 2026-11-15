@@ -39,7 +39,7 @@
   "alerts_html",
   "grouping_section",
   "created_by_beacon",
-  "share_token",
+  "public_id",
   "grouping_column",
   "group_keys",
   "notifications_tab",
@@ -277,10 +277,10 @@
    "read_only": 1
   },
   {
-   "fieldname": "share_token",
+   "fieldname": "public_id",
    "fieldtype": "Data",
    "hidden": 1,
-   "label": "Share Token",
+   "label": "Public ID",
    "read_only": 1,
    "unique": 1
   },
@@ -350,7 +350,7 @@
    "link_fieldname": "incident"
   }
  ],
- "modified": "2026-11-14 05:00:00.000000",
+ "modified": "2026-11-15 12:00:00.000000",
  "modified_by": "Administrator",
  "module": "Beacon",
  "name": "Beacon Incident",

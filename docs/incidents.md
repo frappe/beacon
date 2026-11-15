@@ -7,7 +7,7 @@ An incident is the record that people work on. It holds the alerts of one cause,
 | Visibility | Who can see it |
 | --- | --- |
 | Internal | Staff only. Each incident starts as Internal. |
-| Unlisted | Staff, and each person who has its private link. The status page does not list it. |
+| Unlisted | Staff, and each person who has its link. The status page does not list it. |
 | Public | Everyone on the status page. |
 
 A person decides what customers see. Beacon never publishes an incident and never reopens a public one.
@@ -40,7 +40,7 @@ Example: a host fails and a proxy fails in the same region.
 Incident 1                          Incident 2
 scope: host h12, with descendants    scope: proxy node proxy-2
   covers vm-a, vm-b, ...             affected service: Networking
-one update stream, one private link
+one update stream, one link
 ```
 
 ## Incident states
@@ -60,7 +60,7 @@ one update stream, one private link
 
 ## Publish
 
-The Publish action sets the visibility, the affected services with their impact, and the first public message. Unlisted makes a private link with a random token. Support can send that link to the customers who are affected.
+The Publish action sets the visibility, the affected services with their impact, and the first public message. Publish gives the incident a link with a random public ID: `/incidents/<public_id>`. Public and Unlisted incidents use the same link, and only Public ones are listed. Nobody can guess the link or count the incidents from it. Support can send the link of an Unlisted incident to the customers who are affected. A change of visibility keeps the link. Regenerate Link makes a new one, and the old link stops working.
 
 A public update shows on the status page. Visitors can follow one published incident by email or RSS. The confirm and stop links open a page with a button, so a link scanner changes nothing. A new public update emails each confirmed subscriber. Every update of one incident has the same subject, so mail clients keep them in one thread.
 

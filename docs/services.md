@@ -78,4 +78,4 @@ Services with the same `status_page_group` show under one heading with that name
 
 ## The status page
 
-The status page is a Vue app at `/` of the Beacon site. It reads only these guest methods: `get_status`, `get_history`, `get_incident` and `get_unlisted_incident`. They return only published data and cache each result for 60 seconds, so traffic during an outage does not reach ClickHouse. An action that changes published data clears the cache keys that it changes.
+The status page is a Vue app at `/` of the Beacon site. It reads only these guest methods: `get_status`, `get_history` and `get_incident`, which takes the public ID of the incident link. They return only published data and cache each result for 60 seconds, so traffic during an outage does not reach ClickHouse. An action that changes published data clears the cache keys that it changes.

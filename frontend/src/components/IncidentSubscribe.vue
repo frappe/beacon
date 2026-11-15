@@ -23,9 +23,8 @@
 import { computed, ref } from "vue";
 import { feedUrl, post } from "../api.js";
 
-const props = defineProps({ name: String, token: String });
-const target = computed(() => (props.token ? { token: props.token } : { name: props.name }));
-const feed = computed(() => feedUrl(target.value));
+const props = defineProps({ publicId: String });
+const feed = computed(() => feedUrl({ public_id: props.publicId }));
 const email = ref("");
 const busy = ref(false);
 const sent = ref(false);
@@ -35,7 +34,7 @@ async function submit() {
 	busy.value = true;
 	error.value = "";
 	try {
-		await post("subscribe", { ...target.value, email: email.value });
+		await post("subscribe", { public_id: props.publicId, email: email.value });
 		sent.value = true;
 	} catch (failure) {
 		error.value = failure.message;

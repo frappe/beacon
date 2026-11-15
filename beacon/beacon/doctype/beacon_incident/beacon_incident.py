@@ -58,6 +58,7 @@ class BeaconIncident(Document):
 		page_index: DF.Int
 		page_round: DF.Int
 		postmortem_required: DF.Check
+		public_id: DF.Data | None
 		public_rca: DF.TextEditor | None
 		rca: DF.TextEditor | None
 		resolved_at: DF.Datetime | None
@@ -65,7 +66,6 @@ class BeaconIncident(Document):
 		scheduled_start: DF.Datetime | None
 		scope: DF.Table[BeaconIncidentScope]
 		severity: DF.Literal["Low", "Medium", "High", "Critical"]
-		share_token: DF.Data | None
 		status: DF.Literal[
 			"Triggered",
 			"Investigating",
@@ -107,7 +107,7 @@ class BeaconIncident(Document):
 
 	def on_update(self) -> None:
 		if self.visibility != "Internal":
-			StatusCache.clear(self.name, self.share_token)
+			StatusCache.clear(self.public_id)
 			IncidentSubscription.queue_new_updates(self)
 
 	@property
@@ -227,15 +227,15 @@ class BeaconIncident(Document):
 		IncidentPublication(self).change_visibility(visibility)
 
 	@document_action
-	def regenerate_private_link(self) -> None:
+	def regenerate_public_link(self) -> None:
 		self.check_permission("write")
-		IncidentPublication(self).regenerate_private_link()
+		IncidentPublication(self).regenerate_public_link()
 
 	@frappe.whitelist()
 	@frappe.read_only()
-	def get_private_link(self) -> str:
+	def get_public_link(self) -> str:
 		self.check_permission("read")
-		return IncidentPublication(self).get_private_link()
+		return IncidentPublication(self).get_public_link()
 
 	@frappe.whitelist()
 	@frappe.read_only()
