@@ -31,6 +31,7 @@ DEFINITION_KEY = re.compile(r"^[a-z0-9][a-z0-9-]*$")
 
 RULE_HEADER_FIELDS = {
 	"title": str,
+	"description": str,
 	"severity": str,
 	"resource_type": str,
 	"runbook_url": str,
@@ -78,6 +79,7 @@ BUILT_IN_RULES = (
 	{
 		"rule_key": "region-unreachable",
 		"title": "Region unreachable",
+		"description": "Beacon cannot reach the region. Its hosts, VMs and sites are not watched.",
 		"severity": "Critical",
 		"resource_type": "Region",
 		"pending_for": 0,

@@ -5,11 +5,12 @@ from datetime import timedelta
 import frappe
 from frappe import _
 from frappe.model.document import Document
+from frappe.query_builder.functions import Coalesce
 from frappe.utils import get_datetime, now_datetime
 
 from beacon.beacon.doctype.beacon_alert.beacon_alert import BeaconAlert
 from beacon.beacon.doctype.beacon_notification.beacon_notification import BeaconNotification
-from beacon.core.alert.states import OPEN_ALERT_STATUSES, PAGED_SEVERITIES, Severity
+from beacon.core.alert.states import OPEN_ALERT_STATUSES, PAGED_SEVERITIES, SEVERITIES, Severity
 from beacon.core.exceptions import IncidentActionError
 from beacon.core.incident.chat_message import ChatMessage
 from beacon.core.incident.escalation import IncidentEscalation
@@ -301,6 +302,62 @@ class BeaconIncident(Document):
 
 	@frappe.whitelist()
 	@frappe.read_only()
+	def get_overview(self) -> dict:
+		"""The worst open alert, else the oldest alert, and the incident's alerts for the Overview tab."""
+		self.check_permission("read")
+		rows = self._get_overview_alerts()
+		if not rows:
+			return {"cause": None, "alerts": [], "total": 0, "firing": 0}
+
+		open_rows = [row for row in rows if row.status in OPEN_ALERT_STATUSES]
+		cause = max(open_rows, key=lambda row: SEVERITIES.index(row.severity)) if open_rows else rows[0]
+		fields = ("title", "detail", "severity", "status", "started_at", "resolution")
+		return {
+			"cause": cause,
+			"alerts": [
+				{field: row.get(field) for field in fields}
+				for row in sorted(rows, key=lambda row: row.status not in OPEN_ALERT_STATUSES)[:50]
+			],
+			"total": len(rows),
+			"firing": sum(row.status == "Firing" for row in rows),
+		}
+
+	def _get_overview_alerts(self) -> list[frappe._dict]:
+		alert = frappe.qb.DocType("Beacon Alert")
+		rule = frappe.qb.DocType("Beacon Alert Rule")
+		resource = frappe.qb.DocType("Beacon Resource")
+		return (
+			frappe.qb.from_(alert)
+			.left_join(rule)
+			.on(rule.name == alert.rule)
+			.left_join(resource)
+			.on(resource.name == alert.resource)
+			.select(
+				alert.name,
+				alert.title,
+				alert.detail,
+				alert.severity,
+				alert.status,
+				alert.started_at,
+				alert.fired_at,
+				alert.value,
+				alert.resolution,
+				rule.name.as_("rule"),
+				rule.title.as_("rule_title"),
+				rule.description.as_("rule_description"),
+				rule.runbook_url,
+				Coalesce(resource.title, resource.resource_id).as_("resource_title"),
+				resource.resource_id,
+				resource.resource_type,
+				resource.path,
+			)
+			.where(alert.incident == self.name)
+			.orderby(alert.started_at)
+			.orderby(alert.name)
+		).run(as_dict=True)
+
+	@frappe.whitelist()
+	@frappe.read_only()
 	def get_affected_resources(self) -> list[list[str]]:
 		"""The resources in the scope and under the incident's alerts, read from the registry when asked, as CSV rows."""
 		self.check_permission("read")
@@ -400,6 +457,15 @@ class BeaconIncident(Document):
 			)
 			self.severity = alert.severity
 		self.STATUS.move(self, "Investigating" if was_monitoring else self.status)
+		if is_worse:
+			self.add_update(
+				f"Severity raised to {alert.severity}: {alert.title}. {alert.detail or ''}".strip(),
+				is_public=False,
+			)
+		elif was_monitoring:
+			self.add_update(
+				f"Back to Investigating: {alert.title}. {alert.detail or ''}".strip(), is_public=False
+			)
 		if (is_worse or was_monitoring) and self.severity in PAGED_SEVERITIES:
 			IncidentEscalation(self).start(wait=False)
 		self.save(ignore_permissions=True)
@@ -517,7 +583,9 @@ class BeaconIncident(Document):
 					}
 				],
 			}
-		).insert(ignore_permissions=True)
+		)
+		incident.add_update(f"Opened: {alert.title}. {alert.detail or ''}".strip(), is_public=False)
+		incident.insert(ignore_permissions=True)
 		alert.join(incident.name)
 
 		NotificationOutbox().announce(

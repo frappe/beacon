@@ -1,4 +1,5 @@
 const OPEN_STATUSES = ["Triggered", "Investigating", "Identified", "Monitoring"];
+const escape = frappe.utils.escape_html;
 // Each dialog starts with the usual message for its status. Staff edit it before they send it.
 const MESSAGES = {
 	Investigating: __("We are investigating the problem. We will post an update soon."),
@@ -36,14 +37,11 @@ class IncidentForm {
 		// Only actions add updates. Staff can change only the Public flag of a row.
 		this.frm.set_df_property("updates", "cannot_add_rows", true);
 		this.frm.set_df_property("updates", "cannot_delete_rows", true);
-		if (this.frm.is_new()) return;
-		this.view.related("alerts_html", "Beacon Alert", { incident: this.doc.name }, [
-			["title", "Title"],
-			["status", "Status"],
-			["started_at", "Started at"],
-			["suppressed_by", "Suppressed by"],
-			["resource", "Resource"],
-		]);
+		if (this.frm.is_new()) {
+			this.frm.layout.tabs.find((tab) => tab.df.fieldname === "details_tab")?.set_active();
+			return;
+		}
+		this.renderOverview();
 		this.view.related(
 			"notifications_html",
 			"Beacon Notification",
@@ -56,7 +54,6 @@ class IncidentForm {
 				["error", "Error"],
 			]
 		);
-		this.showEscalation();
 		if (this.doc.type === "Maintenance") this.maintenanceActions();
 		else this.incidentActions();
 		if (!["Merged", "Cancelled"].includes(this.doc.status)) this.visibilityActions();
@@ -65,29 +62,201 @@ class IncidentForm {
 			__("Show Affected Resources"),
 			"get_affected_resources",
 			null,
-			(rows) =>
-				beacon.show_results(
-					__("Affected resources, including child resources"),
-					rows
-						.slice(1)
-						.map((row) =>
-							Object.fromEntries(rows[0].map((key, index) => [key, row[index]]))
-						)
-				),
+			(rows) => this.showAffectedResources(rows),
 			{ read: true }
 		);
 		this.irreversibleActions();
 	}
 
-	showEscalation() {
-		if (!["Waiting", "Calling"].includes(this.doc.escalation)) return;
-		const next = frappe.datetime.str_to_user(this.doc.next_page_at);
-		this.frm.set_intro(
-			this.doc.escalation === "Waiting"
-				? __("Beacon notifies the on-call team at {0}. Acknowledge to stop it.", [next])
-				: __("Beacon is notifying the on-call team. Next notification at {0}.", [next]),
-			"orange"
+	async renderOverview() {
+		const name = this.doc.name;
+		const field = this.frm.fields_dict.overview_html;
+		field.$wrapper.html(`<p class="text-muted">${__("Loading overview...")}</p>`);
+		try {
+			const { message } = await this.frm.call("get_overview");
+			if (this.frm.doc.name !== name) return;
+			this.overview = message;
+			field.$wrapper.html(this.overviewHtml(message));
+			this.bindOverview();
+		} catch (error) {
+			console.error(error);
+			if (this.frm.doc.name === name)
+				field.$wrapper.html(
+					`<p class="text-danger">${__(
+						"The overview did not load. Reload to try again."
+					)}</p>`
+				);
+		}
+	}
+
+	overviewHtml({ cause, alerts, total, firing }) {
+		return `<div class="beacon-overview">${this.overviewBanner(firing, total)}${
+			cause ? this.causeCard(cause) : ""
+		}${this.alertsCard(alerts, firing, total)}${this.timelineCard()}</div>`;
+	}
+
+	overviewBanner(firing, total) {
+		if (["Waiting", "Calling"].includes(this.doc.escalation)) {
+			const next = frappe.datetime.str_to_user(this.doc.next_page_at);
+			const text =
+				this.doc.escalation === "Waiting"
+					? __("Beacon notifies the on-call team at {0}. Acknowledge to stop it.", [
+							next,
+					  ])
+					: __("Beacon is notifying the on-call team. Next notification at {0}.", [
+							next,
+					  ]);
+			return `<div class="beacon-overview-banner">${escape(text)}</div>`;
+		}
+		if (this.doc.status === "Monitoring")
+			return `<div class="beacon-overview-banner blue">${escape(
+				__("{0} of {1} alerts still fire.", [firing, total])
+			)}</div>`;
+		return "";
+	}
+
+	causeCard(cause) {
+		const facts = [
+			[__("Resource"), `${cause.resource_title} · ${cause.resource_type}`],
+			[__("Value"), this.text(cause.value)],
+			[__("Failing since"), this.time(cause.started_at)],
+			[__("Fired"), this.time(cause.fired_at)],
+		];
+		const heading =
+			cause.resource_type === "Region"
+				? __("{0} in {1}", [cause.rule_title, cause.resource_title])
+				: __("{0} on {1}", [cause.rule_title, cause.resource_title]);
+		return `<div class="beacon-overview-card">
+			<h3>${escape(heading)}</h3>
+			${
+				cause.rule_description
+					? `<p class="beacon-overview-desc">${escape(cause.rule_description)}</p>`
+					: ""
+			}
+			<dl class="beacon-overview-facts">${facts
+				.map(
+					([label, value]) =>
+						`<div><dt>${escape(label)}</dt><dd title="${escape(value)}">${escape(
+							value
+						)}</dd></div>`
+				)
+				.join("")}</dl>
+			${cause.detail ? `<div class="beacon-overview-evidence">${escape(cause.detail)}</div>` : ""}
+			<div class="beacon-overview-links">
+				${
+					/^https?:\/\//.test(cause.runbook_url || "")
+						? `<a href="${escape(
+								cause.runbook_url
+						  )}" target="_blank" rel="noopener">${__("Runbook")}</a>`
+						: ""
+				}
+				<a href="#" data-action="affected">${__("Affected resources")}</a>
+				<a href="#" data-action="rule">${__("Rule")}</a>
+			</div>
+		</div>`;
+	}
+
+	alertsCard(alerts, firing, total) {
+		if (!alerts.length) return "";
+		const count = __("{0} firing", [firing]);
+		const limit =
+			total > alerts.length
+				? ` · ${__("Showing first {0} of {1}", [alerts.length, total])}`
+				: "";
+		return `<div class="beacon-overview-card">
+			<h2>${__("Alerts")} <span class="beacon-overview-muted">${escape(count + limit)}</span></h2>
+			${alerts.map((alert) => this.alertRow(alert)).join("")}
+		</div>`;
+	}
+
+	alertRow(alert) {
+		const open = ["Pending", "Firing"].includes(alert.status);
+		const pill = open
+			? this.pill(alert.severity, this.severityColor(alert.severity))
+			: this.pill(alert.resolution || alert.status, "green");
+		return `<div class="beacon-overview-row">
+			<div class="beacon-overview-row-title">${escape(alert.title)}</div>
+			<div class="beacon-overview-row-detail">${escape(alert.detail || "")}</div>
+			<div class="beacon-overview-row-side">${pill}<small>${escape(
+			this.age(alert.started_at)
+		)}</small></div>
+		</div>`;
+	}
+
+	pill(label, color) {
+		return `<span class="beacon-overview-pill ${color}">${escape(label)}</span>`;
+	}
+
+	severityColor(severity) {
+		return (
+			{ Critical: "red", High: "orange", Medium: "amber", Low: "gray" }[severity] || "gray"
 		);
+	}
+
+	timelineCard() {
+		const updates = [...(this.doc.updates || [])].reverse();
+		if (!updates.length) return "";
+		return `<div class="beacon-overview-card">
+			<h2>${__("Timeline")}</h2>
+			<ul class="beacon-overview-timeline">${updates
+				.map(
+					(update) =>
+						`<li><time title="${escape(this.time(update.posted_at))}">${escape(
+							this.clock(update.posted_at)
+						)}</time><div>${escape(
+							update.message
+						)} <span class="beacon-overview-who">· ${escape(
+							this.who(update.posted_by)
+						)}</span></div></li>`
+				)
+				.join("")}</ul>
+		</div>`;
+	}
+
+	bindOverview() {
+		const wrapper = this.frm.fields_dict.overview_html.$wrapper;
+		wrapper.find('[data-action="affected"]').on("click", (event) => {
+			event.preventDefault();
+			this.frm
+				.call("get_affected_resources")
+				.then(({ message }) => this.showAffectedResources(message));
+		});
+		wrapper.find('[data-action="rule"]').on("click", (event) => {
+			event.preventDefault();
+			frappe.set_route("Form", "Beacon Alert Rule", this.overview.cause.rule);
+		});
+	}
+
+	showAffectedResources(rows) {
+		beacon.show_results(
+			__("Affected resources, including child resources"),
+			rows
+				.slice(1)
+				.map((row) => Object.fromEntries(rows[0].map((key, index) => [key, row[index]])))
+		);
+	}
+
+	text(value) {
+		return value === null || value === undefined || value === "" ? "–" : String(value);
+	}
+
+	time(value) {
+		return value ? frappe.datetime.str_to_user(value) : "–";
+	}
+
+	clock(value) {
+		if (!value) return "–";
+		return frappe.datetime.convert_to_user_tz(value, false).format("HH:mm");
+	}
+
+	age(value) {
+		if (!value) return "";
+		const seconds = moment.utc().diff(moment.utc(value), "seconds");
+		return frappe.utils.get_formatted_duration(seconds, { hide_seconds: 1 });
+	}
+
+	who(user) {
+		return user === "Administrator" ? __("Beacon") : frappe.user.full_name(user) || user;
 	}
 
 	incidentActions() {

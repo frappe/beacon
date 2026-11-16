@@ -24,6 +24,7 @@ The lines at the top of the file set the rule fields:
 
 ```sql
 -- title: Host disk almost full
+-- description: A disk on the host has little free space.
 -- severity: High
 -- resource_type: Metal Host
 -- runbook_url: https://example.com/runbooks/host-disk-full.md
@@ -35,6 +36,7 @@ SELECT ...
 
 | Field | Meaning |
 | --- | --- |
+| `description` | Optional. What broke, in one line. The incident Overview shows it. |
 | `severity` | The highest severity of the rule. A row can set a lower one. |
 | `resource_type` | The registry type of the resources in the rows, such as `Metal Host`. When the rows can have more types, write a list, such as `Metal Host, Virtual Machine`. Beacon drops each row for a resource of another type. The sync warns about a type that no resource has. |
 | `interval` | Seconds between two runs. |

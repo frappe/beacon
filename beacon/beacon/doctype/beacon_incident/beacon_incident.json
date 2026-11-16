@@ -6,17 +6,30 @@
  "engine": "InnoDB",
  "field_order": [
   "overview_tab",
+  "overview_html",
+  "updates_tab",
+  "updates",
+  "postmortem_tab",
+  "rca_section",
+  "postmortem_required",
+  "rca",
+  "public_rca",
+  "action_items",
+  "notifications_tab",
+  "notifications_html",
+  "details_tab",
   "title",
   "type",
   "severity",
   "detected_by",
-  "overview_column",
+  "details_column",
   "status",
   "visibility",
   "merged_into",
-  "acknowledgement_column",
+  "acknowledgement_section",
   "acknowledged_by",
   "acknowledged_at",
+  "acknowledgement_column",
   "alerts_recovered_at",
   "resolved_at",
   "maintenance_window_section",
@@ -29,20 +42,9 @@
   "scope",
   "impact_section",
   "affected_services",
-  "updates_tab",
-  "updates",
-  "rca_section",
-  "postmortem_required",
-  "rca",
-  "public_rca",
-  "action_items",
-  "alerts_tab",
-  "alerts_html",
   "grouping_section",
   "created_by_beacon",
   "public_id",
-  "notifications_tab",
-  "notifications_html",
   "escalation_section",
   "escalation",
   "next_page_at",
@@ -55,6 +57,10 @@
    "fieldname": "overview_tab",
    "fieldtype": "Tab Break",
    "label": "Overview"
+  },
+  {
+   "fieldname": "overview_html",
+   "fieldtype": "HTML"
   },
   {
    "fieldname": "title",
@@ -93,7 +99,7 @@
    "show_description_on_click": 1
   },
   {
-   "fieldname": "overview_column",
+   "fieldname": "details_column",
    "fieldtype": "Column Break"
   },
   {
@@ -123,8 +129,9 @@
    "read_only": 1
   },
   {
-   "fieldname": "acknowledgement_column",
-   "fieldtype": "Column Break"
+   "fieldname": "acknowledgement_section",
+   "fieldtype": "Section Break",
+   "label": "Acknowledgement"
   },
   {
    "fieldname": "acknowledged_by",
@@ -138,6 +145,10 @@
    "fieldtype": "Datetime",
    "label": "Acknowledged At",
    "read_only": 1
+  },
+  {
+   "fieldname": "acknowledgement_column",
+   "fieldtype": "Column Break"
   },
   {
    "fieldname": "alerts_recovered_at",
@@ -218,13 +229,18 @@
   {
    "fieldname": "updates_tab",
    "fieldtype": "Tab Break",
-   "label": "Updates and RCA"
+   "label": "Updates"
   },
   {
    "fieldname": "updates",
    "fieldtype": "Table",
    "label": "Updates",
    "options": "Beacon Incident Update"
+  },
+  {
+   "fieldname": "postmortem_tab",
+   "fieldtype": "Tab Break",
+   "label": "Postmortem"
   },
   {
    "fieldname": "rca_section",
@@ -260,16 +276,6 @@
    "options": "Beacon Incident Action Item"
   },
   {
-   "fieldname": "alerts_tab",
-   "fieldtype": "Tab Break",
-   "label": "Alerts"
-  },
-  {
-   "fieldname": "alerts_html",
-   "fieldtype": "HTML",
-   "label": "Alerts"
-  },
-  {
    "fieldname": "grouping_section",
    "fieldtype": "Section Break",
    "label": "Grouping"
@@ -298,6 +304,11 @@
    "fieldname": "notifications_html",
    "fieldtype": "HTML",
    "label": "Notifications"
+  },
+  {
+   "fieldname": "details_tab",
+   "fieldtype": "Tab Break",
+   "label": "Details"
   },
   {
    "fieldname": "escalation_section",

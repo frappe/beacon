@@ -99,13 +99,15 @@ batch.gauge("backup_age", age_seconds, unit="seconds", cluster="garage-1")
 batch.counter("backups", completed, cluster="garage-1")  # cargo_object_storage_backups_total
 
 with Datum(url, token) as datum:
-    datum.send(batch)
+	datum.send(batch)
 ```
 
 A Frappe app can also post the JSON body itself from a scheduled job. Send each minute at most. Read the result: a 4xx means that the batch is not valid, and Datum stored nothing.
 
 ```python
-requests.post(f"{url}/v1/ingest", json={"samples": samples}, headers={"Authorization": f"Bearer {token}"}, timeout=10)
+requests.post(
+	f"{url}/v1/ingest", json={"samples": samples}, headers={"Authorization": f"Bearer {token}"}, timeout=10
+)
 ```
 
 Keep the data of a failed push when you can send it again without a duplicate, such as a count that you read and reset. Put it back and send it with the next push.
@@ -163,12 +165,13 @@ flowchart TD
 
 ## 6. Write a rule and a runbook
 
-Add a rule only when it points to one fix. Each rule is one file, `beacon/rules/<rule-key>.sql`. Write the rule key, the service key, the runbook name and a fixed `alert_key` in lowercase with `-`, such as `host-disk-full`, because they are file names and parts of URLs. Metric and label names use `_`, because Datum refuses `-` in them. It returns only failing rows, with `resource_id`, `alert_key`, `value`, `detail` and an optional `severity`. See [Alerts](alerts.md) for the contract and the header.
+Add a rule only when it points to one fix. Each rule is one file, `beacon/rules/<rule-key>.sql`. Write the rule key, the service key, the runbook name and a fixed `alert_key` in lowercase with `-`, such as `host-disk-full`, because they are file names and parts of URLs. Metric and label names use `_`, because Datum refuses `-` in them. It returns only failing rows, with `resource_id`, `alert_key`, `value`, `detail` and an optional `severity`. The optional `-- description:` header tells the responder what broke, and the Overview tab of the incident shows it. See [Alerts](alerts.md) for the contract and the header.
 
 ### An example
 
 ```sql
 -- title: Object storage backup stale
+-- description: Cargo has no recent metadata backup of the object storage cluster.
 -- severity: Medium
 -- resource_type: Cargo Server
 -- interval: 900

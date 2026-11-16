@@ -69,6 +69,7 @@ class BeaconService(Document):
 			{
 				"rule_key": name,
 				"title": f"{self.title} SLO burn",
+				"description": self.description,
 				"kind": BURN_KIND,
 				"enabled": self.enabled,
 				"service": self.name,
