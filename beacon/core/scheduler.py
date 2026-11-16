@@ -7,13 +7,13 @@ from frappe.utils import now_datetime
 
 from beacon.beacon.doctype.beacon_alert.beacon_alert import BeaconAlert
 from beacon.beacon.doctype.beacon_incident.beacon_incident import BeaconIncident
+from beacon.beacon.doctype.beacon_notification.beacon_notification import BeaconNotification
 from beacon.core.alert.endpoint_check import EndpointChecks
 from beacon.core.alert.reconciler import AlertReconciler, RuleFailure
 from beacon.core.alert.suppression import AlertSuppression
 from beacon.core.heartbeat import Heartbeat
 from beacon.core.incident.coordinator import IncidentCoordinator
 from beacon.core.incident.escalation import IncidentEscalation
-from beacon.core.incident.outbox import NotificationOutbox
 from beacon.core.jobs import queue_region_schedule
 from beacon.core.resource.region_probe import RegionProbe
 from beacon.core.resource.regions import RegionSelection
@@ -111,7 +111,7 @@ class BeaconScheduler:
 
 		BeaconIncident.close_recovered()
 		IncidentEscalation.step_due()
-		NotificationOutbox().requeue_waiting()
+		BeaconNotification.requeue_waiting()
 		Heartbeat().send()
 
 	def _resolve_disabled_alerts(self) -> None:

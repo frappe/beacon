@@ -22,12 +22,20 @@ beacon.add_silence_actions = (frm) => {
 		beacon.add_action(frm, __("End Silence"), "silence", null, null, {
 			confirm: __("End this silence now?"),
 			prepare: () => ({ hours: 0 }),
+			read: true,
 		});
 	}
-	beacon.add_action(frm, __("Silence"), "silence", [
-		{ fieldname: "hours", fieldtype: "Int", label: __("Hours"), default: 4, reqd: 1 },
-		{ fieldname: "reason", fieldtype: "Data", label: __("Reason"), reqd: 1 },
-	]);
+	beacon.add_action(
+		frm,
+		__("Silence"),
+		"silence",
+		[
+			{ fieldname: "hours", fieldtype: "Int", label: __("Hours"), default: 4, reqd: 1 },
+			{ fieldname: "reason", fieldtype: "Data", label: __("Reason"), reqd: 1 },
+		],
+		null,
+		{ read: true }
+	);
 };
 
 $(document).on("click", ".beacon-table tr[data-name]", function (event) {

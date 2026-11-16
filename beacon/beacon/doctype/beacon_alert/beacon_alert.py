@@ -134,7 +134,7 @@ class BeaconAlert(Document):
 	def start_silence(document: Document, hours: int, reason: str) -> datetime | None:
 		"""Check the silence of an alert or a rule, note the reason, and return its end. A rule silence reaches
 		its alerts in the next region run."""
-		document.check_permission("write")
+		frappe.has_permission("Beacon Alert", "write", throw=True)
 		hours = int(hours or 0)
 		if not 0 <= hours <= SILENCE_LIMIT_HOURS:
 			frappe.throw(_("Silence for 0 to {0} hours.").format(SILENCE_LIMIT_HOURS))

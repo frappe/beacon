@@ -126,9 +126,9 @@ def notify_subscribers(incident: str, update: str) -> None:
 
 @run_as_admin
 def deliver_notification(notification: str) -> None:
-	from beacon.core.incident.outbox import NotificationDelivery
+	from beacon.beacon.doctype.beacon_notification.beacon_notification import BeaconNotification
 
-	NotificationDelivery(notification).send()
+	frappe.get_doc("Beacon Notification", notification).send()
 
 
 @run_as_admin

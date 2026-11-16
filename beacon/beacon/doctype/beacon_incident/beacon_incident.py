@@ -8,6 +8,7 @@ from frappe.model.document import Document
 from frappe.utils import get_datetime, now_datetime
 
 from beacon.beacon.doctype.beacon_alert.beacon_alert import BeaconAlert
+from beacon.beacon.doctype.beacon_notification.beacon_notification import BeaconNotification
 from beacon.core.alert.states import OPEN_ALERT_STATUSES, PAGED_SEVERITIES, Severity
 from beacon.core.exceptions import IncidentActionError
 from beacon.core.incident.chat_message import ChatMessage
@@ -146,16 +147,7 @@ class BeaconIncident(Document):
 		self.acknowledged_at = now_datetime()
 		self.STATUS.move(self, "Investigating" if self.status == "Triggered" else self.status)
 		IncidentEscalation(self).stop()
-		frappe.db.set_value(
-			"Beacon Notification",
-			{
-				"incident": self.name,
-				"channel": "Call",
-				"status": ("in", ("Queued", "Sending", "Sent", "Answered")),
-			},
-			"status",
-			"Acknowledged",
-		)
+		BeaconNotification.acknowledge_calls(self.name)
 		self.save()
 
 	@document_action

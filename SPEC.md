@@ -13,7 +13,7 @@ Every DocType name starts with `Beacon `. For example, `Beacon Incident` uses `b
 | Core | `beacon/core` | Scheduled work, record transactions, state machines, definitions, public status data, site setup | `scheduler.py`, `transaction.py`, `state_machine.py`, `definitions.py`, `status_page.py`, `setup.py`, `jobs.py`, `heartbeat.py`, `exceptions.py` |
 | Resource | `beacon/core/resource` | Resource sync, resource tree, region selection, ClickHouse access, region probe | `source.py`, `source_client.py`, `registry.py`, `regions.py`, `tree.py`, `clickhouse.py`, `region_probe.py` |
 | Alert | `beacon/core/alert` | Rule evaluation, alert transitions, burn rule lookups, silence and maintenance suppression | `rule_evaluator.py`, `evaluation_schedule.py`, `reconciler.py`, `states.py`, `rules.py`, `suppression.py` |
-| Incident | `beacon/core/incident` | Alert matching and coordination, escalation, notifications, status page subscriptions | `matcher.py`, `coordinator.py`, `escalation.py`, `outbox.py`, `notifiers.py`, `chat_message.py`, `call_response.py`, `postmortem.py`, `subscription.py` |
+| Incident | `beacon/core/incident` | Alert matching and coordination, escalation, notifications, status page subscriptions | `matcher.py`, `coordinator.py`, `escalation.py`, `outbox.py`, `notifiers.py`, `chat_message.py`, `postmortem.py`, `subscription.py` |
 | Service | `beacon/core/service` | Service measurements, damped status, minute history, error budget and burn alerts | `measurement.py`, `status.py`, `history.py`, `burn.py` |
 | API | `beacon/api` | Guest status page methods and Twilio callbacks only | `status.py`, `twilio.py` |
 | Status page | `frontend/` | The Vue app at `/` | `src/main.js`, `src/api.js`, `src/pages/` |
@@ -37,13 +37,13 @@ The definitions live in `beacon/beacon/workspace/`, `beacon/beacon/sidebar/` and
 
 | Schedule | Entry point | Work |
 |---|---|---|
-| Every minute | `jobs.run_schedule` | `BeaconScheduler`: advances maintenance, resolves disabled alerts, queues each active region, runs the recovery sweep (`BeaconIncident.close_recovered`), advances escalations, queues lost notifications again (`NotificationOutbox.requeue_waiting`) and sends the heartbeat. Beacon holds the heartbeat while a rule evaluation or a queued notification is more than 5 minutes late, so the external service also knows when the workers stop. |
+| Every minute | `jobs.run_schedule` | `BeaconScheduler`: advances maintenance, resolves disabled alerts, queues each active region, runs the recovery sweep (`BeaconIncident.close_recovered`), advances escalations, queues lost notifications again (`BeaconNotification.requeue_waiting`) and sends the heartbeat. Beacon holds the heartbeat while a rule evaluation or a queued notification is more than 5 minutes late, so the external service also knows when the workers stop. |
 | Every minute, per region | `jobs.run_region_schedule` | `RegionSchedule`: probes the region, measures services, refreshes suppression and coordinates incidents. |
 | Every minute | `jobs.sync_sources` | `BeaconResourceSource.queue_due_syncs` queues `sync` for each enabled source with `frappe.enqueue_doc`. |
 | Every minute | `jobs.evaluate_due_rules` | `RegionEvaluation.queue_due` queues one `jobs.evaluate_region` job per region with due evaluations. |
 | Daily | `jobs.delete_old_rows` | `RecordRetention` removes expired records. |
 | Daily | `jobs.remind_postmortems` | `Postmortem.remind_missing` posts to chat for each required postmortem that is still empty, from 3 to 30 days after the resolve. |
-| After commit | `jobs.deliver_notification` | `NotificationDelivery` sends one Beacon Notification. When an email or call fails, it posts the error to chat. |
+| After commit | `jobs.deliver_notification` | `BeaconNotification.send` sends one Beacon Notification. When an email or call fails, it posts the error to chat. |
 | After migrate | `definitions.create_built_in_rules` | Creates the built-in rules. |
 | Sync Definitions in Beacon Settings | `definitions.DefinitionSync` | Reads `rules/*.sql`, `rules/*.http`, `rules/*.tls` and `services/*.sql` from each definition source on GitHub and applies them. Runs only on demand. |
 
@@ -60,7 +60,7 @@ Region, evaluation and source sync jobs use the `long` queue. Notification jobs 
 - `jobs.py` owns queue entry points and queue options. Scheduler hooks delegate to workflow objects.
 - `ResourceSourceClient`, `ClickHouseClient` and the `Notifier` subclasses own remote calls. These adapters do not decide incident or alert transitions. `ClickHouseClient.query` gives every rule and SLI query `{region:String}` and `{excluded:Array(String)}`, the resource IDs of the region with monitoring disabled.
 - `DefinitionLoader` owns file definitions. `EvaluationSchedule` owns the set of required rule evaluation records.
-- `CallResponse` applies verified phone responses. The Twilio API handles signature checks and XML responses.
+- `BeaconNotification` owns its delivery status and the verified phone responses. `NotificationOutbox` writes the rows. The Twilio API receives the callback and rejects an invalid one.
 
 ## Extension points
 

@@ -14,13 +14,17 @@ class StateMachine:
 		self.field = field
 		self.moves = moves
 
+	def can_move(self, document: Document, state: str) -> bool:
+		"""True when the current state allows the move."""
+		return state in self.moves.get(document.get(self.field), ())
+
 	def move(self, document: Document, state: str) -> None:
 		"""Set the state. A move to the current state changes nothing."""
 		current = document.get(self.field)
 		if state == current:
 			return
 
-		if state not in self.moves.get(current, ()):
+		if not self.can_move(document, state):
 			frappe.throw(
 				_("{0} cannot go from {1} to {2}.").format(_(document.doctype), current, state), StateError
 			)
