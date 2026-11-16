@@ -7,9 +7,9 @@ from frappe import _
 from frappe.model.document import Document
 from frappe.utils import get_datetime, get_fullname, get_url, now_datetime
 
+from beacon.beacon.doctype.beacon_notification.beacon_notification import BeaconNotification
 from beacon.core.definitions import DefinitionSync
 from beacon.core.incident.notifiers import NOTIFIERS
-from beacon.core.incident.outbox import NotificationOutbox
 from beacon.core.transaction import document_action
 
 RESPONDER_ROLES = {"Beacon Responder", "Beacon Admin"}
@@ -103,8 +103,8 @@ class BeaconSettings(Document):
 		self.paging_paused = 1
 		self.paused_reason = reason
 		self.save()
-		NotificationOutbox().post_to_chat(
-			f"Calls and emails paused by {get_fullname()}: {reason}\nChat continues. An admin must resume them."
+		BeaconNotification.post_to_chat(
+			f"⏸️ **Calls and emails paused** by {get_fullname()}: {reason}. Chat still works."
 		)
 
 	@document_action
@@ -113,15 +113,14 @@ class BeaconSettings(Document):
 		self.paging_paused = 0
 		self.paused_reason = None
 		self.save()
-		NotificationOutbox().post_to_chat(f"Calls and emails resumed by {get_fullname()}.")
+		BeaconNotification.post_to_chat(f"▶️ **Calls and emails resumed** by {get_fullname()}.")
 
 	@document_action
 	def send_test_page(self, channel: str, user: str | None = None) -> None:
 		frappe.only_for(ADMIN_ROLES)
-		outbox = NotificationOutbox()
 		if channel not in NOTIFIERS:
 			frappe.throw(_("Choose Call, Email or Chat."))
-		if not outbox.is_enabled(channel):
+		if not BeaconNotification.is_enabled(channel):
 			frappe.throw(_("The {0} channel is off or not set up.").format(channel))
 		if channel != "Chat":
 			responder = next((row for row in self.responders if row.active and row.user == user), None)
@@ -131,9 +130,9 @@ class BeaconSettings(Document):
 				frappe.throw(_("This responder has no phone number."))
 			if channel == "Email" and not frappe.db.get_value("User", user, "email"):
 				frappe.throw(_("This responder's user account has no email address."))
-		outbox.queue(
+		BeaconNotification.queue(
 			channel,
-			f"Beacon test notification by {channel.lower()}. No action is needed.",
+			f"Beacon {channel.lower()} test from {get_fullname()}. No action needed.",
 			responder=None if channel == "Chat" else user,
 		)
 

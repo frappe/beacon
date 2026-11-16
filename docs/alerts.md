@@ -109,7 +109,7 @@ A query error or an Unreachable region changes no state. The `STATUS` state mach
 
 | From | Event | To |
 | --- | --- | --- |
-| none | A new row | Pending. A built-in rule with `pending_for` 0, such as Region unreachable, fires at once. |
+| none | A new row | Pending. A built-in rule with `pending_for` 0, such as Beacon cannot read metrics, fires at once. |
 | Pending | The row fails for `pending_for` | Firing |
 | Pending | A good run without the row | Resolved (Cleared) |
 | Firing | No row for `resolve_after` | Resolved (Recovered) |
@@ -139,6 +139,6 @@ A held removal does not suppress alerts. Beacon posts to chat one time when it h
 
 ## Region health
 
-Each minute, the region run probes ClickHouse. After 2 failed probes, the region is Unreachable. Beacon raises one Critical alert, "Region unreachable", skips the rules of the region, and shows its services as Unknown.
+Each minute, the region run probes ClickHouse. After 2 failed probes, the region is Unreachable. Beacon raises one Critical alert, "Beacon cannot read metrics", skips the rules of the region, and shows its services as Unknown.
 
 When more than half of the hosts that Atlas syncs are silent in Datum, the region is Suspect. Rules still run, and the services show as Unknown. After 2 good checks the region is OK again.

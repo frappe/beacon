@@ -78,8 +78,8 @@ ENDPOINT_DESK_FIELDS = ("enabled", "regions")
 BUILT_IN_RULES = (
 	{
 		"rule_key": "region-unreachable",
-		"title": "Region unreachable",
-		"description": "Beacon cannot reach the region. Its hosts, VMs and sites are not watched.",
+		"title": "Beacon cannot read metrics",
+		"description": "Beacon cannot reach the region, so its hosts, VMs and sites are not watched.",
 		"severity": "Critical",
 		"resource_type": "Region",
 		"pending_for": 0,

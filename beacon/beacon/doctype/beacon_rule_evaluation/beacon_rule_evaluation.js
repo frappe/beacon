@@ -11,7 +11,7 @@ frappe.ui.form.on("Beacon Rule Evaluation", {
 				async () => {
 					frappe.show_alert({
 						message: __(
-							"The evaluation started. Reload this page after some seconds to see the result."
+							"The evaluation started. Reload this form after some seconds to see the result."
 						),
 						indicator: "blue",
 					});

@@ -68,8 +68,11 @@ class BeaconService(Document):
 		rule.update(
 			{
 				"rule_key": name,
-				"title": f"{self.title} SLO burn",
-				"description": self.description,
+				"title": f"{self.title} error budget burning fast",
+				"description": (
+					f"The measured error rate for {self.title} is above its target."
+					" The 30-day error budget is burning fast."
+				),
 				"kind": BURN_KIND,
 				"enabled": self.enabled,
 				"service": self.name,

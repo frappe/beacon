@@ -117,7 +117,7 @@ class IncidentForm {
 
 	causeCard(cause) {
 		const facts = [
-			[__("Resource"), `${cause.resource_title} · ${cause.resource_type}`],
+			[__("Resource"), `${cause.resource_title} (${cause.resource_type})`],
 			[__("Value"), this.text(cause.value)],
 			[__("Failing since"), this.time(cause.started_at)],
 			[__("Fired"), this.time(cause.fired_at)],
@@ -161,7 +161,7 @@ class IncidentForm {
 		const count = __("{0} firing", [firing]);
 		const limit =
 			total > alerts.length
-				? ` · ${__("Showing first {0} of {1}", [alerts.length, total])}`
+				? ` (${__("Showing first {0} of {1}", [alerts.length, total])})`
 				: "";
 		return `<div class="beacon-overview-card">
 			<h2>${__("Alerts")} <span class="beacon-overview-muted">${escape(count + limit)}</span></h2>

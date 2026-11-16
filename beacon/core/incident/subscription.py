@@ -43,7 +43,7 @@ class IncidentSubscription:
 		subscriber.save(ignore_permissions=True)
 		self._send(
 			email,
-			_("Confirm updates: {0}").format(self.incident.title),
+			_("Confirm updates for: {0}").format(self.incident.title),
 			"beacon_subscription_confirm",
 			{
 				"brand": frappe.get_cached_doc("Beacon Settings").status_page_title,

@@ -8,8 +8,8 @@ from typing import TYPE_CHECKING, Any
 import frappe
 from frappe.utils import now_datetime
 
+from beacon.beacon.doctype.beacon_notification.beacon_notification import BeaconNotification
 from beacon.core.exceptions import SourceFetchError
-from beacon.core.incident.outbox import NotificationOutbox
 from beacon.core.resource.registry import ResourceRegistry
 from beacon.core.resource.tree import ResourceTree
 
@@ -192,10 +192,11 @@ class ResourceSync:
 
 		if not self.source.held_removals:
 			self.source.held_since = self.now
-			NotificationOutbox().post_to_chat(
-				f"Resource source {self.source.name} wants to remove {len(removals)} resources. Beacon holds"
-				" a removal this large and continues to check the resources. Examine the list in the"
-				" Resource Source, then apply it."
+			count = f"{len(removals)} resource" if len(removals) == 1 else f"{len(removals)} resources"
+			BeaconNotification.post_to_chat(
+				f"⚠️ **Resource removals need review.** {self.source.title or self.source.name}"
+				f" wants to remove {count}. Beacon keeps watching them."
+				" Check the list in the Resource Source, then apply it."
 			)
 		self.source.held_removals = len(removals)
 

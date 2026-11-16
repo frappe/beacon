@@ -6,12 +6,12 @@ from datetime import datetime, timedelta
 import frappe
 from frappe.utils import now_datetime
 
+from beacon.beacon.doctype.beacon_notification.beacon_notification import BeaconNotification
 from beacon.core.alert.reconciler import AlertReconciler, RuleFailure
 from beacon.core.alert.rules import AlertRules
 from beacon.core.alert.states import SEVERITIES
 from beacon.core.exceptions import ClickHouseError, RuleContractError
 from beacon.core.incident.coordinator import IncidentCoordinator
-from beacon.core.incident.outbox import NotificationOutbox
 from beacon.core.resource.clickhouse import ClickHouseClient
 from beacon.core.resource.regions import RegionSelection
 from beacon.core.resource.registry import ResourceRegistry
@@ -193,8 +193,9 @@ class RuleEvaluator:
 			reference_name=evaluation.name,
 		)
 		if evaluation.state == "Broken":
-			NotificationOutbox().post_to_chat(
-				f"Rule {self.rule.name} is broken in {self.registry.region}: {error[:500]}"
+			BeaconNotification.post_to_chat(
+				f"⚠️ **Rule {self.rule.title} is broken in {self.registry.region}.**"
+				f" Its alerts keep their state until the query works. Error: {error[:500]}"
 			)
 
 

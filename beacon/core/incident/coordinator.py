@@ -4,11 +4,11 @@ import frappe
 from frappe.utils import now_datetime
 
 from beacon.beacon.doctype.beacon_incident.beacon_incident import OPEN_STATUSES, SCOPE_FIELDS, BeaconIncident
+from beacon.beacon.doctype.beacon_notification.beacon_notification import BeaconNotification
 from beacon.core.alert.rules import AlertRules
 from beacon.core.alert.states import OPEN_ALERT_STATUSES, Severity
 from beacon.core.incident.chat_message import ChatMessage
 from beacon.core.incident.matcher import IncidentMatcher, OpenIncident, Placement
-from beacon.core.incident.outbox import NotificationOutbox
 from beacon.core.resource.registry import ResourceMatch, ResourceRegistry
 from beacon.core.transaction import RecordTransaction
 
@@ -113,18 +113,18 @@ class IncidentCoordinator:
 		for alert, incident in self.joined.items():
 			alerts_of.setdefault(incident, []).append(alert)
 
-		outbox = NotificationOutbox()
 		for incident, alerts in alerts_of.items():
-			count = f"{len(alerts)} alert joined" if len(alerts) == 1 else f"{len(alerts)} alerts joined"
+			count = f"{len(alerts)} alert" if len(alerts) == 1 else f"{len(alerts)} alerts"
 			rows = [
 				frappe.get_doc("Beacon Alert", alert).describe() for alert in alerts[:JOINED_ALERTS_SHOWN]
 			]
-			message = f"📥 **{count}** {ChatMessage.link(incident)} in {self.region}\n\n"
+			message = f"📥 **{count} added to {ChatMessage.link(incident)}** in {self.region}\n\n"
 			message += ChatMessage.alert_table(rows, with_rule=True)
 			rest = len(alerts) - JOINED_ALERTS_SHOWN
 			if rest > 0:
-				message += f"\n\nand {rest} more"
-			outbox.queue("Chat", message, incident)
+				more = "1 more alert is" if rest == 1 else f"{rest} more alerts are"
+				message += f"\n\n{more} on the incident."
+			BeaconNotification.queue("Chat", message, incident)
 		frappe.db.commit()  # nosemgrep: the messages only insert new rows
 
 	def _get_related_resources(self, alert: frappe._dict, is_burn: bool) -> set[str]:

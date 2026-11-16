@@ -108,18 +108,30 @@ class CallNotifier(Notifier):
 		return response.json()["sid"]
 
 	def get_twiml(self, notification: BeaconNotification) -> str:
-		"""Say the severity and what happened twice, so the responder hears it after picking up. An
-		incident title ends with " on <resource>", and an ID read aloud means nothing, so it is left out."""
+		"""Say the severity, the problem and the region twice, so the responder hears it after picking up."""
 		incident = frappe.db.get_value(
 			"Beacon Incident", notification.incident, ["severity", "title"], as_dict=True
 		)
-		speech = escape(
-			f"Beacon alert. A {incident.severity} severity incident: {incident.title.rsplit(' on ', 1)[0]}."
-			if incident
-			else notification.message
-		)
-		say = f'<Say voice="{CALL_VOICE}">{speech}</Say>'
+		if incident:
+			problem = incident.title.rsplit(" on ", 1)[0]
+			region = self._get_region_title(notification.incident)
+			if region and f" in {region}" not in problem:
+				problem = f"{problem} in {region}"
+			speech = f"Beacon. {incident.severity} incident. {problem}. Answering this call acknowledges it."
+		else:
+			speech = notification.message
+
+		say = f'<Say voice="{CALL_VOICE}">{escape(speech)}</Say>'
 		return f'<Response>{say}<Pause length="1"/>{say}</Response>'
+
+	@staticmethod
+	def _get_region_title(incident: str) -> str | None:
+		region = frappe.db.get_value(
+			"Beacon Incident Scope",
+			{"parenttype": "Beacon Incident", "parent": incident},
+			"region",
+		) or frappe.db.get_value("Beacon Alert", {"incident": incident}, "region")
+		return frappe.db.get_value("Beacon Region", region, "title") if region else None
 
 	@staticmethod
 	def get_callback_token(notification: str) -> str:

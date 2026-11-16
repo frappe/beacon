@@ -61,7 +61,7 @@ frappe.ui.form.on("Beacon Resource Source", {
 			console.error(error);
 			wrapper.html(
 				`<p class="text-danger">${__(
-					"The held removals did not load. Reload the page, then examine them before you approve."
+					"The held removals did not load. Reload the form, then examine them before you approve."
 				)}</p>`
 			);
 		}

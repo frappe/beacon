@@ -6,8 +6,8 @@ from typing import TYPE_CHECKING
 import frappe
 from frappe.utils import get_datetime, now_datetime
 
+from beacon.beacon.doctype.beacon_notification.beacon_notification import BeaconNotification
 from beacon.core.incident.chat_message import ChatMessage
-from beacon.core.incident.outbox import NotificationOutbox
 from beacon.core.transaction import RecordTransaction
 
 if TYPE_CHECKING:
@@ -85,11 +85,11 @@ class IncidentEscalation:
 		"""Call and mail the current responder, then plan the next step. High incidents stop after max_rounds."""
 		responders = self.settings.get_active_responders()
 		if not responders:
-			self._finish("no responder is active. Contact a responder directly.")
+			self._finish("No responder is active. Contact the team directly.")
 			return
 		if self.incident.severity == "High" and self.incident.page_round > self.settings.max_rounds:
 			self._finish(
-				f"nobody acknowledged after {self.settings.max_rounds} rounds. Contact a responder directly."
+				f"Nobody acknowledged after {self.settings.max_rounds} rounds. Contact the team directly."
 			)
 			return
 
@@ -98,9 +98,10 @@ class IncidentEscalation:
 			self.incident.page_index = 0
 		responder = responders[self.incident.page_index]
 		message = f"{self.incident.severity} incident {self.incident.name}: {self.incident.title}"
-		outbox = NotificationOutbox()
 		for channel in ("Call", "Email"):
-			outbox.queue(channel, message, self.incident.name, responder.user, self.incident.page_round)
+			BeaconNotification.queue(
+				channel, message, self.incident.name, responder.user, self.incident.page_round
+			)
 
 		is_last = self.incident.page_index == len(responders) - 1
 		minutes = (
@@ -113,7 +114,7 @@ class IncidentEscalation:
 	def _finish(self, reason: str) -> None:
 		self.incident.escalation = "Done"
 		self.incident.next_page_at = None
-		NotificationOutbox().announce(
+		BeaconNotification.announce(
 			self.incident,
-			f"⛔ **Automatic calls stopped** on {ChatMessage.link(self.incident.name)}: {reason}",
+			f"⛔ **Calls stopped for {ChatMessage.link(self.incident.name)}.** {reason}",
 		)

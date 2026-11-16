@@ -14,7 +14,6 @@ from beacon.core.alert.states import OPEN_ALERT_STATUSES, PAGED_SEVERITIES, SEVE
 from beacon.core.exceptions import IncidentActionError
 from beacon.core.incident.chat_message import ChatMessage
 from beacon.core.incident.escalation import IncidentEscalation
-from beacon.core.incident.outbox import NotificationOutbox
 from beacon.core.incident.postmortem import Postmortem
 from beacon.core.incident.subscription import IncidentSubscription
 from beacon.core.resource.registry import ResourceMatch, ResourceRegistry
@@ -194,7 +193,7 @@ class BeaconIncident(Document):
 		self.STATUS.move(self, "Resolved")
 		self.close()
 		self.save()
-		NotificationOutbox().announce(
+		BeaconNotification.announce(
 			self, f"✅ **Resolved** {ChatMessage.link(self.name)}: {message}", email=True
 		)
 
@@ -449,10 +448,10 @@ class BeaconIncident(Document):
 			)
 		if is_worse:
 			row = alert.describe()
-			NotificationOutbox().announce(
+			BeaconNotification.announce(
 				self,
 				f"{ChatMessage.header(alert.severity, self.name, alert.region)}\n\n"
-				f"**Severity raised from {self.severity} to {alert.severity}** by {row.rule_title}\n\n"
+				f"**Severity raised from {self.severity} to {alert.severity}** by {row.rule_title}.\n\n"
 				f"{ChatMessage.alert_table([row])}",
 			)
 			self.severity = alert.severity
@@ -483,7 +482,7 @@ class BeaconIncident(Document):
 		self.STATUS.move(self, "Merged")
 		self.close()
 		self.save(ignore_permissions=True)
-		NotificationOutbox().announce(
+		BeaconNotification.announce(
 			self, f"🔀 {ChatMessage.link(self.name)} **merged into** {ChatMessage.link(target)}"
 		)
 
@@ -499,9 +498,9 @@ class BeaconIncident(Document):
 			return
 
 		self.save(ignore_permissions=True)
-		NotificationOutbox().announce(
+		BeaconNotification.announce(
 			self,
-			f"⏸️ **No open alerts remain** on {ChatMessage.link(self.name)}. Check the service, then resolve it.",
+			f"⏸️ **All alerts recovered on {ChatMessage.link(self.name)}.** Check the service, then resolve the incident.",
 		)
 
 	def close(self) -> None:
@@ -588,7 +587,7 @@ class BeaconIncident(Document):
 		incident.insert(ignore_permissions=True)
 		alert.join(incident.name)
 
-		NotificationOutbox().announce(
+		BeaconNotification.announce(
 			incident,
 			f"{ChatMessage.header(incident.severity, incident.name, alert.region)}\n\n"
 			f"**{rule.title}**\n\n{ChatMessage.alert_table([alert.describe()])}",

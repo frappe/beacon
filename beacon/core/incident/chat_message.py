@@ -16,7 +16,7 @@ class ChatMessage:
 
 	@staticmethod
 	def header(severity: str, incident: str, region: str) -> str:
-		return f"{SEVERITY_MARKS.get(severity, '')} **{severity}** incident {ChatMessage.link(incident)} in {region}"
+		return f"{SEVERITY_MARKS.get(severity, '')} **{severity} incident** {ChatMessage.link(incident)} in {region}"
 
 	@staticmethod
 	def alert_table(alerts: list[frappe._dict], with_rule: bool = False) -> str:

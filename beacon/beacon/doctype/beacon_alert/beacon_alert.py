@@ -167,10 +167,11 @@ class BeaconAlert(Document):
 		"""Open an alert for a new failing row. A rule with no pending time fires at once."""
 		resource = failure.resource
 		is_firing = not rule.pending_for
+		preposition = "in" if resource.resource_type == "Region" else "on"
 		frappe.get_doc(
 			{
 				"doctype": "Beacon Alert",
-				"title": f"{rule.title} on {resource.title or resource.resource_id}",
+				"title": f"{rule.title} {preposition} {resource.title or resource.resource_id}",
 				"status": "Firing" if is_firing else "Pending",
 				"severity": failure.severity or rule.severity,
 				"rule": rule.name,

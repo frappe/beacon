@@ -39,30 +39,25 @@ class IncidentEmail:
 					("Acknowledged", acknowledged),
 				],
 			}
-			return f"[Resolved][{incident.name}] {incident.title}", self._with_incident(args)
+			return f"[Resolved] {incident.title}", self._with_incident(args)
 
 		facts.append(("Regions", ", ".join(self._get_regions())))
 		args = {
-			"pill": f"{incident.severity} · {incident.status}",
+			"pill": f"{incident.severity}, {incident.status}",
 			"pill_class": SEVERITY_PILLS.get(incident.severity, ""),
 		}
 		if page_round:
 			rounds = f" of {settings.max_rounds}" if incident.severity == "High" else ""
-			action = (
-				"Answer the call, or open the incident and choose Acknowledge."
-				if settings.phone_calls_enabled
-				else "Open the incident and choose Acknowledge."
-			)
-			args["instruction"] = (
-				f"{action} If nobody acknowledges in {settings.get_backup_after_minutes(incident.severity)} minutes,"
-				" Beacon notifies the next responder."
-			)
+			instruction = "If you take it, open the incident and select Acknowledge."
+			if incident.next_page_at:
+				instruction += f" If nobody acknowledges by {self._format(incident.next_page_at)}, Beacon notifies again."
+			args["instruction"] = instruction
 			args["facts"] = [*facts, ("Round", f"{page_round}{rounds}")]
 		else:
-			args["instruction"] = "A new incident started. Open it and choose Acknowledge if you take it."
+			args["instruction"] = "If you take it, open the incident and select Acknowledge."
 			args["facts"] = facts
 		args["alerts"] = self._get_alert_titles()
-		return f"[{incident.severity}][{incident.name}] {incident.title}", self._with_incident(args)
+		return f"[{incident.severity}] {incident.title}", self._with_incident(args)
 
 	def get_update_email(self, update: dict, page_url: str, unsubscribe_url: str) -> tuple[str, dict]:
 		"""One subject for the whole incident, so mail clients keep every update in one thread."""
@@ -116,7 +111,7 @@ class IncidentEmail:
 		services, regions = self._get_titles("Beacon Service"), self._get_titles("Beacon Region")
 		return [
 			{
-				"title": " · ".join(filter(None, (services.get(row.service), regions.get(row.region)))),
+				"title": " in ".join(filter(None, (services.get(row.service), regions.get(row.region)))),
 				"impact": row.impact,
 			}
 			for row in self.incident.affected_services

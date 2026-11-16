@@ -32,7 +32,7 @@ export class RecordView {
 			if (this.frm.doc.name === name)
 				field.$wrapper.html(
 					`<p class="text-danger">${__(
-						"The records did not load. Reload the page to try again."
+						"The records did not load. Reload the form to try again."
 					)}</p>`
 				);
 		}

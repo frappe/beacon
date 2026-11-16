@@ -50,7 +50,7 @@ These limits stop false pages:
 - A burn alert pages only when, in one minute of its short window, 3 or more reporters were bad, or every reporter when fewer than 3 reported. Else it is Low, because one bad reporter has its own cause alert.
 - A service with "Page On Burn" off gets Medium instead of High.
 
-A burn alert is a normal alert. Its rule is the "SLO burn" rule of the service, its resource is the region (or the global resource for a global service), and its alert key is the name in the table. It fires at once and resolves after 5 minutes without a burn.
+A burn alert is a normal alert. Its rule is the "error budget burning fast" rule of the service, its resource is the region (or the global resource for a global service), and its alert key is the name in the table. It fires at once and resolves after 5 minutes without a burn.
 
 The error budget for 30 days sums the Service Days. Until 30 days are measured, Beacon projects the valid events to 30 days.
 

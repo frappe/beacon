@@ -10,7 +10,6 @@ from frappe.utils import get_datetime, get_fullname, get_url_to_form, now_dateti
 
 from beacon.core.incident.chat_message import ChatMessage
 from beacon.core.incident.notifiers import NOTIFIERS, CallNotifier, Notifier
-from beacon.core.incident.outbox import NotificationOutbox
 from beacon.core.jobs import queue_notification
 from beacon.core.state_machine import StateMachine
 from beacon.core.transaction import RecordTransaction
@@ -69,6 +68,61 @@ class BeaconNotification(Document):
 			"Answered": ("Acknowledged",),
 		},
 	)
+
+	@staticmethod
+	def is_enabled(channel: str) -> bool:
+		return NOTIFIERS[channel](frappe.get_cached_doc("Beacon Settings")).is_enabled()
+
+	@staticmethod
+	def queue(
+		channel: str,
+		message: str,
+		incident: str | None = None,
+		responder: str | None = None,
+		page_round: int = 0,
+	) -> None:
+		"""Write one notification in the caller's transaction. A disabled channel drops it."""
+		if not BeaconNotification.is_enabled(channel):
+			return
+
+		notification = frappe.get_doc(
+			{
+				"doctype": "Beacon Notification",
+				"incident": incident,
+				"channel": channel,
+				"responder": responder,
+				"message": message,
+				"page_round": page_round,
+				"status": "Queued",
+			}
+		).insert(ignore_permissions=True)
+		queue_notification(notification.name)
+
+	@staticmethod
+	def post_to_chat(message: str) -> None:
+		BeaconNotification.queue("Chat", message)
+
+	@staticmethod
+	def announce(incident: BeaconIncident, message: str, email: bool = False) -> None:
+		"""Post to chat. With email, also mail every active responder unless the severity is Low."""
+		BeaconNotification.queue("Chat", message, incident.name)
+		if not email or incident.severity == "Low":
+			return
+
+		for responder in frappe.get_cached_doc("Beacon Settings").get_active_responders():
+			BeaconNotification.queue("Email", message, incident.name, responder=responder.user)
+
+	@staticmethod
+	def report_failed_delivery(notification: BeaconNotification) -> None:
+		"""Tell chat that a call or email failed, with a link to the error on the notification."""
+		action = "call" if notification.channel == "Call" else "email"
+		incident = f" for {ChatMessage.link(notification.incident)}" if notification.incident else ""
+		BeaconNotification.queue(
+			"Chat",
+			f"⚠️ **Could not {action} {get_fullname(notification.responder)}{incident}.**"
+			f" Contact them directly. [Details]({get_url_to_form('Beacon Notification', notification.name)})",
+			notification.incident,
+		)
 
 	def send(self) -> None:
 		"""Send one queued notification. A failure is recorded on the row, not retried.
@@ -130,28 +184,17 @@ class BeaconNotification(Document):
 		# A failed notification must not stay silent. When chat itself fails, only the Error Log has it.
 		# The error stays on the row: provider responses can hold data that chat must not show.
 		if failed and notification.channel != "Chat":
-			NotificationOutbox().queue(
-				"Chat",
-				f"⚠️ **Could not {'call' if notification.channel == 'Call' else 'email'}**"
-				f" {get_fullname(notification.responder)}"
-				f"{f' for {ChatMessage.link(notification.incident)}' if notification.incident else ''}."
-				f" Contact them directly. [Error]({get_url_to_form('Beacon Notification', notification.name)})",
-				notification.incident,
-			)
+			BeaconNotification.report_failed_delivery(notification)
 
 	def is_valid_callback(self, token: str, account_sid: str, call_sid: str) -> bool:
 		"""The token proves that Beacon made the URL. The other checks keep a leaked URL to its own call and to
 		a short time, because nothing signs the request body."""
-		row = frappe.db.get_value(
-			"Beacon Notification", self.name, ["channel", "provider_ref", "creation"], as_dict=True
-		)
 		return bool(
-			row
-			and row.channel == "Call"
+			self.channel == "Call"
 			and hmac.compare_digest(CallNotifier.get_callback_token(self.name), token)
 			and account_sid == frappe.get_cached_doc("Beacon Settings").twilio_account_sid
-			and row.provider_ref in (None, "", call_sid)
-			and now_datetime() - get_datetime(row.creation) < CALLBACK_WINDOW
+			and self.provider_ref in (None, "", call_sid)
+			and now_datetime() - get_datetime(self.creation) < CALLBACK_WINDOW
 		)
 
 	def record_call_status(self, twilio_status: str) -> None:
@@ -215,12 +258,7 @@ class BeaconNotification(Document):
 		notification.STATUS.move(notification, status)
 		if status == "Failed":
 			notification.error = f"Twilio reported the call as {twilio_status}."
-			NotificationOutbox().queue(
-				"Chat",
-				f"⚠️ **Could not call** {get_fullname(notification.responder)} for"
-				f" {ChatMessage.link(notification.incident)}: {notification.error} Contact them directly.",
-				notification.incident,
-			)
+			BeaconNotification.report_failed_delivery(notification)
 		notification.save(ignore_permissions=True)
 
 	@staticmethod
