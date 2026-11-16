@@ -17,7 +17,7 @@ Every DocType name starts with `Beacon `. For example, `Beacon Incident` uses `b
 | Service | `beacon/core/service` | Service measurements, damped status, minute history, error budget and burn alerts | `measurement.py`, `status.py`, `history.py`, `burn.py` |
 | API | `beacon/api` | Guest status page methods and Twilio callbacks only | `status.py`, `twilio.py` |
 | Status page | `frontend/` | The Vue app at `/` | `src/main.js`, `src/api.js`, `src/pages/` |
-| Desk actions | `beacon/public/js/beacon.bundle.js` | `beacon.add_action`, `beacon.show_results` and `beacon.RecordView`, used by every form script | `document_action.js`, `record_view.js` |
+| Desk actions | `beacon/public/js/beacon.bundle.js` | `beacon.add_action`, `beacon.add_silence_actions`, `beacon.show_results` and `beacon.RecordView`, used by every form script | `document_action.js`, `record_view.js` |
 
 ## Desk dashboard
 
@@ -53,7 +53,7 @@ Region, evaluation and source sync jobs use the `long` queue. Notification jobs 
 
 - DocTypes own document state, permissions and public actions. Actions use workflow objects where a workflow spans records.
 - `RuleEvaluator`, `ResourceSync`, `IncidentCoordinator` and `ServiceMeasurement` own their domain workflows.
-- `BeaconIncident` and `BeaconAlert` own their status. Each has a `STATUS` `StateMachine` (`core/state_machine.py`) that lists the allowed moves, and only `STATUS.move` changes the field. A refused move raises `StateError`. The incident actions, the maintenance actions and the alert methods (`fire`, `resolve`) are the only callers. `IncidentEscalation` owns the escalation field.
+- `BeaconIncident` and `BeaconAlert` own their status. Each has a `STATUS` `StateMachine` (`core/state_machine.py`) that lists the allowed moves, and only `STATUS.move` changes the field. A refused move raises `StateError`. The incident actions, the maintenance actions and the alert methods (`fire`, `resolve`) are the only callers. `IncidentEscalation` owns the escalation field. A silence is the `silenced_until` field of an alert or a rule, and the `silence` method of each DocType sets it.
 - `IncidentMatcher` decides which open incident an alert joins and does not read or write the database.
 - `AlertReconciler` compares rule rows with the open alerts and calls the `BeaconAlert` methods. It changes alerts only. The alert package does not import the incident package. The recovery sweep finds incidents whose alerts all recovered.
 - `RegionSelection` owns which active regions a rule or service runs in. `AlertRules` owns burn rule names.

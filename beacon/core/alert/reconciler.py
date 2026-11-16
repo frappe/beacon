@@ -45,9 +45,7 @@ class AlertReconciler:
 			if alert:
 				alert.observe_failure(failure, self.rule, self.now)
 			else:
-				suppressed_by = self.suppression.get_suppressed_by(
-					self.rule.name, failure.alert_key, failure.resource
-				)
+				suppressed_by = self.suppression.get_suppressed_by(self.rule.name, failure.resource)
 				BeaconAlert.start(self.rule, failure, suppressed_by, self.now)
 
 		for alert in open_alerts.values():

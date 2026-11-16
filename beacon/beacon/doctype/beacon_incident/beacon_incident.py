@@ -8,7 +8,6 @@ from frappe.model.document import Document
 from frappe.utils import get_datetime, now_datetime
 
 from beacon.beacon.doctype.beacon_alert.beacon_alert import BeaconAlert
-from beacon.beacon.doctype.beacon_silence.beacon_silence import BeaconSilence
 from beacon.core.alert.states import OPEN_ALERT_STATUSES, PAGED_SEVERITIES, Severity
 from beacon.core.exceptions import IncidentActionError
 from beacon.core.incident.chat_message import ChatMessage
@@ -184,7 +183,7 @@ class BeaconIncident(Document):
 		firing = frappe.get_all(
 			"Beacon Alert",
 			filters={"incident": self.name, "status": "Firing", "suppressed": 0},
-			fields=["name", "region", "resource", "rule", "alert_key"],
+			pluck="name",
 		)
 		if firing and not silence_hours:
 			frappe.throw(
@@ -194,9 +193,9 @@ class BeaconIncident(Document):
 				IncidentActionError,
 			)
 
-		for alert in firing:
-			BeaconSilence.create_for_alert(
-				alert, silence_hours, f"Resolved {self.name} with the alert still firing."
+		for name in firing:
+			frappe.get_doc("Beacon Alert", name, for_update=True).silence(
+				silence_hours, f"Resolved {self.name} while it still fired."
 			)
 		self.add_update(message, is_public, status="Resolved")
 		self.STATUS.move(self, "Resolved")

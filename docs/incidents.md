@@ -87,9 +87,11 @@ A Public maintenance that is published before its start does not count against t
 
 ## Silences
 
-A silence mutes paging for a known problem. It starts now and ends at a set time, at most 30 days later. It needs a reason. It matches a rule, an alert key, a resource or a scope, or a combination of them.
+A silence mutes paging for a known problem. A person silences one alert, or a rule and then every alert of that rule. A silence ends at a set time, at most 30 days later, or when a person ends it. It needs a reason.
 
-An alert under a silence keeps its state and stays visible. It does not join an incident and does not page. When the silence expires or a person revokes it, the alerts that still fire join incidents.
+A silenced alert keeps its state and stays visible. It does not join an incident and does not page. When the silence ends, the alerts that still fire join incidents.
+
+The Resolve action of an incident can silence the alerts that still fire, for some hours. The incident then closes, and those alerts stay open and silenced.
 
 | Use | When | Alerts | SLO |
 | --- | --- | --- | --- |

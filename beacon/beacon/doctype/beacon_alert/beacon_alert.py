@@ -4,16 +4,19 @@ from datetime import datetime
 from typing import TYPE_CHECKING
 
 import frappe
+from frappe import _
 from frappe.model.document import Document
-from frappe.utils import now_datetime
+from frappe.utils import add_to_date, now_datetime
 
 from beacon.core.alert.states import OPEN_ALERT_STATUSES, Severity
 from beacon.core.state_machine import StateMachine
+from beacon.core.transaction import document_action
 
 if TYPE_CHECKING:
 	from beacon.core.alert.reconciler import RuleFailure
 
 DETAIL_LENGTH = 1000
+SILENCE_LIMIT_HOURS = 30 * 24
 
 
 class BeaconAlert(Document):
@@ -41,6 +44,7 @@ class BeaconAlert(Document):
 		resource_type: DF.Data | None
 		rule: DF.Link | None
 		severity: DF.Literal["Low", "Medium", "High", "Critical"]
+		silenced_until: DF.Datetime | None
 		started_at: DF.Datetime | None
 		status: DF.Literal["Pending", "Firing", "Resolved"]
 		suppressed: DF.Check
@@ -113,6 +117,34 @@ class BeaconAlert(Document):
 	def suppress(self, suppressed_by: str | None) -> None:
 		"""Record what mutes the alert, or None when nothing does."""
 		self._save_changes(suppressed=int(bool(suppressed_by)), suppressed_by=suppressed_by)
+
+	@document_action
+	def silence(self, hours: int, reason: str = "") -> None:
+		"""Mute this open alert for some hours: it joins no incident. 0 hours ends the silence."""
+		if self.status not in OPEN_ALERT_STATUSES:
+			frappe.throw(_("This alert is resolved."))
+
+		self.silenced_until = BeaconAlert.start_silence(self, hours, reason)
+		if self.silenced_until:
+			self.suppressed = 1
+			self.suppressed_by = f"Silenced until {self.silenced_until:%Y-%m-%d %H:%M} UTC"
+		self.save(ignore_permissions=True)
+
+	@staticmethod
+	def start_silence(document: Document, hours: int, reason: str) -> datetime | None:
+		"""Check the silence of an alert or a rule, note the reason, and return its end. A rule silence reaches
+		its alerts in the next region run."""
+		document.check_permission("write")
+		hours = int(hours or 0)
+		if not 0 <= hours <= SILENCE_LIMIT_HOURS:
+			frappe.throw(_("Silence for 0 to {0} hours.").format(SILENCE_LIMIT_HOURS))
+		if hours and not (reason or "").strip():
+			frappe.throw(_("Enter why you silence it."))
+
+		document.add_comment(
+			"Comment", _("Silenced for {0} h: {1}").format(hours, reason) if hours else _("Silence ended.")
+		)
+		return add_to_date(now_datetime(), hours=hours) if hours else None
 
 	def join(self, incident: str) -> None:
 		self.incident = incident

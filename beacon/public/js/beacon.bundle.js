@@ -12,6 +12,23 @@ beacon.add_runbook_button = (frm, url) => {
 			window.open(url, "_blank", "noopener")
 		);
 };
+beacon.add_silence_actions = (frm) => {
+	if (frm.is_new()) return;
+	const until = frm.doc.silenced_until;
+	if (until && frappe.datetime.now_datetime() < until) {
+		const line = __("Silenced until {0}.", [frappe.datetime.str_to_user(until)]);
+		const intro = frm.$intro_message?.text();
+		frm.set_intro(intro ? `${intro} ${line}` : line, intro ? "blue" : "orange");
+		beacon.add_action(frm, __("End Silence"), "silence", null, null, {
+			confirm: __("End this silence now?"),
+			prepare: () => ({ hours: 0 }),
+		});
+	}
+	beacon.add_action(frm, __("Silence"), "silence", [
+		{ fieldname: "hours", fieldtype: "Int", label: __("Hours"), default: 4, reqd: 1 },
+		{ fieldname: "reason", fieldtype: "Data", label: __("Reason"), reqd: 1 },
+	]);
+};
 
 $(document).on("click", ".beacon-table tr[data-name]", function (event) {
 	if (!this.dataset.name || event.target.closest("a")) return;

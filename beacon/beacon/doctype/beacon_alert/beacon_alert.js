@@ -10,13 +10,6 @@ frappe.ui.form.on("Beacon Alert", {
 			frm.add_custom_button(__("Open Incident"), () =>
 				frappe.set_route("Form", "Beacon Incident", frm.doc.incident)
 			);
-		frm.add_custom_button(__("Create Silence"), () =>
-			beacon.RecordView.silence({
-				region: frm.doc.region,
-				resource_id: (frm.doc.resource || "").split(":").slice(1).join(":"),
-				rule: frm.doc.rule,
-				alert_key: frm.doc.alert_key,
-			})
-		);
+		if (["Pending", "Firing"].includes(frm.doc.status)) beacon.add_silence_actions(frm);
 	},
 });

@@ -53,5 +53,6 @@ frappe.ui.form.on("Beacon Alert Rule", {
 				(results) => beacon.show_results(__("Test result"), results),
 				{ standalone: true, draft: true }
 			);
+		beacon.add_silence_actions(frm);
 	},
 });

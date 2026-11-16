@@ -7,6 +7,7 @@ import frappe
 from frappe import _
 from frappe.model.document import Document
 
+from beacon.beacon.doctype.beacon_alert.beacon_alert import BeaconAlert
 from beacon.core.alert.endpoint_check import ENDPOINT_KINDS, EndpointVariables, get_failure, get_target
 from beacon.core.alert.evaluation_schedule import EvaluationSchedule
 from beacon.core.alert.rule_evaluator import RuleQuery
@@ -15,7 +16,7 @@ from beacon.core.definitions import check_desk_change
 from beacon.core.exceptions import ClickHouseError, EndpointVariableError, RuleContractError
 from beacon.core.resource.clickhouse import ClickHouseClient
 from beacon.core.resource.regions import RegionSelection
-from beacon.core.transaction import RecordTransaction
+from beacon.core.transaction import RecordTransaction, document_action
 
 TEST_SAMPLE_ROWS = 20
 CUSTOM_KINDS = ("SQL", "HTTP", "TLS")
@@ -52,6 +53,7 @@ class BeaconAlertRule(Document):
 		runbook_url: DF.Data | None
 		scope_includes_descendants: DF.Check
 		service: DF.Link | None
+		silenced_until: DF.Datetime | None
 		source: DF.Data | None
 		severity: DF.Literal["Low", "Medium", "High", "Critical"]
 		timeout: DF.Int
@@ -84,6 +86,11 @@ class BeaconAlertRule(Document):
 
 	def on_update(self) -> None:
 		EvaluationSchedule().sync()
+
+	@document_action
+	def silence(self, hours: int, reason: str = "") -> None:
+		"""Mute every alert of this rule for some hours. 0 hours ends the silence."""
+		self.db_set("silenced_until", BeaconAlert.start_silence(self, hours, reason))
 
 	@frappe.whitelist()
 	def test(self) -> list[dict]:

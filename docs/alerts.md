@@ -126,9 +126,12 @@ A suppressed alert keeps its state, but it does not join an incident and does no
 
 An alert is suppressed when:
 
-- an active silence matches its rule, alert key or resource, or
+- a person silenced the alert, and the silence has not ended, or
+- a person silenced its rule, and the silence has not ended, or
 - an In Progress maintenance covers its resource, and for 10 minutes after the maintenance ends, so rebooted hosts can come back, or
 - the maintenance has "Mute SLO Burn" set, and the alert is a burn alert of a region in the maintenance.
+
+A silence ends at a set time, at most 30 days later, or when a person ends it. It needs a reason. The Suppressed By field of the alert shows what mutes it.
 
 A held removal does not suppress alerts. Beacon posts to chat one time when it holds a removal, and the alerts of the held resources stay visible.
 

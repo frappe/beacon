@@ -18,24 +18,21 @@ class AlertSuppression:
 	def __init__(self, registry: ResourceRegistry, now: datetime):
 		self.registry = registry
 		self.region = registry.region
+		self.now = now
 		self.burn_rules = AlertRules.get_burn_rule_names()
-		self.silences = self._load_silences(now)
+		self.silenced_rules = self._load_silenced_rules(now)
 		self.maintenances = self._load_maintenances(now)
 
-	def get_suppressed_by(self, rule: str, alert_key: str, resource: frappe._dict) -> str | None:
-		"""Return the name of what mutes this alert, or None."""
-		silence = next(
-			(
-				silence
-				for silence in self.silences
-				if silence.rule in ("", None, rule)
-				and silence.alert_key in ("", None, alert_key)
-				and silence.match.covers(resource)
-			),
-			None,
-		)
-		if silence:
-			return silence.name
+	def get_suppressed_by(
+		self, rule: str, resource: frappe._dict, silenced_until: datetime | None = None
+	) -> str | None:
+		"""Return what mutes this alert, or None."""
+		if silenced_until and silenced_until > self.now:
+			return f"Silenced until {silenced_until:%Y-%m-%d %H:%M} UTC"
+
+		rule_silenced_until = self.silenced_rules.get(rule)
+		if rule_silenced_until:
+			return f"Rule silenced until {rule_silenced_until:%Y-%m-%d %H:%M} UTC"
 
 		is_burn = rule in self.burn_rules
 		for maintenance in self.maintenances:
@@ -58,26 +55,15 @@ class AlertSuppression:
 				)
 				continue
 
-			alert.suppress(self.get_suppressed_by(alert.rule, alert.alert_key or "", resource))
+			alert.suppress(self.get_suppressed_by(alert.rule, resource, alert.silenced_until))
 
-	def _load_silences(self, now: datetime) -> list[frappe._dict]:
-		silences = frappe.get_all(
-			"Beacon Silence",
-			filters={"expires_at": (">", now), "revoked_at": ("is", "not set")},
-			or_filters=[["region", "=", self.region], ["region", "is", "not set"]],
-			fields=[
-				"name",
-				"region",
-				"resource_type",
-				"resource_id",
-				"include_descendants",
-				"rule",
-				"alert_key",
-			],
+	def _load_silenced_rules(self, now: datetime) -> dict[str, datetime]:
+		rows = frappe.get_all(
+			"Beacon Alert Rule",
+			filters={"silenced_until": (">", now)},
+			fields=["name", "silenced_until"],
 		)
-		for silence in silences:
-			silence.match = ResourceMatch.from_row(silence)
-		return silences
+		return {row.name: row.silenced_until for row in rows}
 
 	def _load_maintenances(self, now: datetime) -> list[frappe._dict]:
 		maintenances = frappe.get_all(

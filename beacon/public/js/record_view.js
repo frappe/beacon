@@ -103,11 +103,4 @@ export class RecordView {
 			"blue"
 		);
 	}
-
-	static silence(values) {
-		frappe.new_doc("Beacon Silence", {
-			...values,
-			expires_at: frappe.datetime.add_days(frappe.datetime.now_datetime(), 1),
-		});
-	}
 }
