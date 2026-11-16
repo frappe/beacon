@@ -42,8 +42,8 @@ The definitions live in `beacon/beacon/workspace/`, `beacon/beacon/sidebar/` and
 | Every minute | `jobs.sync_sources` | `BeaconResourceSource.queue_due_syncs` queues `sync` for each enabled source with `frappe.enqueue_doc`. |
 | Every minute | `jobs.evaluate_due_rules` | `RegionEvaluation.queue_due` queues one `jobs.evaluate_region` job per region with due evaluations. |
 | Daily | `jobs.delete_old_rows` | `RecordRetention` removes expired records. |
-| Daily | `jobs.remind_postmortems` | `Postmortem.remind_missing` posts to chat for each required postmortem that is still empty, from 3 to 30 days after the resolve. |
-| After commit | `jobs.deliver_notification` | `BeaconNotification.send` sends one Beacon Notification. When an email or call fails, it posts the error to chat. |
+| Daily | `jobs.remind_postmortems` | `Postmortem.remind_missing` posts to chat one reminder at 3 days and one at 7 days for each required postmortem that is still empty. A missed run catches up on the next run. |
+| After commit | `jobs.deliver_notification` | `BeaconNotification.send` sends one Beacon Notification. When an email or call fails, it posts the error to chat at most once for each incident and channel in an hour. |
 | After migrate | `definitions.create_built_in_rules` | Creates the built-in rules. |
 | Sync Definitions in Beacon Settings | `definitions.DefinitionSync` | Reads `rules/*.sql`, `rules/*.http`, `rules/*.tls` and `services/*.sql` from each definition source on GitHub and applies them. Runs only on demand. |
 
@@ -98,7 +98,7 @@ Each rule file lives in the repository of the producer it reads. A rule about on
 - Beacon never publishes an incident and never reopens a public one.
 - Status page methods return only published data and cache each result for 60 seconds. `StatusCache.clear` removes the keys an action changes.
 - A visitor can follow one published incident by email or RSS. `subscribe` (rate limited) stores a Pending `Beacon Incident Subscriber` and emails a confirmation link. The email links open `/subscription/<token>`, and that page posts to `change_subscription`, so a mail client that opens links ahead changes nothing. `IncidentSubscription.queue_new_updates` runs on each incident save and queues `notify_subscribers` for each new public update, which emails each Confirmed subscriber with an unsubscribe link. `get_incident_feed` returns the public updates as RSS 2.0.
-- A notification row is written in the caller's transaction and sent after commit. No remote call runs under a database lock.
+- A notification row is written in the caller's transaction and sent after commit. No remote call runs under a database lock. A Low or Medium incident posts to chat only. A High or Critical incident also emails and calls. A queued call, or an escalation email with a page round, is cancelled when its incident closed or its escalation stopped before the job sent it. A closing email with page round 0 is still sent. An escalation email is written once for each responder in each round.
 - A job that works on many records runs each record through `RecordTransaction` (`core/transaction.py`). Each record has its own transaction. A lock conflict (deadlock, MariaDB 11.8 snapshot isolation error 1020, lock wait timeout) rolls back and retries the record up to 3 times. Another failure rolls back that record and writes an Error Log with the record as reference. One record never stops the loop, and each step of a region run is separate.
 - Remote calls (ClickHouse, Twilio, resource sources) run before the rows are locked. Then `RecordTransaction.start_new` starts a new transaction, and the work locks its rows before it reads them. A retry repeats only the database write, so a notification is never sent twice. A changed rule query is checked in ClickHouse before the save locks the rule row.
 - Lock order: the incident row before its alert rows. Incident actions, the coordinator, merge, the recovery sweep and phone acknowledge follow it. Alert work never locks an incident, so it never waits for an incident while it holds alert locks.
@@ -107,7 +107,7 @@ Each rule file lives in the repository of the producer it reads. A rule about on
 - A failure that repeats every minute writes one Error Log, not one per run. A rule evaluation logs when its state changes. A resource source logs its first failed fetch and posts to chat after 5 failed fetches in a row. A region probe logs only when the region was not already Unreachable.
 - Form actions reload the form before `frm.call`, so they send the current record. A draft action, such as a test, runs on the form as edited and saves nothing. Read-only methods use `@frappe.read_only()`.
 - Affected resources are computed when a person asks for them: the scope rows plus the resources of the incident's alerts, with child resources when the rule includes them. Nothing is stored for each resource. When a region is unreachable, the region alert covers only the region resource.
-- During an outage the coordinator posts one chat message for each incident in each run, with the count of the alerts that joined.
+- During an outage the coordinator posts one chat message for each incident in each run, with the count of the alerts that joined. A rule that becomes Broken posts once, and posts once when it works again. A resource source posts once when it starts to fail and once when it holds a removal.
 - Each function has a cyclomatic complexity of 7 or less. Ruff checks it (`C901`).
 
 ## Development

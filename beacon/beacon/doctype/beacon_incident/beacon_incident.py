@@ -140,13 +140,15 @@ class BeaconIncident(Document):
 	def acknowledge(self) -> None:
 		self.check_permission("write")
 		self.require_open()
-		if self.acknowledged_by:
+		escalation = IncidentEscalation(self)
+		if self.acknowledged_by and not escalation.is_active:
 			return
 
-		self.acknowledged_by = frappe.session.user
-		self.acknowledged_at = now_datetime()
+		if not self.acknowledged_by:
+			self.acknowledged_by = frappe.session.user
+			self.acknowledged_at = now_datetime()
 		self.STATUS.move(self, "Investigating" if self.status == "Triggered" else self.status)
-		IncidentEscalation(self).stop()
+		escalation.stop()
 		BeaconNotification.acknowledge_calls(self.name)
 		self.save()
 

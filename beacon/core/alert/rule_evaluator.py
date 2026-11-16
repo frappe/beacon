@@ -138,6 +138,7 @@ class RuleEvaluator:
 		failing, unknown = self._get_failing_rows(rows)
 		reconciler.reconcile(failing)
 
+		was_broken = self.evaluation.state == "Broken"
 		self.evaluation.update(
 			{
 				"state": "Healthy",
@@ -150,6 +151,10 @@ class RuleEvaluator:
 			}
 		)
 		self.evaluation.save(ignore_permissions=True)
+		if was_broken:
+			BeaconNotification.post_to_chat(
+				f"✅ **Rule {self.rule.title} works again in {self.registry.region}.**"
+			)
 
 	def _get_failing_rows(self, rows: list[dict]) -> tuple[list[RuleFailure], int]:
 		failing: list[RuleFailure] = []

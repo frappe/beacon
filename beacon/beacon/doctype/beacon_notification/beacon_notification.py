@@ -8,6 +8,7 @@ import frappe
 from frappe.model.document import Document
 from frappe.utils import get_datetime, get_fullname, get_url_to_form, now_datetime
 
+from beacon.core.alert.states import PAGED_SEVERITIES
 from beacon.core.incident.chat_message import ChatMessage
 from beacon.core.incident.notifiers import NOTIFIERS, CallNotifier, Notifier
 from beacon.core.jobs import queue_notification
@@ -104,9 +105,9 @@ class BeaconNotification(Document):
 
 	@staticmethod
 	def announce(incident: BeaconIncident, message: str, email: bool = False) -> None:
-		"""Post to chat. With email, also mail every active responder unless the severity is Low."""
+		"""Post to chat. With email, also mail every active responder for a High or Critical incident."""
 		BeaconNotification.queue("Chat", message, incident.name)
-		if not email or incident.severity == "Low":
+		if not email or incident.severity not in PAGED_SEVERITIES:
 			return
 
 		for responder in frappe.get_cached_doc("Beacon Settings").get_active_responders():
@@ -114,7 +115,11 @@ class BeaconNotification(Document):
 
 	@staticmethod
 	def report_failed_delivery(notification: BeaconNotification) -> None:
-		"""Tell chat that a call or email failed, with a link to the error on the notification."""
+		"""Tell chat that a call or email failed, with a link to the error on the notification. One message
+		for each incident and channel in an hour, so a provider outage does not flood the chat."""
+		if notification.incident and BeaconNotification._has_recent_failure(notification):
+			return
+
 		action = "call" if notification.channel == "Call" else "email"
 		incident = f" for {ChatMessage.link(notification.incident)}" if notification.incident else ""
 		BeaconNotification.queue(
@@ -122,6 +127,23 @@ class BeaconNotification(Document):
 			f"⚠️ **Could not {action} {get_fullname(notification.responder)}{incident}.**"
 			f" Contact them directly. [Details]({get_url_to_form('Beacon Notification', notification.name)})",
 			notification.incident,
+		)
+
+	@staticmethod
+	def _has_recent_failure(notification: BeaconNotification) -> bool:
+		action = "call" if notification.channel == "Call" else "email"
+		return bool(
+			frappe.db.get_value(
+				"Beacon Notification",
+				{
+					"incident": notification.incident,
+					"channel": "Chat",
+					"message": ("like", f"⚠️ **Could not {action}%"),
+					"creation": (">=", now_datetime() - timedelta(hours=1)),
+				},
+				"name",
+				for_update=True,
+			)
 		)
 
 	def send(self) -> None:
@@ -153,9 +175,22 @@ class BeaconNotification(Document):
 
 	def _claim(self, notifier: Notifier) -> bool:
 		"""Move the row from Queued to Sending. A pause, a disabled channel or a disabled responder that came
-		after the row was queued cancels it. An escalation pages again when paging resumes."""
+		after the row was queued cancels it. A call, or an escalation email, for an incident that closed or whose
+		escalation stopped is stale."""
+		incident = None
+		if self.incident and (self.channel == "Call" or (self.channel == "Email" and self.page_round > 0)):
+			incident = frappe.get_doc("Beacon Incident", self.incident, for_update=True)
+
 		notification = frappe.get_doc("Beacon Notification", self.name, for_update=True)
 		if notification.status != "Queued":
+			return False
+
+		if incident and (not incident.is_open or incident.escalation != "Calling"):
+			notification.STATUS.move(notification, "Cancelled")
+			notification.error = (
+				"The incident closed or its escalation stopped before this notification was sent."
+			)
+			notification.save(ignore_permissions=True)
 			return False
 
 		if not notifier.is_enabled() or (
@@ -172,6 +207,8 @@ class BeaconNotification(Document):
 
 	def _record(self, values: dict) -> None:
 		"""A phone callback can set the status first. Then only the provider reference is kept."""
+		if values["status"] == "Failed":
+			BeaconNotification._lock_incident(self.incident)
 		notification = frappe.get_doc("Beacon Notification", self.name, for_update=True)
 		failed = notification.status == "Sending" and values["status"] == "Failed"
 		if notification.status == "Sending":
@@ -215,8 +252,7 @@ class BeaconNotification(Document):
 	def _answer(self) -> None:
 		"""Lock the incident before the notification, in the same order as every other incident action. A call
 		answered after the incident closed acknowledges nothing. The first answer time stays."""
-		name = frappe.db.get_value("Beacon Notification", self.name, "incident")
-		incident = self._lock_open_incident(name) if name else None
+		incident = self._lock_open_incident(self.incident) if self.incident else None
 		notification = frappe.get_doc("Beacon Notification", self.name, for_update=True)
 		target = "Acknowledged" if incident else "Answered"
 		if not notification.STATUS.can_move(notification, target):
@@ -230,6 +266,11 @@ class BeaconNotification(Document):
 			self.name,
 			{"status": notification.status, "answered_at": notification.answered_at or now_datetime()},
 		)
+
+	@staticmethod
+	def _lock_incident(incident: str | None) -> None:
+		if incident:
+			frappe.db.get_value("Beacon Incident", incident, "name", for_update=True)
 
 	@staticmethod
 	def _lock_open_incident(name: str) -> BeaconIncident | None:
@@ -251,6 +292,8 @@ class BeaconNotification(Document):
 
 	def _record_call_status(self, status: str, twilio_status: str) -> None:
 		"""A failed call posts to chat once. A late status never undoes an acknowledgement."""
+		if status == "Failed":
+			BeaconNotification._lock_incident(self.incident)
 		notification = frappe.get_doc("Beacon Notification", self.name, for_update=True)
 		if not notification.STATUS.can_move(notification, status):
 			return
@@ -280,14 +323,13 @@ class BeaconNotification(Document):
 
 	@staticmethod
 	def acknowledge_calls(incident: str) -> None:
-		"""A person acknowledged the incident, so its open calls are acknowledged too."""
+		"""A person acknowledged the incident. A queued call is stopped and never sent. A call that already
+		went out is acknowledged."""
+		base = {"incident": incident, "channel": "Call"}
+		frappe.db.set_value("Beacon Notification", {**base, "status": "Queued"}, "status", "Cancelled")
 		frappe.db.set_value(
 			"Beacon Notification",
-			{
-				"incident": incident,
-				"channel": "Call",
-				"status": ("in", ("Queued", "Sending", "Sent", "Answered")),
-			},
+			{**base, "status": ("in", ("Sending", "Sent", "Answered"))},
 			"status",
 			"Acknowledged",
 		)

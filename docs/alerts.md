@@ -51,7 +51,7 @@ SELECT ...
 | --- | --- |
 | Critical | Customers are down now, and a person must act at once. |
 | High | Customers are or will soon be affected. It pages. |
-| Medium | A person must look today. Chat and email. |
+| Medium | A person must look today. Chat only. |
 | Low | Something to know about. Chat only. |
 
 Use the `severity` column when one rule has a soft limit and a hard limit. For example, a disk with less than 25% free is Low, and with less than 10% free it is High.

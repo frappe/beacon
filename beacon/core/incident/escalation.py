@@ -99,6 +99,8 @@ class IncidentEscalation:
 		responder = responders[self.incident.page_index]
 		message = f"{self.incident.severity} incident {self.incident.name}: {self.incident.title}"
 		for channel in ("Call", "Email"):
+			if channel == "Email" and self._has_emailed(responder.user):
+				continue
 			BeaconNotification.queue(
 				channel, message, self.incident.name, responder.user, self.incident.page_round
 			)
@@ -110,6 +112,23 @@ class IncidentEscalation:
 			else self.settings.get_backup_after_minutes(self.incident.severity)
 		)
 		self.incident.next_page_at = self.now + timedelta(minutes=minutes)
+
+	def _has_emailed(self, responder: str) -> bool:
+		"""One escalation email for each responder in each round. A cancelled or failed email was not sent."""
+		return bool(
+			frappe.db.get_value(
+				"Beacon Notification",
+				{
+					"incident": self.incident.name,
+					"responder": responder,
+					"page_round": self.incident.page_round,
+					"channel": "Email",
+					"status": ("in", ("Queued", "Sending", "Sent")),
+				},
+				"name",
+				for_update=True,
+			)
+		)
 
 	def _finish(self, reason: str) -> None:
 		self.incident.escalation = "Done"
