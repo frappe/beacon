@@ -9,7 +9,6 @@ from xml.etree import ElementTree
 import frappe
 from frappe.utils import add_days, get_datetime, getdate, now_datetime
 
-from beacon.core.incident.merge import IncidentMerge
 from beacon.core.resource.regions import RegionSelection
 from beacon.core.service.status import STATUS_ORDER, ServiceStatus
 
@@ -149,7 +148,7 @@ class StatusPage:
 		if incident and incident.status == "Merged" and incident.merged_into:
 			target = frappe.db.get_value(
 				"Beacon Incident",
-				IncidentMerge.find_final_incident(incident.name),
+				frappe.get_doc("Beacon Incident", incident.name).get_final_incident(),
 				["name", "visibility"],
 				as_dict=True,
 			)

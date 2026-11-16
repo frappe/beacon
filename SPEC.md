@@ -10,10 +10,10 @@ Every DocType name starts with `Beacon `. For example, `Beacon Incident` uses `b
 
 | Package | Folder | Owns | Key files |
 |---|---|---|---|
-| Core | `beacon/core` | Scheduled work, record transactions, definitions, public status data, site setup | `scheduler.py`, `transaction.py`, `definitions.py`, `status_page.py`, `setup.py`, `jobs.py`, `heartbeat.py`, `exceptions.py` |
+| Core | `beacon/core` | Scheduled work, record transactions, state machines, definitions, public status data, site setup | `scheduler.py`, `transaction.py`, `state_machine.py`, `definitions.py`, `status_page.py`, `setup.py`, `jobs.py`, `heartbeat.py`, `exceptions.py` |
 | Resource | `beacon/core/resource` | Resource sync, resource tree, region selection, ClickHouse access, region probe | `source.py`, `source_client.py`, `registry.py`, `regions.py`, `tree.py`, `clickhouse.py`, `region_probe.py` |
 | Alert | `beacon/core/alert` | Rule evaluation, alert transitions, burn rule lookups, silence and maintenance suppression | `rule_evaluator.py`, `evaluation_schedule.py`, `reconciler.py`, `states.py`, `rules.py`, `suppression.py` |
-| Incident | `beacon/core/incident` | Incident status machine, alert matching and coordination, recovery, merge, publication, escalation, maintenance, notifications, status page subscriptions | `lifecycle.py`, `matcher.py`, `coordinator.py`, `recovery.py`, `merge.py`, `publication.py`, `escalation.py`, `maintenance.py`, `outbox.py`, `notifiers.py`, `call_response.py`, `postmortem.py`, `subscription.py` |
+| Incident | `beacon/core/incident` | Alert matching and coordination, escalation, notifications, status page subscriptions | `matcher.py`, `coordinator.py`, `escalation.py`, `outbox.py`, `notifiers.py`, `chat_message.py`, `call_response.py`, `postmortem.py`, `subscription.py` |
 | Service | `beacon/core/service` | Service measurements, damped status, minute history, error budget and burn alerts | `measurement.py`, `status.py`, `history.py`, `burn.py` |
 | API | `beacon/api` | Guest status page methods and Twilio callbacks only | `status.py`, `twilio.py` |
 | Status page | `frontend/` | The Vue app at `/` | `src/main.js`, `src/api.js`, `src/pages/` |
@@ -37,14 +37,13 @@ The definitions live in `beacon/beacon/workspace/`, `beacon/beacon/sidebar/` and
 
 | Schedule | Entry point | Work |
 |---|---|---|
-| Every minute | `jobs.run_schedule` | `BeaconScheduler`: advances maintenance, resolves disabled alerts, queues each active region, advances escalations and sends the heartbeat. Beacon holds the heartbeat while a rule evaluation or a queued notification is more than 5 minutes late, so the external service also knows when the workers stop. |
+| Every minute | `jobs.run_schedule` | `BeaconScheduler`: advances maintenance, resolves disabled alerts, queues each active region, runs the recovery sweep (`BeaconIncident.close_recovered`), advances escalations, queues lost notifications again (`NotificationOutbox.requeue_waiting`) and sends the heartbeat. Beacon holds the heartbeat while a rule evaluation or a queued notification is more than 5 minutes late, so the external service also knows when the workers stop. |
 | Every minute, per region | `jobs.run_region_schedule` | `RegionSchedule`: probes the region, measures services, refreshes suppression and coordinates incidents. |
 | Every minute | `jobs.sync_sources` | `BeaconResourceSource.queue_due_syncs` queues `sync` for each enabled source with `frappe.enqueue_doc`. |
 | Every minute | `jobs.evaluate_due_rules` | `RegionEvaluation.queue_due` queues one `jobs.evaluate_region` job per region with due evaluations. |
 | Daily | `jobs.delete_old_rows` | `RecordRetention` removes expired records. |
 | Daily | `jobs.remind_postmortems` | `Postmortem.remind_missing` posts to chat for each required postmortem that is still empty, from 3 to 30 days after the resolve. |
 | After commit | `jobs.deliver_notification` | `NotificationDelivery` sends one Beacon Notification. When an email or call fails, it posts the error to chat. |
-| After commit | `jobs.resolve_recovered_incidents` | `IncidentRecovery` closes incidents whose alerts all recovered. |
 | After migrate | `definitions.create_built_in_rules` | Creates the built-in rules. |
 | Sync Definitions in Beacon Settings | `definitions.DefinitionSync` | Reads `rules/*.sql`, `rules/*.http`, `rules/*.tls` and `services/*.sql` from each definition source on GitHub and applies them. Runs only on demand. |
 
@@ -54,9 +53,9 @@ Region, evaluation and source sync jobs use the `long` queue. Notification jobs 
 
 - DocTypes own document state, permissions and public actions. Actions use workflow objects where a workflow spans records.
 - `RuleEvaluator`, `ResourceSync`, `IncidentCoordinator` and `ServiceMeasurement` own their domain workflows.
-- `IncidentLifecycle` owns incident status changes. `NEXT_STATUSES` lists the allowed changes, and `move_to` does the work of the new status. `IncidentEscalation` owns the escalation field, and `AlertReconciler` owns alert status changes.
+- `BeaconIncident` and `BeaconAlert` own their status. Each has a `STATUS` `StateMachine` (`core/state_machine.py`) that lists the allowed moves, and only `STATUS.move` changes the field. A refused move raises `StateError`. The incident actions, the maintenance actions and the alert methods (`fire`, `resolve`) are the only callers. `IncidentEscalation` owns the escalation field.
 - `IncidentMatcher` decides which open incident an alert joins and does not read or write the database.
-- `AlertReconciler` changes alerts only. It returns the incidents to check, and the caller runs `IncidentRecovery`. The alert package does not import the incident package.
+- `AlertReconciler` compares rule rows with the open alerts and calls the `BeaconAlert` methods. It changes alerts only. The alert package does not import the incident package. The recovery sweep finds incidents whose alerts all recovered.
 - `RegionSelection` owns which active regions a rule or service runs in. `AlertRules` owns burn rule names.
 - `jobs.py` owns queue entry points and queue options. Scheduler hooks delegate to workflow objects.
 - `ResourceSourceClient`, `ClickHouseClient` and the `Notifier` subclasses own remote calls. These adapters do not decide incident or alert transitions. `ClickHouseClient.query` gives every rule and SLI query `{region:String}` and `{excluded:Array(String)}`, the resource IDs of the region with monitoring disabled.
@@ -91,7 +90,8 @@ Each rule file lives in the repository of the producer it reads. A rule about on
 - Beacon only reads ClickHouse. Datum owns the schema, the `latest_value` and `counter_increase` views and the read-only `beacon` user.
 - Datum stores `ts` in UTC, and the site runs in UTC. `SiteSetup.configure` sets the time zone on install and on every migrate. Desk shows times in the time zone of each user, as Frappe does. The status page shows UTC.
 - A rule or SLI query error never resolves an alert. A failed fetch never removes a resource.
-- `AlertReconciler` writes alerts only on transitions.
+- `AlertReconciler` writes alerts only on transitions. `BeaconAlert` saves only the fields that changed.
+- `alerts_recovered_at` records that Beacon acted on the recovery of an incident's alerts, so the sweep acts one time. An alert that joins clears it. A reopen sets it, so the sweep does not close a reopened incident again.
 - After each evaluation and each scheduled region run, every Firing, unsuppressed alert belongs to an open incident. `IncidentCoordinator` owns this and holds one advisory lock per region.
 - A service with an SLA Target also has the burn alert `sla`. It fires when the error rate is above `100 - sla_target` percent in the last hour and in the last 15 minutes.
 - A burn window alerts only when Service Minutes cover half of it and it has 100 valid events. The error budget projects valid events to 30 days until 30 days are measured. A fast, medium or SLA burn alert pages only when, in one minute of its short window, 3 reporters were bad, or every reporter when fewer than 3 reported. Otherwise its severity is Low, because one bad reporter has its own resource alert.
@@ -101,7 +101,7 @@ Each rule file lives in the repository of the producer it reads. A rule about on
 - A notification row is written in the caller's transaction and sent after commit. No remote call runs under a database lock.
 - A job that works on many records runs each record through `RecordTransaction` (`core/transaction.py`). Each record has its own transaction. A lock conflict (deadlock, MariaDB 11.8 snapshot isolation error 1020, lock wait timeout) rolls back and retries the record up to 3 times. Another failure rolls back that record and writes an Error Log with the record as reference. One record never stops the loop, and each step of a region run is separate.
 - Remote calls (ClickHouse, Twilio, resource sources) run before the rows are locked. Then `RecordTransaction.start_new` starts a new transaction, and the work locks its rows before it reads them. A retry repeats only the database write, so a notification is never sent twice. A changed rule query is checked in ClickHouse before the save locks the rule row.
-- Lock order: the incident row before its alert rows. Incident actions, the coordinator, merge, recovery and phone acknowledge follow it. `IncidentRecovery` runs as its own job after the caller commits, so it never waits for an incident while it holds alert locks.
+- Lock order: the incident row before its alert rows. Incident actions, the coordinator, merge, the recovery sweep and phone acknowledge follow it. Alert work never locks an incident, so it never waits for an incident while it holds alert locks.
 - Advisory locks serialize work that spans a remote call: one coordinator run per region, one run per rule evaluation, one sync per resource source.
 - An incident records who found the problem first (Detected By). Beacon sets Alert for the incidents it opens. On resolve, `Postmortem` marks Postmortem Required for a public or Critical incident, one longer than 1 hour, or one that a customer found, and starts an empty RCA from its template. The Post Update, Resolve and Publish dialogs start with the usual message for the status.
 - A failure that repeats every minute writes one Error Log, not one per run. A rule evaluation logs when its state changes. A resource source logs its first failed fetch and posts to chat after 5 failed fetches in a row. A region probe logs only when the region was not already Unreachable.

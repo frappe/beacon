@@ -19,6 +19,10 @@ class IncidentActionError(frappe.ValidationError):
 	"""An incident action is not allowed in the current state."""
 
 
+class StateError(frappe.ValidationError):
+	"""A state machine does not allow the move."""
+
+
 class DefinitionSourceError(frappe.ValidationError):
 	"""A definition source could not be read, or one of its files is invalid."""
 

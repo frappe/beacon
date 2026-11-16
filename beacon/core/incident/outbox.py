@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import timedelta
 from typing import TYPE_CHECKING
 
 import frappe
@@ -12,6 +13,10 @@ from beacon.core.transaction import RecordTransaction
 
 if TYPE_CHECKING:
 	from beacon.beacon.doctype.beacon_incident.beacon_incident import BeaconIncident
+
+# A queued notification that no job took is queued again after the first time, and fails after the second.
+REQUEUE_AFTER = timedelta(minutes=1)
+FAIL_AFTER = timedelta(hours=1)
 
 
 class NotificationOutbox:
@@ -50,6 +55,22 @@ class NotificationOutbox:
 
 	def post_to_chat(self, message: str) -> None:
 		self.queue("Chat", message)
+
+	def requeue_waiting(self) -> None:
+		"""Scheduled every minute: a notification never depends on one job. A lost job is queued again,
+		which is safe because the job claims the row first."""
+		now = now_datetime()
+		frappe.db.set_value(
+			"Beacon Notification",
+			{"status": "Queued", "creation": ("<", now - FAIL_AFTER)},
+			{"status": "Failed", "error": "No worker sent it for 1 hour."},
+		)
+		for name in frappe.get_all(
+			"Beacon Notification",
+			filters={"status": "Queued", "creation": ("<", now - REQUEUE_AFTER)},
+			pluck="name",
+		):
+			queue_notification(name)
 
 	def announce(self, incident: BeaconIncident, message: str, email: bool = False) -> None:
 		"""Post to chat. With email, also mail every active responder unless the severity is Low."""

@@ -19,7 +19,6 @@ RESOURCE_FIELDS = (
 	"status",
 	"is_checked",
 	"active_since",
-	"removal_held",
 	"source",
 )
 

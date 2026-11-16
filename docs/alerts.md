@@ -85,7 +85,7 @@ Each minute, Beacon queues one job for each region that has due rules. For each 
 4. When the last good run is older than 3 intervals, restart the pending and clean timers, because the time is no longer continuous.
 5. Drop the rows of unknown resources, of resources that are not of the rule's resource type, of resources that are not checked, and of resources that are new in the last 10 minutes.
 6. Compare the rows with the open alerts and write only the changes.
-7. When an alert starts firing or becomes more severe, make sure that it belongs to an incident. When alerts recover, a separate job checks whether their incident can close.
+7. Make sure that each Firing alert belongs to an incident. Each minute, the recovery sweep checks whether an incident whose alerts all recovered can close.
 
 ## Alert states
 
@@ -103,7 +103,7 @@ stateDiagram-v2
     Resolved --> [*]
 ```
 
-A query error or an Unreachable region changes no state. A Resolved alert stores its resolution: Cleared, Recovered, Resource Removed or Disabled.
+A query error or an Unreachable region changes no state. The `STATUS` state machine of the alert refuses every other move, so a Resolved alert never fires again. A Resolved alert stores its resolution: Cleared, Recovered, Resource Removed or Disabled.
 
 | From | Event | To |
 | --- | --- | --- |
@@ -128,8 +128,9 @@ An alert is suppressed when:
 
 - an active silence matches its rule, alert key or resource, or
 - an In Progress maintenance covers its resource, and for 10 minutes after the maintenance ends, so rebooted hosts can come back, or
-- the maintenance has "Mute SLO Burn" set, and the alert is a burn alert of a region in the maintenance, or
-- the resource has a held removal: the last resource list would terminate more than 10% of the resources, and an admin must apply it.
+- the maintenance has "Mute SLO Burn" set, and the alert is a burn alert of a region in the maintenance.
+
+A held removal does not suppress alerts. Beacon posts to chat one time when it holds a removal, and the alerts of the held resources stay visible.
 
 ## Region health
 

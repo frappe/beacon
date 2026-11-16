@@ -17,6 +17,7 @@
   "acknowledgement_column",
   "acknowledged_by",
   "acknowledged_at",
+  "alerts_recovered_at",
   "resolved_at",
   "maintenance_window_section",
   "scheduled_start",
@@ -40,8 +41,6 @@
   "grouping_section",
   "created_by_beacon",
   "public_id",
-  "grouping_column",
-  "group_keys",
   "notifications_tab",
   "notifications_html",
   "escalation_section",
@@ -138,6 +137,12 @@
    "fieldname": "acknowledged_at",
    "fieldtype": "Datetime",
    "label": "Acknowledged At",
+   "read_only": 1
+  },
+  {
+   "fieldname": "alerts_recovered_at",
+   "fieldtype": "Datetime",
+   "label": "Alerts Recovered At",
    "read_only": 1
   },
   {
@@ -283,16 +288,6 @@
    "label": "Public ID",
    "read_only": 1,
    "unique": 1
-  },
-  {
-   "fieldname": "grouping_column",
-   "fieldtype": "Column Break"
-  },
-  {
-   "fieldname": "group_keys",
-   "fieldtype": "Small Text",
-   "label": "Group Keys",
-   "read_only": 1
   },
   {
    "fieldname": "notifications_tab",

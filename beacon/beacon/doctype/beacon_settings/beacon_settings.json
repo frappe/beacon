@@ -48,8 +48,6 @@
   "column_break_5",
   "status_page_domain",
   "incidents_section",
-  "reopen_window_minutes",
-  "column_break_6",
   "heartbeat_url"
  ],
  "fields": [
@@ -292,17 +290,7 @@
   {
    "fieldname": "incidents_section",
    "fieldtype": "Section Break",
-   "label": "Incidents and heartbeat"
-  },
-  {
-   "default": "30",
-   "fieldname": "reopen_window_minutes",
-   "fieldtype": "Int",
-   "label": "Reopen Window (Minutes)"
-  },
-  {
-   "fieldname": "column_break_6",
-   "fieldtype": "Column Break"
+   "label": "Heartbeat"
   },
   {
    "description": "Beacon calls this URL every minute while its workers keep up. If the calls stop, the external service knows that Beacon is down.",

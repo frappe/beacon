@@ -51,6 +51,7 @@ class IncidentEscalation:
 		return self.incident.escalation in ACTIVE_ESCALATIONS
 
 	def start(self, wait: bool) -> None:
+		"""Start with the first responder, at once or after the page delay. Does not save."""
 		self.incident.page_round = 1
 		self.incident.page_index = 0
 		if wait:
@@ -58,7 +59,6 @@ class IncidentEscalation:
 			self.incident.next_page_at = self.now + timedelta(seconds=self.settings.page_delay_seconds)
 		else:
 			self.call_next()
-		self.incident.save(ignore_permissions=True)
 
 	def step(self) -> None:
 		"""After the page delay, call the first responder. While calling, move on to the next one."""

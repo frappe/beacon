@@ -1,6 +1,5 @@
 import frappe
 
-from beacon.core.incident.publication import IncidentPublication
 from beacon.core.status_page import PUBLISHED_VISIBILITIES
 
 
@@ -12,5 +11,5 @@ def execute() -> None:
 		pluck="name",
 	):
 		frappe.db.set_value(
-			"Beacon Incident", name, "public_id", IncidentPublication.make_public_id(), update_modified=False
+			"Beacon Incident", name, "public_id", frappe.generate_hash(length=32), update_modified=False
 		)

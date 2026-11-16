@@ -2,8 +2,7 @@ from __future__ import annotations
 
 import frappe
 
-from beacon.core.alert.reconciler import AlertReconciler
-from beacon.core.incident.recovery import IncidentRecovery
+from beacon.beacon.doctype.beacon_alert.beacon_alert import BeaconAlert
 
 
 class ResourceTree:
@@ -45,11 +44,10 @@ class ResourceTree:
 				(disabled if row.monitoring_disabled else removed).append(row.name)
 
 		frappe.db.bulk_update("Beacon Resource", updates)
-		incidents: set[str] = set()
-		for resources, resolution in ((removed, "Resource Removed"), (disabled, "Disabled")):
-			if resources:
-				incidents |= AlertReconciler.resolve_matching({"resource": ("in", resources)}, resolution)
-		IncidentRecovery.queue(incidents)
+		if removed:
+			BeaconAlert.resolve_open("Resource Removed", resource=("in", removed))
+		if disabled:
+			BeaconAlert.resolve_open("Disabled", resource=("in", disabled))
 
 	def _get_chain(self, row: frappe._dict, rows: dict[str, frappe._dict]) -> list[frappe._dict]:
 		"""The row and its ancestors. A parent loop ends the chain where it repeats."""

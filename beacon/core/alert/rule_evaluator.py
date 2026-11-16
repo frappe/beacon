@@ -6,13 +6,12 @@ from datetime import datetime, timedelta
 import frappe
 from frappe.utils import now_datetime
 
-from beacon.core.alert.reconciler import AlertChanges, AlertReconciler, RuleFailure
+from beacon.core.alert.reconciler import AlertReconciler, RuleFailure
 from beacon.core.alert.rules import AlertRules
 from beacon.core.alert.states import SEVERITIES
 from beacon.core.exceptions import ClickHouseError, RuleContractError
 from beacon.core.incident.coordinator import IncidentCoordinator
 from beacon.core.incident.outbox import NotificationOutbox
-from beacon.core.incident.recovery import IncidentRecovery
 from beacon.core.resource.clickhouse import ClickHouseClient
 from beacon.core.resource.regions import RegionSelection
 from beacon.core.resource.registry import ResourceRegistry
@@ -72,23 +71,17 @@ class RegionEvaluation:
 
 		registry = ResourceRegistry(self.region.name)
 		clickhouse = ClickHouseClient(self.region)
-		changes = AlertChanges()
 
 		def evaluate(name: str) -> None:
 			# Run Now and the scheduled run can both reach one evaluation. One runs at a time.
 			with frappe.db.advisory_lock(f"{frappe.db.cur_db_name}:beacon-evaluation:{name}", timeout=60):
-				result = RuleEvaluator(name, registry, clickhouse).run()
+				RuleEvaluator(name, registry, clickhouse).run()
 				frappe.db.commit()  # nosemgrep: commit before the next run can take the lock
-			if result:
-				changes.firing_changes += result.firing_changes
-				changes.recovered_incidents |= result.recovered_incidents
 
 		RecordTransaction.run_each(
 			"Beacon Rule Evaluation", names, f"Beacon evaluation failed in {self.region.name}", evaluate
 		)
-		IncidentRecovery.queue(changes.recovered_incidents)
-		if changes.firing_changes:
-			IncidentCoordinator(self.region.name).reconcile()
+		IncidentCoordinator(self.region.name).reconcile()
 
 	def _postpone(self, names: list[str]) -> None:
 		"""The region alert covers an Unreachable region. A postponed evaluation counts as a run."""
@@ -121,7 +114,7 @@ class RuleEvaluator:
 		self.rule = frappe.db.get_value("Beacon Alert Rule", rule, RULE_FIELDS, as_dict=True)
 		self.now = now_datetime()
 
-	def run(self) -> AlertChanges | None:
+	def run(self) -> None:
 		"""Evaluate once. A query or contract error changes no alert. The query runs before any lock is taken."""
 		started = time.monotonic()
 		try:
@@ -136,14 +129,14 @@ class RuleEvaluator:
 		self.evaluation.next_run_at = self.now + timedelta(seconds=self.rule.interval)
 		if error:
 			self._record_error(error)
-			return None
+			return
 
 		reconciler = AlertReconciler(self.rule, self.registry, self.now)
 		if self._has_gap():
-			reconciler.reset_timers()
+			reconciler.restart_timers()
 
 		failing, unknown = self._get_failing_rows(rows)
-		changes = reconciler.reconcile(failing)
+		reconciler.reconcile(failing)
 
 		self.evaluation.update(
 			{
@@ -157,7 +150,6 @@ class RuleEvaluator:
 			}
 		)
 		self.evaluation.save(ignore_permissions=True)
-		return changes
 
 	def _get_failing_rows(self, rows: list[dict]) -> tuple[list[RuleFailure], int]:
 		failing: list[RuleFailure] = []

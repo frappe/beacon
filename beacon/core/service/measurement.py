@@ -9,7 +9,6 @@ from frappe.utils import get_datetime
 from beacon.core.alert.reconciler import AlertReconciler
 from beacon.core.alert.rules import AlertRules
 from beacon.core.exceptions import ClickHouseError
-from beacon.core.incident.recovery import IncidentRecovery
 from beacon.core.resource.clickhouse import ClickHouseClient
 from beacon.core.resource.registry import ResourceMatch, ResourceRegistry
 from beacon.core.service.burn import BurnPolicy
@@ -174,8 +173,7 @@ class ServiceMeasurement:
 		reconciler = AlertReconciler.for_rule(
 			AlertRules.get_burn_rule_name(self.service.name), registry, self.now
 		)
-		changes = reconciler.reconcile(policy.get_failures(registry.region_resource))
-		IncidentRecovery.queue(changes.recovered_incidents)
+		reconciler.reconcile(policy.get_failures(registry.region_resource))
 
 	def _get_published_impact(self) -> str:
 		"""The worst impact on this service in this region of the open Public incidents and maintenances."""

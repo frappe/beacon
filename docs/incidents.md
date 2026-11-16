@@ -18,11 +18,10 @@ After each rule evaluation and each region run, every Firing alert that is not s
 
 For each Firing alert without an incident, the coordinator tries these steps in order. It stops at the first step that finds an incident.
 
-1. **Cover.** An open incident has a scope row that covers the resource of the alert, or a parent of it. The alert joins that incident. An alert on the region resource is never covered, because all region-level rules report on it. It joins by pair or group only.
+1. **Cover.** An open incident has a scope row that covers the resource of the alert, or a parent of it. The alert joins that incident. An alert on the region resource is never covered, because all region-level rules report on it. It joins by pair or rule only.
 2. **Pair.** Each minute, the service measurement keeps the resources that sent bad events (the bad reporters). A burn alert joins an open incident in its region that has a cause alert on a bad reporter of its service or on a parent of one. A cause alert on such a resource joins an open incident that has only burn alerts, and adds its resource to the scope. Alerts that are not related in this way do not pair.
-3. **Group.** An open incident has the group key of the alert (its rule and region), and it is Triggered or younger than 30 minutes. The alert joins it. An older, acknowledged incident does not take a second outage.
-4. **Reopen.** An Internal incident that Beacon made, with the same group key, was resolved in the last 30 minutes. Beacon reopens it to Triggered and starts paging again.
-5. **Create.** Beacon creates an Internal incident in Triggered. When the resource has no parent, paging starts at once. Else paging waits for the page delay (90 seconds), so an incident of the parent can take the alert first.
+3. **Rule.** An open incident in the region has an alert of the same rule, and it is Triggered or younger than 30 minutes. The alert joins it. An older, acknowledged incident does not take a second outage.
+4. **Create.** Beacon creates an Internal incident in Triggered. When the resource has no parent, paging starts at once. Else paging waits for the page delay (90 seconds), so an incident of the parent can take the alert first.
 
 A join is never silent. The coordinator posts one chat message for each incident in each run, with the alerts that joined. When an alert raises the severity, Beacon announces it and pages again. When an alert joins an incident in Monitoring, the incident goes back to Investigating and pages again.
 
@@ -52,11 +51,14 @@ one update stream, one link
 | Investigating, Identified, Monitoring | Post an update | The status of the update |
 | Monitoring | An alert joins | Investigating, and paging starts again |
 | Any open | All alerts recover, and it is Internal and made by Beacon | Resolved |
-| Any open | All alerts recover, and it is Unlisted or Public | No change. Beacon posts to chat that a person must resolve it. |
+| Any open | All alerts recover, and a person made it or it is Unlisted or Public | No change. Beacon posts to chat one time that a person must resolve it. |
 | Any open | Resolve while unsuppressed alerts fire | Refused, unless the person silences those alerts for some hours |
 | Any open | Merged into another incident | Merged |
-| Resolved | A new alert of its group in the next 30 minutes, Internal and made by Beacon | Triggered |
 | Resolved | Reopen by staff, in the next 7 days | Investigating, without paging |
+
+Only a move in this table can change the status. The status field is read-only in Desk, and the `STATUS` state machine of the incident refuses every other move. A new problem after a resolve opens a new incident. Beacon does not reopen an incident.
+
+Each minute, the recovery sweep looks for open incidents whose alerts all recovered. Because it reads all open incidents, a missed run delays a close and never loses it.
 
 ## Publish
 

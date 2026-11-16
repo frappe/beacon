@@ -52,7 +52,6 @@ class BeaconSettings(Document):
 		paused_reason: DF.SmallText | None
 		phone_calls_enabled: DF.Check
 		primary_override: DF.Link | None
-		reopen_window_minutes: DF.Int
 		repeat_every_minutes: DF.Int
 		responders: DF.Table[BeaconResponder]
 		status_page_domain: DF.Data | None

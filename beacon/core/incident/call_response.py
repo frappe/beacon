@@ -8,7 +8,6 @@ import frappe
 from frappe.utils import get_datetime, get_fullname, now_datetime
 
 from beacon.core.incident.chat_message import ChatMessage
-from beacon.core.incident.merge import IncidentMerge
 from beacon.core.incident.notifiers import CallNotifier
 from beacon.core.incident.outbox import NotificationOutbox
 from beacon.core.transaction import RecordTransaction
@@ -95,12 +94,10 @@ class CallResponse:
 	@staticmethod
 	def _lock_open_incident(name: str) -> BeaconIncident | None:
 		for _attempt in range(MERGE_ATTEMPTS):
-			incident = frappe.get_doc(
-				"Beacon Incident", IncidentMerge.find_final_incident(name), for_update=True
-			)
+			name = frappe.get_doc("Beacon Incident", name).get_final_incident()
+			incident = frappe.get_doc("Beacon Incident", name, for_update=True)
 			if not incident.merged_into:
-				return incident if incident.lifecycle.is_open else None
-			name = incident.merged_into
+				return incident if incident.is_open else None
 		return None
 
 	@staticmethod
