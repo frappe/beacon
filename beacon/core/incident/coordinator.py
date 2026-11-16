@@ -21,9 +21,6 @@ from beacon.core.transaction import RecordTransaction
 if TYPE_CHECKING:
 	from beacon.beacon.doctype.beacon_incident.beacon_incident import BeaconIncident
 
-# A joined-alerts chat message lists this many alerts, then gives the count of the rest.
-JOINED_ALERTS_SHOWN = 5
-
 
 class IncidentCoordinator:
 	"""Makes every Firing, unsuppressed alert of one region belong to an open incident."""
@@ -66,10 +63,7 @@ class IncidentCoordinator:
 		for name, alerts in self.joined.items():
 			count = f"{len(alerts)} alert joined" if len(alerts) == 1 else f"{len(alerts)} alerts joined"
 			message = f"📥 **{count}** {ChatMessage.link(name)} in {self.region}\n\n"
-			message += ChatMessage.alert_table(alerts[:JOINED_ALERTS_SHOWN], with_rule=True)
-			rest = len(alerts) - JOINED_ALERTS_SHOWN
-			if rest > 0:
-				message += f"\n\nand {rest} more"
+			message += ChatMessage.alert_table(alerts, with_rule=True)
 			outbox.queue("Chat", message, name)
 		frappe.db.commit()  # nosemgrep: the messages only insert new rows
 
@@ -256,7 +250,6 @@ class IncidentCoordinator:
 		return frappe._dict(
 			rule_title=frappe.get_cached_value("Beacon Alert Rule", alert.rule, "title"),
 			resource_title=resource.title or resource.resource_id,
-			value=alert.value,
 			detail=alert.detail,
 		)
 
@@ -269,7 +262,7 @@ class IncidentCoordinator:
 				"suppressed": 0,
 				"incident": ("is", "not set"),
 			},
-			fields=["name", "title", "rule", "resource", "severity", "fired_at", "detail", "value"],
+			fields=["name", "title", "rule", "resource", "severity", "fired_at", "detail"],
 			order_by="fired_at asc",
 		)
 		return sorted(alerts, key=lambda alert: alert.rule in self.burn_rules)
