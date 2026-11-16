@@ -66,7 +66,7 @@ A public update shows on the status page. Visitors can follow one published inci
 
 ## Postmortem
 
-When an incident resolves, Beacon marks a postmortem as required for an incident that is public or Critical, that took more than 1 hour, or that a customer found first. It starts the postmortem from a template. Each day, from 3 to 30 days after the resolve, Beacon posts to chat for each required postmortem that is still empty.
+When an incident resolves, Beacon marks a postmortem as required for an incident that is public or Critical, that is High and took more than 1 hour, or that a customer found first. It starts the postmortem from a template. Each day, from 3 to 30 days after the resolve, Beacon posts to chat for each required postmortem that is still empty.
 
 ## Maintenance
 
