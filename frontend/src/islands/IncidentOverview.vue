@@ -437,6 +437,15 @@ const notifications = computed(() =>
 					@click="openWithWindow(`beacon-metrics/${overview.parent.name}`)"
 				/>
 				<Button
+					variant="ghost"
+					label="Log viewer"
+					@click="
+						openWithWindow(
+							`beacon-logs/${overview.parent.region}/${overview.parent.name}`
+						)
+					"
+				/>
+				<Button
 					v-if="overview.parent.url"
 					variant="ghost"
 					label="Atlas"
