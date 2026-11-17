@@ -7,6 +7,7 @@ import frappe
 from frappe.utils import get_datetime, now_datetime, strip_html_tags
 
 from beacon.beacon.doctype.beacon_notification.beacon_notification import BeaconNotification
+from beacon.core.alert.states import PAGED_SEVERITIES
 from beacon.core.incident.chat_message import ChatMessage
 
 if TYPE_CHECKING:
@@ -44,14 +45,15 @@ class Postmortem:
 
 	@property
 	def is_required(self) -> bool:
-		"""The triggers that the Google SRE book suggests: customer impact, high severity, a long outage, or late detection."""
+		"""The triggers that the Google SRE book suggests: customer impact, high severity, a long outage, or late detection.
+		Only a paged incident counts as a long outage, so a Low or Medium incident that stays open is not one."""
 		incident = self.incident
 		duration = get_datetime(incident.resolved_at or now_datetime()) - get_datetime(incident.creation)
 		return (
 			incident.visibility != "Internal"
 			or incident.severity == "Critical"
 			or incident.detected_by == "Customer"
-			or duration > LONG_INCIDENT
+			or (incident.severity in PAGED_SEVERITIES and duration > LONG_INCIDENT)
 		)
 
 	@staticmethod

@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+from datetime import datetime
+
 import frappe
 from frappe.utils import get_url_to_form
 
 SEVERITY_MARKS = {"Critical": "🔴", "High": "🟠", "Medium": "🟡", "Low": "🔵"}
 DETAIL_LENGTH = 120
+ALERTS_SHOWN = 5
 
 
 class ChatMessage:
@@ -19,16 +22,23 @@ class ChatMessage:
 		return f"{SEVERITY_MARKS.get(severity, '')} **{severity} incident** {ChatMessage.link(incident)} in {region}"
 
 	@staticmethod
-	def alert_table(alerts: list[frappe._dict], with_rule: bool = False) -> str:
-		"""One row for each alert. Each alert has rule_title, resource_title, value and detail."""
+	def alert_table(alerts: list[frappe._dict], with_rule: bool = False, with_lasted: bool = False) -> str:
+		"""One row for each of the first ALERTS_SHOWN alerts, from rule_title, resource_title, detail and lasted."""
 		columns = ["Alert"] if with_rule else []
-		columns += ["Resource", "Value", "Detail"]
+		columns += ["Resource", "Detail"] + (["Lasted"] if with_lasted else [])
 		lines = [f"| {' | '.join(columns)} |", f"|{'---|' * len(columns)}"]
-		for alert in alerts:
+		for alert in alerts[:ALERTS_SHOWN]:
 			cells = [alert.rule_title] if with_rule else []
-			cells += [alert.resource_title, f"{alert.value or 0:g}", alert.detail or ""]
+			cells += [alert.resource_title, alert.detail or ""] + ([alert.lasted] if with_lasted else [])
 			lines.append(f"| {' | '.join(ChatMessage._cell(cell) for cell in cells)} |")
+		if len(alerts) > ALERTS_SHOWN:
+			lines.append(f"\nand {len(alerts) - ALERTS_SHOWN} more")
 		return "\n".join(lines)
+
+	@staticmethod
+	def duration(start: datetime, end: datetime) -> str:
+		hours, minutes = divmod(int((end - start).total_seconds() // 60), 60)
+		return f"{hours} h {minutes} min" if hours else f"{minutes} min"
 
 	@staticmethod
 	def _cell(text: str) -> str:

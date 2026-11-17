@@ -190,9 +190,32 @@ class BeaconIncident(Document):
 		self.STATUS.move(self, "Resolved")
 		self.close()
 		self.save()
+		alerts = ChatMessage.alert_table(self._describe_alerts(), with_rule=True, with_lasted=True)
 		BeaconNotification.announce(
-			self, f"✅ **Resolved** {ChatMessage.link(self.name)}: {message}", email=True
+			self, f"✅ **Resolved** {ChatMessage.link(self.name)}: {message}\n\n{alerts}", email=True
 		)
+
+	def _describe_alerts(self) -> list[frappe._dict]:
+		"""The alerts of the incident as chat table rows. An alert still firing at resolve was silenced."""
+		alerts = frappe.get_all(
+			"Beacon Alert",
+			filters={"incident": self.name},
+			fields=[
+				"rule.title as rule_title",
+				"resource.title as resource_title",
+				"resource.resource_id",
+				"detail",
+				"fired_at",
+				"resolved_at",
+			],
+			order_by="fired_at asc",
+		)
+		for alert in alerts:
+			alert.resource_title = alert.resource_title or alert.resource_id
+			alert.lasted = (
+				ChatMessage.duration(alert.fired_at, alert.resolved_at) if alert.resolved_at else "silenced"
+			)
+		return alerts
 
 	@document_action
 	def reopen(self) -> None:

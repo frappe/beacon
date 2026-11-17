@@ -163,7 +163,6 @@ class BeaconAlert(Document):
 		return frappe._dict(
 			rule_title=title,
 			resource_title=resource.title or resource.resource_id,
-			value=self.value,
 			detail=self.detail,
 		)
 

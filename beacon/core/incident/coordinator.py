@@ -12,9 +12,6 @@ from beacon.core.incident.matcher import IncidentMatcher, OpenIncident, Placemen
 from beacon.core.resource.registry import ResourceMatch, ResourceRegistry
 from beacon.core.transaction import RecordTransaction
 
-# A joined-alerts chat message lists this many alerts, then gives the count of the rest.
-JOINED_ALERTS_SHOWN = 5
-
 
 class IncidentCoordinator:
 	"""Makes every Firing, unsuppressed alert of one region belong to an open incident."""
@@ -115,15 +112,9 @@ class IncidentCoordinator:
 
 		for incident, alerts in alerts_of.items():
 			count = f"{len(alerts)} alert" if len(alerts) == 1 else f"{len(alerts)} alerts"
-			rows = [
-				frappe.get_doc("Beacon Alert", alert).describe() for alert in alerts[:JOINED_ALERTS_SHOWN]
-			]
+			rows = [frappe.get_doc("Beacon Alert", alert).describe() for alert in alerts]
 			message = f"📥 **{count} added to {ChatMessage.link(incident)}** in {self.region}\n\n"
 			message += ChatMessage.alert_table(rows, with_rule=True)
-			rest = len(alerts) - JOINED_ALERTS_SHOWN
-			if rest > 0:
-				more = "1 more alert is" if rest == 1 else f"{rest} more alerts are"
-				message += f"\n\n{more} on the incident."
 			BeaconNotification.queue("Chat", message, incident)
 		frappe.db.commit()  # nosemgrep: the messages only insert new rows
 

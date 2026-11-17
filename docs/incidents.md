@@ -79,7 +79,7 @@ A public update shows on the status page. Visitors can follow one published inci
 
 ## Postmortem
 
-When an incident resolves, Beacon marks a postmortem as required for an incident that is public or Critical, that took more than 1 hour, or that a customer found first. It starts the postmortem from a template. Beacon posts to chat one reminder at 3 days and one at 7 days after the resolve, for each required postmortem that is still empty. A missed daily run skips that reminder.
+When an incident resolves, Beacon marks a postmortem as required for an incident that is public or Critical, that is High and took more than 1 hour, or that a customer found first. It starts the postmortem from a template. Beacon posts to chat one reminder at 3 days and one at 7 days after the resolve, for each required postmortem that is still empty. A missed daily run skips that reminder.
 
 Write the action items in the RCA as a checklist: `[ ] Title - @assignee - issue link`. Mark one done with `[x]`. The template has one example.
 
