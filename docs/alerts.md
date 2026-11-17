@@ -17,7 +17,7 @@ Each row has these columns:
 
 A pair of `resource_id` and `alert_key` occurs one time. A duplicate pair, a missing column or more than 50,000 rows fails the whole query.
 
-Beacon keeps the first 50 entries of `affected`, each cut to 200 characters, with the detail: when the alert fires and when it gets worse. The Overview tab of the incident lists them. A name that is the `resource_id` of a resource in the region links to its Metrics, Log viewer and owner. An SLO burn lists the reporters that fail now instead.
+Beacon keeps the first 50 entries of `affected`, each cut to 200 characters, with the detail: when the alert fires and when it gets worse. The Overview tab of the incident lists them. A name that is the `resource_id` of a resource in the region links to its Metrics, Log viewer and owner. An SLO burn lists the reporters that fail now instead. The chat message names the first 3 next to the resource.
 
 Keep rules few. Each rule must point to one fix. Put a family of checks, such as all disk checks of a host, in one rule, and use the check name as the `alert_key`. Do not add a rule for one site or one VM when its own layer already tells its owner.
 

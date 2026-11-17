@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from datetime import datetime
 from typing import TYPE_CHECKING
 
@@ -17,6 +18,8 @@ if TYPE_CHECKING:
 	from beacon.core.alert.reconciler import RuleFailure
 
 DETAIL_LENGTH = 1000
+# The chat names the first few affected things next to the resource.
+AFFECTED_SHOWN = 3
 SILENCE_LIMIT_HOURS = 30 * 24
 
 
@@ -163,11 +166,12 @@ class BeaconAlert(Document):
 			"Beacon Alert Rule", self.rule, ["kind", "title", "description"], as_dict=True
 		)
 		title, _ = AlertRules.get_problem_text(rule.kind, rule.title, rule.description)
-		return frappe._dict(
-			rule_title=title,
-			resource_title=resource.title or resource.resource_id,
-			detail=self.detail,
-		)
+		where = resource.title or resource.resource_id
+		names = [name for name, text in json.loads(self.affected or "[]")]
+		if names:
+			more = f" and {len(names) - AFFECTED_SHOWN} more" if len(names) > AFFECTED_SHOWN else ""
+			where = f"{where}: {', '.join(names[:AFFECTED_SHOWN])}{more}"
+		return frappe._dict(rule_title=title, resource_title=where, detail=self.detail)
 
 	@staticmethod
 	def start(rule: frappe._dict, failure: RuleFailure, suppressed_by: str | None, now: datetime) -> None:
