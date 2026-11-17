@@ -23,10 +23,10 @@ Each minute, the region run measures each service:
 2. Drop the rows of resources that are not checked, and of resources in a Public maintenance that was published before its start.
 3. A reporter with no sample for 3 minutes counts its last valid events as bad only when it, or a parent of it, has a Firing cause alert, such as "Host down". Else Beacon leaves it out. So a dead host counts its VMs and sites as down, but a Pilot restart or a Datum gap never looks like an outage.
 4. Compute the status.
-5. Store good, valid, the count of bad reporters and the status in a Service Minute (kept 3 days). The stored status is the worse of the measured status and the impact of the open Public incidents on the service, so a declared outage also shows in the history. Add good and valid to the Service Day, and count the minute as a degraded or outage minute of the day when the stored status is Degraded or an outage. A declared outage does not change good and valid, so the uptime and the error budget stay measured.
+5. Store good, valid, the count of bad reporters and the status in a Service Minute (kept 90 days). The stored status is the worse of the measured status and the impact of the open Public incidents on the service, so a declared outage also shows in the history. A declared outage does not change good and valid, so the uptime and the error budget stay measured. Beacon groups the minutes by UTC day for the history, the coverage and the per-status minute counts.
 6. Compute the burn alerts.
 
-When the query fails or returns no valid events, Beacon adds no Service Minute or Service Day totals. It sets the measured status to Unknown, unless a matching Public maintenance sets it to Maintenance.
+When the query fails or returns no valid events, Beacon adds no Service Minute. It sets the measured status to Unknown, unless a matching Public maintenance sets it to Maintenance.
 
 ## Burn-rate alerts
 
@@ -52,7 +52,7 @@ These limits stop false pages:
 
 A burn alert is a normal alert. Its rule is the service, its title names the error budget problem, its resource is the region (or the global resource for a global service), and its alert key is the name in the table. It fires at once and resolves after 5 minutes without a burn. The customer title and description of the service stay separate from the responder problem text.
 
-The error budget for 30 days sums the Service Days. Until 30 days are measured, Beacon projects the valid events to 30 days.
+The error budget for 30 days aggregates the Service Minutes. Until 30 days are measured, Beacon projects the valid events to 30 days.
 
 ## Service status
 
@@ -68,7 +68,7 @@ The status page shows the worse of the measured status and the impact of open pu
 
 ## Uptime
 
-Uptime on the status page is the measured SLI: good divided by valid, for each day and for 90 days. Each day also shows its coverage, the share of the day's minutes that Beacon measured. The color of a bar comes from the minutes that the page showed each status on that day. The downtime of a day is the Major Outage minutes plus 0.3 times the Partial Outage minutes, as on Atlassian Statuspage. A day with 15 or more minutes of downtime is red, and a day with less downtime is orange. A day with no downtime and with Degraded minutes is yellow. Else the day is green, or blue when it had Maintenance minutes. So a bad minute that does not hold long enough to change the status lowers the uptime but does not change the color of the bar.
+Uptime on the status page is the measured SLI: good divided by valid, for each UTC day and for 90 days, from indexed aggregates of the Service Minutes. Each day also shows its coverage, the share of the day's minutes that Beacon measured. The color of a bar comes from the minutes that the page showed each status on that day. The downtime of a day is the Major Outage minutes plus 0.3 times the Partial Outage minutes, as on Atlassian Statuspage. A day with 15 or more minutes of downtime is red, and a day with less downtime is orange. A day with no downtime and with Degraded minutes is yellow. Else the day is green, or blue when it had Maintenance minutes. So a bad minute that does not hold long enough to change the status lowers the uptime but does not change the color of the bar.
 
 ## Declared services and groups
 

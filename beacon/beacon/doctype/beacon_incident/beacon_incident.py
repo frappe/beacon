@@ -38,9 +38,6 @@ class BeaconIncident(Document):
 	if TYPE_CHECKING:
 		from frappe.types import DF
 
-		from beacon.beacon.doctype.beacon_incident_action_item.beacon_incident_action_item import (
-			BeaconIncidentActionItem,
-		)
 		from beacon.beacon.doctype.beacon_incident_scope.beacon_incident_scope import BeaconIncidentScope
 		from beacon.beacon.doctype.beacon_incident_service.beacon_incident_service import (
 			BeaconIncidentService,
@@ -48,7 +45,6 @@ class BeaconIncident(Document):
 		from beacon.beacon.doctype.beacon_incident_update.beacon_incident_update import BeaconIncidentUpdate
 
 		acknowledged_at: DF.Datetime | None
-		action_items: DF.Table[BeaconIncidentActionItem]
 		acknowledged_by: DF.Link | None
 		affected_services: DF.Table[BeaconIncidentService]
 		alerts_recovered_at: DF.Datetime | None

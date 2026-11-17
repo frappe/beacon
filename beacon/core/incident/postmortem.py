@@ -24,7 +24,8 @@ TEMPLATE = """<h3>Summary</h3><p></p>
 <h3>Root cause</h3><p></p>
 <h3>Trigger</h3><p>The change or event that started the problem.</p>
 <h3>Detection</h3><p>How we found the problem, and how we can find it sooner.</p>
-<h3>Lessons</h3><p>What went well, and what went badly.</p>"""
+<h3>Lessons</h3><p>What went well, and what went badly.</p>
+<h3>Action items</h3><p>[ ] Add a disk alert - @assignee - https://github.com/org/repo/issues/123</p>"""
 
 
 class Postmortem:

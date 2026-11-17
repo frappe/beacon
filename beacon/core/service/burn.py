@@ -5,7 +5,6 @@ from datetime import datetime, timedelta
 
 import frappe
 from frappe.query_builder.functions import Count, Sum
-from frappe.utils import add_days
 from pypika.terms import Case
 
 from beacon.core.alert.reconciler import RuleFailure
@@ -115,18 +114,20 @@ class BurnPolicy:
 
 	def get_budget_left(self) -> float | None:
 		"""Share of the 30-day error budget left. Before 30 days are measured, valid events are projected to 30 days."""
-		days = frappe.get_all(
-			"Beacon Service Day",
-			filters={
-				"service": self.service.name,
-				"region": self.region,
-				"date": (">", add_days(self.minute.date(), -BUDGET_PERIOD.days)),
-			},
-			fields=["good", "valid", "observed_minutes"],
+		minute = frappe.qb.DocType("Beacon Service Minute")
+		good, valid, observed = (
+			int(value or 0)
+			for value in (
+				frappe.qb.from_(minute)
+				.select(Sum(minute.good), Sum(minute.valid), Count(minute.name))
+				.where(
+					(minute.service == self.service.name)
+					& (minute.region == self.region)
+					& (minute.minute > self.minute - BUDGET_PERIOD)
+					& (minute.minute <= self.minute)
+				)
+			).run()[0]
 		)
-		good = sum(day.good for day in days)
-		valid = sum(day.valid for day in days)
-		observed = sum(day.observed_minutes for day in days)
 		if not valid:
 			return None
 

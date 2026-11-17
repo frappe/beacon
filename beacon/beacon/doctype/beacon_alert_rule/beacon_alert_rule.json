@@ -450,7 +450,7 @@
   },
   {
    "group": "History",
-   "link_doctype": "Beacon Service Day",
+   "link_doctype": "Beacon Service Minute",
    "link_fieldname": "service"
   }
  ],

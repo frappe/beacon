@@ -14,7 +14,6 @@
   "postmortem_required",
   "rca",
   "public_rca",
-  "action_items",
   "notifications_tab",
   "notifications_html",
   "details_tab",
@@ -250,7 +249,7 @@
   {
    "default": "0",
    "depends_on": "eval:doc.type == 'Incident'",
-   "description": "Beacon sets this on resolve for a public, Critical or long incident, or one that a customer found. Write the RCA and add action items.",
+   "description": "Beacon sets this on resolve for a public, Critical or long incident, or one that a customer found. Write the RCA and its action items.",
    "fieldname": "postmortem_required",
    "fieldtype": "Check",
    "label": "Postmortem Required",
@@ -267,13 +266,6 @@
    "fieldtype": "Text Editor",
    "label": "Public RCA",
    "show_description_on_click": 1
-  },
-  {
-   "depends_on": "eval:doc.type == 'Incident'",
-   "fieldname": "action_items",
-   "fieldtype": "Table",
-   "label": "Action Items",
-   "options": "Beacon Incident Action Item"
   },
   {
    "fieldname": "grouping_section",

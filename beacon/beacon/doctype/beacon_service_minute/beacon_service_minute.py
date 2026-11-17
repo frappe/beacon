@@ -5,7 +5,7 @@ from frappe.model.document import Document
 
 
 class BeaconServiceMinute(Document):
-	"""Good and valid events of one service in one region for one minute. Kept 3 days."""
+	"""Good and valid events of one service in one region for one minute. Kept 90 days."""
 
 	# begin: auto-generated types
 	# This code is auto-generated. Do not modify anything in this block.

@@ -39,7 +39,8 @@
    "fieldtype": "Datetime",
    "in_list_view": 1,
    "label": "Minute",
-   "read_only": 1
+   "read_only": 1,
+   "search_index": 1
   },
   {
    "fieldname": "column_break_46",

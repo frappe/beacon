@@ -7,7 +7,9 @@ from typing import Any
 from xml.etree import ElementTree
 
 import frappe
+from frappe.query_builder.functions import Count, Date, Sum
 from frappe.utils import add_days, get_datetime, getdate, now_datetime
+from pypika.terms import Case
 
 from beacon.core.alert.rules import BURN_KIND
 from beacon.core.resource.regions import RegionSelection
@@ -20,6 +22,7 @@ CLOSED_STATUSES = ("Resolved", "Merged", "Completed", "Cancelled")
 PUBLISHED_VISIBILITIES = ("Public", "Unlisted")
 # A declared service shows these minutes for each day. A Partial Outage minute is also an outage minute.
 DAY_MINUTE_FIELDS = ("degraded_minutes", "outage_minutes", "partial_outage_minutes", "maintenance_minutes")
+OUTAGE_STATUSES = ("Partial Outage", "Major Outage")
 IMPACT_MINUTE_FIELDS = {
 	"Degraded": ("degraded_minutes",),
 	"Partial Outage": ("outage_minutes", "partial_outage_minutes"),
@@ -270,24 +273,43 @@ class StatusPage:
 		}
 
 	def _get_days(self) -> dict[tuple[str, str], list[frappe._dict]]:
+		"""The minute totals of each service in each region for each UTC day of the history."""
+		minute = frappe.qb.DocType("Beacon Service Minute")
+		utc_day = Date(minute.minute)
+		rows = (
+			frappe.qb.from_(minute)
+			.select(
+				minute.service,
+				minute.region,
+				utc_day.as_("date"),
+				Sum(minute.good).as_("good"),
+				Sum(minute.valid).as_("valid"),
+				Count(minute.name).as_("observed_minutes"),
+				Sum(Case().when(minute.status == "Degraded", 1).else_(0)).as_("degraded_minutes"),
+				Sum(Case().when(minute.status.isin(OUTAGE_STATUSES), 1).else_(0)).as_("outage_minutes"),
+				Sum(Case().when(minute.status == "Partial Outage", 1).else_(0)).as_("partial_outage_minutes"),
+				Sum(Case().when(minute.status == "Maintenance", 1).else_(0)).as_("maintenance_minutes"),
+			)
+			.where(
+				(minute.minute >= get_datetime(add_days(getdate(), -HISTORY_DAYS + 1)))
+				& (minute.minute < get_datetime(add_days(getdate(), 1)))
+			)
+			.groupby(minute.service, minute.region, utc_day)
+			.orderby(utc_day)
+		).run(as_dict=True)
 		days: dict[tuple[str, str], list[frappe._dict]] = {}
-		for day in frappe.get_all(
-			"Beacon Service Day",
-			filters={"date": ("between", [add_days(getdate(), -HISTORY_DAYS + 1), getdate()])},
-			fields=[
-				"service",
-				"region",
-				"date",
+		for row in rows:
+			day = frappe._dict(row)
+			for field in (
 				"good",
 				"valid",
+				"observed_minutes",
 				"degraded_minutes",
 				"outage_minutes",
 				"partial_outage_minutes",
 				"maintenance_minutes",
-				"observed_minutes",
-			],
-			order_by="date asc",
-		):
+			):
+				day[field] = int(day[field] or 0)
 			days.setdefault((day.service, day.region), []).append(day)
 		return days
 
