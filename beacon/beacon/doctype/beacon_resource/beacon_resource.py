@@ -38,6 +38,7 @@ class BeaconResource(Document):
 		status: DF.Literal["Pending", "Active", "Suspended", "Terminated"]
 		terminated_at: DF.Datetime | None
 		title: DF.Data | None
+		url: DF.Data | None
 	# end: auto-generated types
 
 	def autoname(self) -> None:

@@ -271,12 +271,12 @@ Count only failures that the platform causes. A failure of the customer's own ap
 A regional service that runs infrastructure serves `GET <base>/beacon/resources`:
 
 ```json
-{"resources": [{"resource_id": "h12", "resource_type": "Metal Host", "parent_id": "", "title": "h12", "status": "Active"}]}
+{"resources": [{"resource_id": "h12", "resource_type": "Metal Host", "parent_id": "", "title": "h12", "status": "Active", "url": "https://atlas.example.com/desk/metal-server/h12"}]}
 ```
 
 The response has an `ETag`. Beacon signs in with the Frappe API key of a user on the service.
 
-The status is one of Pending, Active, Suspended and Terminated. A Suspended resource gives no alerts. Use it only for a resource that is stopped on purpose, such as a sleeping VM.
+The status is one of Pending, Active, Suspended and Terminated. A Suspended resource gives no alerts. Use it only for a resource that is stopped on purpose, such as a sleeping VM. The optional `url` is the record in the system that owns the resource. The incident Overview links to it.
 
 Beacon marks a resource as Terminated when it is missing from 2 good fetches. When one fetch would terminate more than 10% of the resources, Beacon holds the removal, and an admin must apply it. A change to Suspended or Pending is not a removal.
 

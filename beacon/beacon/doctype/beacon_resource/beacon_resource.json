@@ -13,6 +13,7 @@
   "resource_id",
   "parent_resource",
   "source",
+  "url",
   "active_since",
   "now_section",
   "now_html",
@@ -91,6 +92,15 @@
    "label": "Source",
    "options": "Beacon Resource Source",
    "read_only": 1
+  },
+  {
+   "fieldname": "url",
+   "fieldtype": "Data",
+   "label": "Owner URL",
+   "options": "URL",
+   "read_only": 1,
+   "description": "The record in the system that owns the resource, such as Atlas.",
+   "show_description_on_click": 1
   },
   {
    "fieldname": "active_since",
@@ -207,7 +217,7 @@
    "link_fieldname": "parent_resource"
   }
  ],
- "modified": "2026-11-14 12:00:00.000000",
+ "modified": "2026-11-18 00:44:44.877866",
  "modified_by": "Administrator",
  "module": "Beacon",
  "name": "Beacon Resource",

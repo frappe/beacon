@@ -43,6 +43,7 @@ SELECT ...
 | `pending_for` | Seconds a row must fail before the alert fires. It must be at least `interval`, so an alert fires at the earliest on the second failing run. |
 | `resolve_after` | Seconds without a row before a firing alert recovers. |
 | `scope_includes_descendants` | 1 when the incident must cover everything under the resource, such as the VMs of a host. |
+| `charts` | Optional. The chart keys that show the cause, separated by commas, such as `host-memory, host-pressure`. The incident Overview shows these charts as trends before the key numbers. The sync warns about a key that no chart has. |
 | `runbook_url` | The URL of the responder steps. Each High or Critical rule must have one. The sync warns about each one without it. |
 
 ### Severity
