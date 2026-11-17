@@ -38,7 +38,7 @@ const sections = computed(() => {
 </script>
 
 <template>
-	<div class="flex flex-col text-ink-gray-8" :class="keyOnly ? 'gap-3' : 'gap-6'">
+	<div class="flex flex-col text-ink-gray-8 empty:hidden" :class="keyOnly ? 'gap-4' : 'gap-6'">
 		<Alert
 			v-if="listing.error"
 			theme="red"
