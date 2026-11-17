@@ -13,7 +13,7 @@ The times are defaults in Beacon Settings. An admin can change them.
 
 ## Who Beacon calls
 
-Beacon Settings has an ordered list of responders. Each active responder must be an enabled user with the Beacon Responder or Beacon Admin role, because an answered call acknowledges as that person. Beacon calls the primary override until its end time, when that person is an active responder. Else it calls the first active responder. When the responder does not acknowledge in the backup time, Beacon calls the next one. After the last responder, Beacon starts another round after the repeat interval, 15 minutes by default.
+Beacon Settings has an ordered list of responders. Each active responder must be an enabled user with the Beacon Responder or Beacon Admin role, because an answered call acknowledges as that person. Beacon calls the primary override until its end time, when that person is an active responder. Else it calls the first active responder. When the responder does not acknowledge in the backup time, Beacon calls the next one. After the last responder, Beacon starts another round after the repeat interval, 15 minutes by default. When phone calls and email are both off in Beacon Settings, Beacon stops the calls at once and says so in chat, so the incident does not show calls that nobody gets.
 
 A High or Critical incident continues until a person acknowledges.
 

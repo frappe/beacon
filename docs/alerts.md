@@ -60,7 +60,7 @@ SELECT ...
 
 Use the `severity` column when one rule has a soft limit and a hard limit. For example, a disk with less than 25% free is Low, and with less than 10% free it is High.
 
-A Pending alert takes the severity of its current row. A Firing alert only goes up in severity, and then it stores the value and detail of the row that made it worse.
+A Pending alert takes the severity of its current row. A Firing alert only goes up in severity, and then it stores the value and detail of the row that made it worse and raises its incident.
 
 ### HTTP and TLS rules
 
@@ -124,7 +124,7 @@ A query error or an Unreachable region changes no state. The `STATUS` state mach
 
 A query error never resolves an alert. A Resource Removed alert is not a recovery.
 
-Beacon keeps Cleared alerts for 7 days and other resolved alerts for 90 days.
+Beacon keeps Cleared alerts for 7 days and other resolved alerts for 90 days. The Alert list hides Cleared alerts by default, because they never fired.
 
 ## Suppression
 

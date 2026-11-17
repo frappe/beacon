@@ -94,6 +94,9 @@ class IncidentEscalation:
 		if not responders:
 			self._finish("No responder is active. Contact the team directly.")
 			return
+		if not any(BeaconNotification.is_enabled(channel) for channel in ("Call", "Email")):
+			self._finish("Phone calls and email are off in Beacon Settings.")
+			return
 
 		self.incident.escalation = "Calling"
 		if self.incident.page_index >= len(responders):

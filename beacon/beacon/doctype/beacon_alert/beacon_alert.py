@@ -11,6 +11,7 @@ from frappe.utils import add_to_date, now_datetime
 
 from beacon.core.alert.rules import AlertRules
 from beacon.core.alert.states import OPEN_ALERT_STATUSES, Severity
+from beacon.core.jobs import queue_severity_raise
 from beacon.core.state_machine import StateMachine
 from beacon.core.transaction import document_action
 
@@ -67,7 +68,8 @@ class BeaconAlert(Document):
 
 	def observe_failure(self, failure: RuleFailure, rule: frappe._dict, now: datetime) -> None:
 		"""The rule still returns the alert. A Pending alert takes the severity of its row and fires after
-		pending_for. A Firing alert only goes up in severity, and then keeps the row that made it worse."""
+		pending_for. A Firing alert only goes up in severity, keeps the row that made it worse, and raises its
+		incident."""
 		severity = failure.severity or rule.severity
 		if self.status == "Pending":
 			if (now - self.started_at).total_seconds() >= rule.pending_for:
@@ -82,6 +84,8 @@ class BeaconAlert(Document):
 				affected=failure.affected_json,
 				clean_since=None,
 			)
+			if self.incident:
+				queue_severity_raise(self.name)
 		else:
 			self._save_changes(clean_since=None)
 

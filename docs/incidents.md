@@ -23,7 +23,7 @@ For each Firing alert without an incident, the coordinator tries these steps in 
 3. **Rule.** An open incident in the region has an alert of the same rule, and it is Triggered or younger than 30 minutes. The alert joins it. An older, acknowledged incident does not take a second outage.
 4. **Create.** Beacon creates an Internal incident in Triggered. When the resource has no parent, notifications start at once. Else notifications wait for the notification delay (90 seconds), so an incident of the parent can take the alert first.
 
-A join is never silent. The coordinator posts one chat message for each incident in each run, with the alerts that joined. When an alert raises the severity, Beacon announces it and pages again. When an alert joins an incident in Monitoring, the incident goes back to Investigating and pages again.
+The coordinator posts one chat message for each incident in each run, with the alerts that joined. An alert of a rule and resource that the incident already has joins silently, because the same problem fired again. When an alert raises the severity, Beacon announces it and pages again. A firing alert that gets worse after it joins raises its incident in the same way. When an alert joins an incident in Monitoring, the incident goes back to Investigating and pages again.
 
 ## Scope
 

@@ -68,10 +68,37 @@ class IncidentCoordinator:
 		if not (incident.is_open and alert.is_orphan):
 			return
 
+		# A worse alert has its own message. The same problem firing again adds nothing to read.
+		is_known = frappe.db.exists(
+			"Beacon Alert", {"incident": incident.name, "rule": alert.rule, "resource": alert.resource}
+		)
 		is_worse = Severity.is_higher(alert.severity, incident.severity)
 		incident.add_alert(alert, resource if placement.add_scope else None)
-		if not is_worse:
+		if not (is_worse or is_known):
 			self.joined[name] = incident.name
+
+	@staticmethod
+	def raise_severity(name: str) -> None:
+		"""A firing alert got worse after it joined. Add it again, so its incident takes the higher severity
+		and calls on-call. Lock the incident before the alert, as a join does, then check both again."""
+
+		def add_again() -> None:
+			incident_name = frappe.db.get_value("Beacon Alert", name, "incident")
+			if not incident_name:
+				return
+
+			incident = frappe.get_doc("Beacon Incident", incident_name, for_update=True)
+			alert = frappe.get_doc("Beacon Alert", name, for_update=True)
+			if (
+				incident.is_open
+				and alert.incident == incident.name
+				and alert.status == "Firing"
+				and not alert.suppressed
+				and Severity.is_higher(alert.severity, incident.severity)
+			):
+				incident.add_alert(alert)
+
+		RecordTransaction("Beacon Alert", name).run(add_again, "Beacon could not raise an incident severity")
 
 	def _open(self, name: str, resource: frappe._dict) -> None:
 		alert = frappe.get_doc("Beacon Alert", name, for_update=True)

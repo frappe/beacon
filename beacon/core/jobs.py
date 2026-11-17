@@ -72,6 +72,15 @@ def queue_notification(notification: str) -> None:
 	)
 
 
+def queue_severity_raise(alert: str) -> None:
+	frappe.enqueue(
+		"beacon.core.jobs.raise_incident_severity",
+		queue=NOTIFICATION_QUEUE,
+		enqueue_after_commit=True,
+		alert=alert,
+	)
+
+
 def queue_subscriber_update(incident: str, update: str) -> None:
 	frappe.enqueue(
 		"beacon.core.jobs.notify_subscribers",
@@ -122,6 +131,13 @@ def notify_subscribers(incident: str, update: str) -> None:
 	from beacon.core.incident.subscription import IncidentSubscription
 
 	IncidentSubscription(incident).notify(update)
+
+
+@run_as_admin
+def raise_incident_severity(alert: str) -> None:
+	from beacon.core.incident.coordinator import IncidentCoordinator
+
+	IncidentCoordinator.raise_severity(alert)
 
 
 @run_as_admin
