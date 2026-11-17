@@ -295,7 +295,7 @@ beacon/
 
 Add each repository as a Definition Source in Beacon Settings. Set its branch and the folder `beacon`. Select Sync Definitions to read the rule and service files. Beacon does not read the runbooks.
 
-The sync applies all files of a source, or none. It applies none when one file has an invalid header, a name that another source owns, or a new or changed SQL query that fails.
+The sync checks all files of a source before it writes: an invalid header, a name that another source owns, or a new or changed SQL query that fails stops the source and Beacon changes nothing. It then applies each definition in its own committed transaction. A database failure after the checks can leave the earlier definitions applied, and the sync result names each failed definition.
 
 When a rule or service file is missing, Beacon disables that record and marks it Removed From Source. Beacon enables it again when the file comes back. A source can take a name when its old source removed the file or is no longer configured. So a rule can move between repositories.
 

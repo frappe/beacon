@@ -85,7 +85,7 @@ class ResourceSync:
 			)
 		}
 		result = SyncResult()
-		listed, inserts, updates = set(), [], {}
+		listed, inserts, changes = set(), [], {}
 
 		for row in rows:
 			name = ResourceRegistry.make_name(self.region, row.resource_id)
@@ -98,33 +98,45 @@ class ResourceSync:
 			if not current:
 				inserts.append((name, row))
 			elif current.row_hash != row.row_hash or current.missing_fetches:
-				updates[name] = self._get_changes(row, current)
+				changes[name] = self._get_changes(row, current)
 
 		missing = {
 			name: current
 			for name, current in existing.items()
 			if current.source == self.source.name and name not in listed and current.status != "Terminated"
 		}
-		removals = self._get_removals(updates, missing, existing)
+		for name, current in missing.items():
+			changes[name] = {"missing_fetches": current.missing_fetches + 1}
 
-		if removals and not allow_removals and self._is_removal_large(removals, rows):
-			self._hold(removals, updates, missing)
-			result.held = len(removals)
-		else:
-			self._release_holds()
-			self._terminate_missing(missing, updates)
+		self._apply_removals(changes, existing, rows, allow_removals, result)
 
 		self._insert(inserts, existing)
-		self._set_parents(updates, rows, existing)
-		frappe.db.bulk_update("Beacon Resource", updates)
+		self._set_parents(changes, rows, existing)
+		frappe.db.bulk_update("Beacon Resource", changes)
 
-		result.added, result.changed = len(inserts), len(updates)
-		result.removed = sum(1 for changes in updates.values() if changes.get("status") == "Terminated")
+		result.added, result.changed = len(inserts), len(changes)
+		result.removed = sum(1 for fields in changes.values() if fields.get("status") == "Terminated")
 		self.source.conflict_count = result.conflicts
 		self.source.row_count = len(rows)
 
 		ResourceTree(self.region).rebuild()
 		return result
+
+	def _apply_removals(
+		self, changes: dict, existing: dict, rows: list[SourceRow], allow_removals: bool, result: SyncResult
+	) -> None:
+		"""Hold a large removal for review, else terminate the missing rows."""
+		removals = self._get_removals(changes, existing)
+		if removals and not allow_removals and self._is_removal_large(removals, rows):
+			for name in removals:
+				changes[name] = {"removal_held": 1}
+			self._hold(removals, result)
+		else:
+			self._release_holds()
+			for name in removals:
+				changes[name].update(
+					status="Terminated", terminated_at=self.now, row_hash="", missing_fetches=0
+				)
 
 	def _parse(self, payload: dict) -> list[SourceRow]:
 		resources = payload.get("resources") if isinstance(payload, dict) else None
@@ -137,7 +149,7 @@ class ResourceSync:
 		return rows
 
 	def _get_changes(self, row: SourceRow, current: frappe._dict) -> dict:
-		changes = {
+		fields = {
 			"resource_type": row.resource_type,
 			"title": row.title,
 			"status": row.status,
@@ -145,21 +157,23 @@ class ResourceSync:
 			"missing_fetches": 0,
 		}
 		if row.status == "Active" and current.status != "Active":
-			changes["active_since"] = self.now
+			fields["active_since"] = self.now
 		if row.status == "Terminated" and current.status != "Terminated":
-			changes["terminated_at"] = self.now
-		return changes
+			fields["terminated_at"] = self.now
+		return fields
 
-	def _get_removals(self, updates: dict, missing: dict, existing: dict) -> set[str]:
+	def _get_removals(self, changes: dict, existing: dict) -> set[str]:
 		"""Names of checked resources that this list would terminate. A Suspended or Pending status is a state
 		that the source reports on purpose, such as a sleeping VM, so it is not a removal."""
-		leaving = {name for name, changes in updates.items() if changes["status"] == "Terminated"}
-		at_limit = {
+		return {
 			name
-			for name, current in missing.items()
-			if current.missing_fetches + 1 >= MISSING_FETCHES_TO_TERMINATE
+			for name, fields in changes.items()
+			if existing[name].status == "Active"
+			and (
+				fields.get("status") == "Terminated"
+				or fields.get("missing_fetches", 0) >= MISSING_FETCHES_TO_TERMINATE
+			)
 		}
-		return {name for name in leaving | at_limit if existing[name].status == "Active"}
 
 	def _is_removal_large(self, removals: set[str], rows: list[SourceRow]) -> bool:
 		if not rows:
@@ -181,15 +195,8 @@ class ResourceSync:
 		]
 		return len(unchecked) > HELD_REMOVAL_RATIO * max(len(checked), 1)
 
-	def _hold(self, removals: set[str], updates: dict, missing: dict) -> None:
+	def _hold(self, removals: set[str], result: SyncResult) -> None:
 		"""Keep held resources as they are, so the next fetch sees the same removal again."""
-		for name in removals:
-			updates[name] = {"removal_held": 1}
-			missing.pop(name, None)
-
-		for name, current in missing.items():
-			updates.setdefault(name, {})["missing_fetches"] = current.missing_fetches + 1
-
 		if not self.source.held_removals:
 			self.source.held_since = self.now
 			count = f"{len(removals)} resource" if len(removals) == 1 else f"{len(removals)} resources"
@@ -199,6 +206,7 @@ class ResourceSync:
 				" Check the list in the Resource Source, then apply it."
 			)
 		self.source.held_removals = len(removals)
+		result.held = len(removals)
 
 	def _release_holds(self) -> None:
 		held = frappe.get_all(
@@ -207,14 +215,6 @@ class ResourceSync:
 		frappe.db.bulk_update("Beacon Resource", {name: {"removal_held": 0} for name in held})
 		self.source.held_removals = 0
 		self.source.held_since = None
-
-	def _terminate_missing(self, missing: dict, updates: dict) -> None:
-		for name, current in missing.items():
-			fetches = current.missing_fetches + 1
-			changes = updates.setdefault(name, {})
-			changes["missing_fetches"] = fetches
-			if fetches >= MISSING_FETCHES_TO_TERMINATE:
-				changes.update(status="Terminated", terminated_at=self.now, row_hash="")
 
 	def _insert(self, inserts: list[tuple[str, SourceRow]], existing: dict) -> None:
 		rows = [
@@ -241,7 +241,7 @@ class ResourceSync:
 			frappe.db.bulk_insert("Beacon Resource", list(rows[0]), [tuple(row.values()) for row in rows])
 		existing.update({name: frappe._dict(parent_resource=None) for name, _ in inserts})
 
-	def _set_parents(self, updates: dict, rows: list[SourceRow], existing: dict) -> None:
+	def _set_parents(self, changes: dict, rows: list[SourceRow], existing: dict) -> None:
 		"""Point each row at its listed parent. An unknown parent keeps the last known parent."""
 		orphans = 0
 		for row in rows:
@@ -254,6 +254,6 @@ class ResourceSync:
 				orphans += 1
 				continue
 			if existing[name].parent_resource != parent:
-				updates.setdefault(name, {})["parent_resource"] = parent
+				changes.setdefault(name, {})["parent_resource"] = parent
 
 		self.source.orphan_count = orphans
