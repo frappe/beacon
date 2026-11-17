@@ -23,7 +23,42 @@ export class RecordView {
 					: await frappe.db.count(doctype, { filters });
 			if (this.frm.doc.name !== name) return;
 			this.frm.toggle_display(fieldname, rows.length > 0);
-			field.$wrapper.html(await this.table(doctype, rows, columns, total));
+			await frappe.model.with_doctype(doctype);
+			const escape = frappe.utils.escape_html;
+			const header = columns.map(([, label]) => `<th>${escape(__(label))}</th>`).join("");
+			const body = rows
+				.map(
+					(row) =>
+						`<tr data-name="${escape(row.name || "")}">${columns
+							.map(([field]) => {
+								if (["status", "state"].includes(field) && row[field]) {
+									const [label, color] = frappe.get_indicator(row, doctype) || [
+										row[field],
+										"gray",
+									];
+									return `<td><span class="indicator-pill ${color}">${escape(
+										label
+									)}</span></td>`;
+								}
+								const value = frappe.format(
+									row[field],
+									frappe.meta.get_docfield(doctype, field),
+									{ inline: true }
+								);
+								return `<td>${value || `<span class="text-muted">–</span>`}</td>`;
+							})
+							.join("")}</tr>`
+				)
+				.join("");
+			field.$wrapper.html(
+				`<div class="beacon-table" data-doctype="${escape(
+					doctype
+				)}"><table><thead><tr>${header}</tr></thead><tbody>${body}</tbody></table>${
+					total > rows.length
+						? `<a class="beacon-table-footer">${__("View all {0}", [total])} →</a>`
+						: ""
+				}</div>`
+			);
 			field.$wrapper
 				.find(".beacon-table-footer")
 				.on("click", () => frappe.set_route("List", doctype, filters));
@@ -32,45 +67,10 @@ export class RecordView {
 			if (this.frm.doc.name === name)
 				field.$wrapper.html(
 					`<p class="text-danger">${__(
-						"The records did not load. Reload the page to try again."
+						"The records did not load. Reload the form to try again."
 					)}</p>`
 				);
 		}
-	}
-
-	async table(doctype, rows, columns, total = rows.length) {
-		if (!rows.length) return `<p class="beacon-empty">${__("Nothing to show.")}</p>`;
-		await frappe.model.with_doctype(doctype);
-		const escape = frappe.utils.escape_html;
-		const header = columns.map(([, label]) => `<th>${escape(__(label))}</th>`).join("");
-		const body = rows
-			.map(
-				(row) =>
-					`<tr data-name="${escape(row.name || "")}">${columns
-						.map(([field]) => `<td>${this.cell(doctype, row, field)}</td>`)
-						.join("")}</tr>`
-			)
-			.join("");
-		return `<div class="beacon-table" data-doctype="${escape(
-			doctype
-		)}"><table><thead><tr>${header}</tr></thead><tbody>${body}</tbody></table>${
-			total > rows.length
-				? `<a class="beacon-table-footer">${__("View all {0}", [total])} →</a>`
-				: ""
-		}</div>`;
-	}
-
-	cell(doctype, row, field) {
-		if (["status", "state"].includes(field) && row[field]) {
-			const [label, color] = frappe.get_indicator(row, doctype) || [row[field], "gray"];
-			return `<span class="indicator-pill ${color}">${frappe.utils.escape_html(
-				label
-			)}</span>`;
-		}
-		const value = frappe.format(row[field], frappe.meta.get_docfield(doctype, field), {
-			inline: true,
-		});
-		return value || `<span class="text-muted">–</span>`;
 	}
 
 	link(label, doctype, filters) {
@@ -102,12 +102,5 @@ export class RecordView {
 			].join(" "),
 			"blue"
 		);
-	}
-
-	static silence(values) {
-		frappe.new_doc("Beacon Silence", {
-			...values,
-			expires_at: frappe.datetime.add_days(frappe.datetime.now_datetime(), 1),
-		});
 	}
 }

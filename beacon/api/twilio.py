@@ -1,13 +1,16 @@
 import frappe
 
-from beacon.core.incident.call_response import CallResponse
+from beacon.beacon.doctype.beacon_notification.beacon_notification import BeaconNotification
 
 
 @frappe.whitelist(allow_guest=True, methods=["POST"])
 def status(notification: str, token: str, CallStatus: str, AccountSid: str = "", CallSid: str = "") -> None:
 	"""Twilio reports each call status. An answered call acknowledges its incident."""
-	response = CallResponse(notification)
-	if not response.is_valid_callback(token, AccountSid, CallSid):
+	if not frappe.db.exists("Beacon Notification", notification):
 		raise frappe.PermissionError
 
-	response.record_status(CallStatus)
+	document = frappe.get_doc("Beacon Notification", notification)
+	if not document.is_valid_callback(token, AccountSid, CallSid):
+		raise frappe.PermissionError
+
+	document.record_call_status(CallStatus)

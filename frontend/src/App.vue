@@ -4,7 +4,7 @@
 			<router-link to="/" class="brand">{{ title }}</router-link>
 			<router-link to="/history">History</router-link>
 		</header>
-		<router-view @title="(value) => (title = value)" />
+		<router-view />
 	</div>
 </template>
 

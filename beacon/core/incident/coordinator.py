@@ -1,25 +1,16 @@
 from __future__ import annotations
 
-import copy
-from datetime import timedelta
-from typing import TYPE_CHECKING
-
 import frappe
 from frappe.utils import now_datetime
 
+from beacon.beacon.doctype.beacon_incident.beacon_incident import OPEN_STATUSES, SCOPE_FIELDS, BeaconIncident
+from beacon.beacon.doctype.beacon_notification.beacon_notification import BeaconNotification
 from beacon.core.alert.rules import AlertRules
-from beacon.core.alert.states import OPEN_ALERT_STATUSES, PAGED_SEVERITIES, Severity
+from beacon.core.alert.states import OPEN_ALERT_STATUSES, Severity
 from beacon.core.incident.chat_message import ChatMessage
-from beacon.core.incident.escalation import IncidentEscalation
-from beacon.core.incident.lifecycle import OPEN_STATUSES
 from beacon.core.incident.matcher import IncidentMatcher, OpenIncident, Placement
-from beacon.core.incident.merge import IncidentMerge
-from beacon.core.incident.outbox import NotificationOutbox
 from beacon.core.resource.registry import ResourceMatch, ResourceRegistry
 from beacon.core.transaction import RecordTransaction
-
-if TYPE_CHECKING:
-	from beacon.beacon.doctype.beacon_incident.beacon_incident import BeaconIncident
 
 
 class IncidentCoordinator:
@@ -32,64 +23,100 @@ class IncidentCoordinator:
 	def reconcile(self) -> None:
 		with frappe.db.advisory_lock(f"{frappe.db.cur_db_name}:beacon-invariant:{self.region}", timeout=60):
 			self.burn_rules = AlertRules.get_burn_rule_names()
-			alerts = self._load_orphan_alerts()
-			if not alerts:
+			self.orphans = self._load_orphan_alerts()
+			if not self.orphans:
 				return
 
 			self.registry = ResourceRegistry(self.region)
 			self.burn_resources = self._load_burn_resources()
-			self.incidents = self._load_open_incidents()
-			self.joined: dict[str, list[frappe._dict]] = {}
-			for alert in alerts:
-				self._assign_in_transaction(alert)
+			self.joined: dict[str, str] = {}
+			RecordTransaction.run_each(
+				"Beacon Alert",
+				self.orphans,
+				f"Beacon could not assign an incident in {self.region}",
+				self._assign,
+			)
 			self._announce_joined()
 
-	def _assign_in_transaction(self, alert: frappe._dict) -> None:
-		"""A retry starts again from the open incidents as they were before this alert."""
-		before = copy.deepcopy(self.incidents)
-
-		def assign() -> None:
-			self.incidents = copy.deepcopy(before)
-			self._assign_incident(alert)
-
-		if not RecordTransaction("Beacon Alert", alert.name).run(
-			assign, f"Beacon could not assign an incident in {self.region}"
-		):
-			self.incidents = before
-
-	def _announce_joined(self) -> None:
-		"""One chat message for each incident, so a region outage does not post one message per alert."""
-		outbox = NotificationOutbox()
-		for name, alerts in self.joined.items():
-			count = f"{len(alerts)} alert joined" if len(alerts) == 1 else f"{len(alerts)} alerts joined"
-			message = f"📥 **{count}** {ChatMessage.link(name)} in {self.region}\n\n"
-			message += ChatMessage.alert_table(alerts, with_rule=True)
-			outbox.queue("Chat", message, name)
-		frappe.db.commit()  # nosemgrep: the messages only insert new rows
-
-	def _assign_incident(self, alert: frappe._dict) -> None:
+	def _assign(self, name: str) -> None:
+		"""Place one alert in its own transaction. The open incidents are read again for each alert, so
+		the database is their only owner."""
+		alert = self.orphans[name]
 		resource = self.registry.get(alert.resource)
 		if not resource:
 			frappe.log_error(
 				f"Beacon alert resource {alert.resource} is not in the registry of {self.region}",
 				reference_doctype="Beacon Alert",
-				reference_name=alert.name,
+				reference_name=name,
 			)
 			return
 
 		is_burn = alert.rule in self.burn_rules
-		group_key = f"{alert.rule}@{self.region}"
-		resources = self._get_related_resources(alert, is_burn)
-		placement = IncidentMatcher(self.incidents, self.now).find(
-			resource, group_key, is_burn, resources
-		) or self._reopen_recent(group_key)
-		if not placement:
-			self._open_incident(alert, resource, group_key, is_burn, resources)
+		placement = IncidentMatcher(self._load_open_incidents(), self.now).find(
+			resource, alert.rule, is_burn, self._get_related_resources(alert, is_burn)
+		)
+		if placement:
+			self._join(name, placement, resource)
+		else:
+			self._open(name, resource)
+
+	def _join(self, name: str, placement: Placement, resource: frappe._dict) -> None:
+		"""Lock the incident before the alert. Then check both again: the incident can close and the alert
+		can resolve between the queries and the locks. The next run places an alert that is left out."""
+		incident = frappe.get_doc("Beacon Incident", placement.incident.name, for_update=True)
+		alert = frappe.get_doc("Beacon Alert", name, for_update=True)
+		if not (incident.is_open and alert.is_orphan):
 			return
 
-		if placement.add_scope:
-			self._add_scope(placement.incident, resource)
-		self._add_alert(placement.incident, alert, group_key, is_burn, resources)
+		is_worse = Severity.is_higher(alert.severity, incident.severity)
+		incident.add_alert(alert, resource if placement.add_scope else None)
+		if not is_worse:
+			self.joined[name] = incident.name
+
+	def _open(self, name: str, resource: frappe._dict) -> None:
+		alert = frappe.get_doc("Beacon Alert", name, for_update=True)
+		if alert.is_orphan:
+			self._take_covered_alerts(BeaconIncident.open_for(alert, resource).name)
+
+	def _take_covered_alerts(self, name: str) -> None:
+		"""Move the alerts that the new incident covers out of the open, unacknowledged, Internal
+		incidents. An incident with no open alert left closes as Merged."""
+		incidents = self._load_open_incidents()
+		new = next(item for item in incidents if item.name == name)
+		for other in incidents:
+			if other.name == name or not other.can_give_alerts:
+				continue
+
+			alerts = frappe.get_all(
+				"Beacon Alert",
+				filters={"incident": other.name, "status": ("in", OPEN_ALERT_STATUSES)},
+				fields=["name", "resource"],
+			)
+			covered = [alert.name for alert in alerts if new.covers(self.registry.get(alert.resource))]
+			if not covered:
+				continue
+
+			incident = frappe.get_doc("Beacon Incident", other.name, for_update=True)
+			if len(covered) == len(alerts):
+				incident.close_as_merged(name)
+			else:
+				frappe.db.set_value(
+					"Beacon Alert", {"name": ("in", covered)}, "incident", name, update_modified=False
+				)
+
+	def _announce_joined(self) -> None:
+		"""One chat message for each incident, so a region outage does not post one message per alert."""
+		alerts_of: dict[str, list[str]] = {}
+		for alert, incident in self.joined.items():
+			alerts_of.setdefault(incident, []).append(alert)
+
+		for incident, alerts in alerts_of.items():
+			count = f"{len(alerts)} alert" if len(alerts) == 1 else f"{len(alerts)} alerts"
+			rows = [frappe.get_doc("Beacon Alert", alert).describe() for alert in alerts]
+			message = f"📥 **{count} added to {ChatMessage.link(incident)}** in {self.region}\n\n"
+			message += ChatMessage.alert_table(rows, with_rule=True)
+			BeaconNotification.queue("Chat", message, incident)
+		frappe.db.commit()  # nosemgrep: the messages only insert new rows
 
 	def _get_related_resources(self, alert: frappe._dict, is_burn: bool) -> set[str]:
 		return self.burn_resources.get(alert.rule, set()) if is_burn else {alert.resource}
@@ -105,155 +132,11 @@ class IncidentCoordinator:
 			for name in (state.bad_reporters or "").split():
 				if resource := self.registry.get(name):
 					resources.update(item.name for item in self.registry.get_ancestors(resource))
-			burn_resources[AlertRules.get_burn_rule_name(state.service)] = resources
+			burn_resources[state.service] = resources
 		return burn_resources
 
-	def _reopen_recent(self, group_key: str) -> Placement | None:
-		"""Retrigger an Internal Beacon incident of the same group that resolved within the reopen window."""
-		window = frappe.db.get_single_value("Beacon Settings", "reopen_window_minutes") or 30
-		names = frappe.get_all(
-			"Beacon Incident",
-			filters={
-				"type": "Incident",
-				"status": "Resolved",
-				"visibility": "Internal",
-				"created_by_beacon": 1,
-				"resolved_at": (">", self.now - timedelta(minutes=window)),
-				"group_keys": ("like", f"%{group_key}%"),
-			},
-			pluck="name",
-			order_by="resolved_at desc",
-			limit=1,
-		)
-		if not names:
-			return None
-
-		incident = frappe.get_doc("Beacon Incident", names[0], for_update=True)
-		incident.retrigger()
-		item = self._load_open_incident(incident)
-		self.incidents.insert(0, item)
-		return Placement(item)
-
-	def _add_alert(
-		self, item: OpenIncident, alert: frappe._dict, group_key: str, is_burn: bool, resources: set[str]
-	) -> None:
-		incident = frappe.get_doc("Beacon Incident", item.name, for_update=True)
-		frappe.db.set_value("Beacon Alert", alert.name, "incident", item.name, update_modified=False)
-		item.add_alert(alert.name, is_burn, resources)
-
-		is_new_key = group_key not in (incident.group_keys or "").split()
-		is_more_severe = Severity.is_higher(alert.severity, incident.severity)
-		if not is_more_severe:
-			self.joined.setdefault(item.name, []).append(self._describe(alert))
-		is_monitoring = incident.status == "Monitoring"
-		if not (is_new_key or is_more_severe or is_monitoring):
-			return
-
-		incident.add_group_key(group_key)
-		if is_more_severe:
-			row = self._describe(alert)
-			message = (
-				f"{ChatMessage.header(alert.severity, incident.name, self.region)}\n\n"
-				f"**Severity raised from {incident.severity} to {alert.severity}** by {row.rule_title}\n\n"
-				f"{ChatMessage.alert_table([row])}"
-			)
-			incident.severity = alert.severity
-			NotificationOutbox().announce(incident, message)
-		if is_monitoring:
-			incident.lifecycle.move_to("Investigating")
-		incident.save(ignore_permissions=True)
-		if (is_more_severe or is_monitoring) and incident.severity in PAGED_SEVERITIES:
-			IncidentEscalation(incident).start(wait=False)
-
-	def _open_incident(
-		self, alert: frappe._dict, resource: frappe._dict, group_key: str, is_burn: bool, resources: set[str]
-	) -> None:
-		rule = frappe.db.get_value(
-			"Beacon Alert Rule", alert.rule, ["title", "scope_includes_descendants"], as_dict=True
-		)
-		incident = frappe.get_doc(
-			{
-				"doctype": "Beacon Incident",
-				"title": f"{rule.title} on {resource.title or resource.resource_id}",
-				"type": "Incident",
-				"severity": alert.severity,
-				"status": "Triggered",
-				"visibility": "Internal",
-				"created_by_beacon": 1,
-				"group_keys": group_key,
-				"scope": [
-					{
-						"region": self.region,
-						"resource_type": resource.resource_type,
-						"resource_id": resource.resource_id,
-						"include_descendants": rule.scope_includes_descendants,
-					}
-				],
-			}
-		).insert(ignore_permissions=True)
-		frappe.db.set_value("Beacon Alert", alert.name, "incident", incident.name, update_modified=False)
-
-		item = self._load_open_incident(incident)
-		item.add_alert(alert.name, is_burn, resources)
-		self._take_covered_alerts(item)
-		self.incidents.insert(0, item)
-
-		message = (
-			f"{ChatMessage.header(incident.severity, incident.name, self.region)}\n\n"
-			f"**{rule.title}**\n\n{ChatMessage.alert_table([self._describe(alert)])}"
-		)
-		NotificationOutbox().announce(incident, message, email=True)
-		if incident.severity in PAGED_SEVERITIES:
-			IncidentEscalation(incident).start(wait=bool(resource.parent_resource))
-
-	def _take_covered_alerts(self, item: OpenIncident) -> None:
-		"""Move alerts that the new scope covers out of open, unacknowledged, Internal incidents."""
-		emptied = set()
-		for other in self.incidents:
-			if other.visibility != "Internal" or other.acknowledged_at:
-				continue
-
-			alerts = frappe.get_all(
-				"Beacon Alert",
-				filters={"incident": other.name, "status": ("in", OPEN_ALERT_STATUSES)},
-				fields=["name", "resource"],
-			)
-			covered = [alert.name for alert in alerts if item.covers(self.registry.get(alert.resource))]
-			if not covered:
-				continue
-
-			other_incident = frappe.get_doc("Beacon Incident", other.name, for_update=True)
-			if len(covered) == len(alerts):
-				IncidentMerge(other_incident, item.name).close_as_merged()
-				emptied.add(other.name)
-			else:
-				frappe.db.set_value(
-					"Beacon Alert", {"name": ("in", covered)}, "incident", item.name, update_modified=False
-				)
-
-		self.incidents = [other for other in self.incidents if other.name not in emptied]
-
-	def _add_scope(self, item: OpenIncident, resource: frappe._dict) -> None:
-		row = {
-			"region": self.region,
-			"resource_type": resource.resource_type,
-			"resource_id": resource.resource_id,
-		}
-		incident = frappe.get_doc("Beacon Incident", item.name, for_update=True)
-		incident.append("scope", row)
-		incident.save(ignore_permissions=True)
-		item.matches.append(ResourceMatch.from_row(frappe._dict(row)))
-
-	def _describe(self, alert: frappe._dict) -> frappe._dict:
-		"""The alert as a row of a chat table."""
-		resource = self.registry.get(alert.resource)
-		return frappe._dict(
-			rule_title=frappe.get_cached_value("Beacon Alert Rule", alert.rule, "title"),
-			resource_title=resource.title or resource.resource_id,
-			detail=alert.detail,
-		)
-
-	def _load_orphan_alerts(self) -> list[frappe._dict]:
+	def _load_orphan_alerts(self) -> dict[str, frappe._dict]:
+		"""The alerts to place, oldest first, and cause alerts before burn alerts."""
 		alerts = frappe.get_all(
 			"Beacon Alert",
 			filters={
@@ -262,44 +145,38 @@ class IncidentCoordinator:
 				"suppressed": 0,
 				"incident": ("is", "not set"),
 			},
-			fields=["name", "title", "rule", "resource", "severity", "fired_at", "detail"],
+			fields=["name", "rule", "resource"],
 			order_by="fired_at asc",
 		)
-		return sorted(alerts, key=lambda alert: alert.rule in self.burn_rules)
+		return {
+			alert.name: alert for alert in sorted(alerts, key=lambda alert: alert.rule in self.burn_rules)
+		}
 
 	def _load_open_incidents(self) -> list[OpenIncident]:
-		names = frappe.get_all(
+		"""The open incidents with a scope in this region, newest first, with their alerts of this region."""
+		incidents = {
+			incident.name: OpenIncident(**incident)
+			for incident in frappe.get_all(
+				"Beacon Incident",
+				filters={"type": "Incident", "status": ("in", OPEN_STATUSES)},
+				fields=["name", "status", "visibility", "acknowledged_at", "creation"],
+				order_by="creation desc",
+			)
+		}
+		names = list(incidents) or [""]
+		for scope in frappe.get_all(
 			"Beacon Incident Scope",
-			filters={"parenttype": "Beacon Incident", "region": self.region},
-			pluck="parent",
-			distinct=True,
-		)
-		if not names:
-			return []
+			filters={"parenttype": "Beacon Incident", "parent": ("in", names), "region": self.region},
+			fields=["parent", *SCOPE_FIELDS],
+		):
+			incidents[scope.parent].matches.append(ResourceMatch.from_row(scope))
 
-		open_names = frappe.get_all(
-			"Beacon Incident",
-			filters={"name": ("in", names), "type": "Incident", "status": ("in", OPEN_STATUSES)},
-			pluck="name",
-			order_by="creation desc",
-		)
-		return [self._load_open_incident(frappe.get_doc("Beacon Incident", name)) for name in open_names]
-
-	def _load_open_incident(self, incident: BeaconIncident) -> OpenIncident:
-		item = OpenIncident(
-			name=incident.name,
-			status=incident.status,
-			visibility=incident.visibility,
-			acknowledged_at=incident.acknowledged_at,
-			creation=incident.creation,
-			group_keys=set((incident.group_keys or "").split()),
-			matches=[ResourceMatch.from_row(row) for row in incident.scope if row.region == self.region],
-		)
 		for alert in frappe.get_all(
 			"Beacon Alert",
-			filters={"incident": incident.name, "status": "Firing"},
-			fields=["name", "rule", "resource"],
+			filters={"incident": ("in", names), "region": self.region},
+			fields=["incident", "rule", "resource", "status"],
 		):
 			is_burn = alert.rule in self.burn_rules
-			item.add_alert(alert.name, is_burn, self._get_related_resources(alert, is_burn))
-		return item
+			related = self._get_related_resources(alert, is_burn) if alert.status == "Firing" else None
+			incidents[alert.incident].add_alert(alert.rule, is_burn, related)
+		return [incident for incident in incidents.values() if incident.matches]

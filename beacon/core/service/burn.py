@@ -5,7 +5,6 @@ from datetime import datetime, timedelta
 
 import frappe
 from frappe.query_builder.functions import Count, Sum
-from frappe.utils import add_days
 from pypika.terms import Case
 
 from beacon.core.alert.reconciler import RuleFailure
@@ -104,8 +103,9 @@ class BurnPolicy:
 				continue
 
 			detail = (
-				f"error rate {self._get_error_rate(long_rate)} over {format_window(alert.long_window)}, "
-				f"{self._get_error_rate(short_rate)} over {format_window(alert.short_window)}, burn {long_rate:.1f}"
+				f"Error rate {self._get_error_rate(long_rate)} over the last"
+				f" {format_window(alert.long_window)}, {self._get_error_rate(short_rate)} over the last"
+				f" {format_window(alert.short_window)}."
 			)
 			failures.append(
 				RuleFailure(resource, alert.alert_key, long_rate, detail, self._get_severity(alert))
@@ -114,18 +114,20 @@ class BurnPolicy:
 
 	def get_budget_left(self) -> float | None:
 		"""Share of the 30-day error budget left. Before 30 days are measured, valid events are projected to 30 days."""
-		days = frappe.get_all(
-			"Beacon Service Day",
-			filters={
-				"service": self.service.name,
-				"region": self.region,
-				"date": (">", add_days(self.minute.date(), -BUDGET_PERIOD.days)),
-			},
-			fields=["good", "valid", "observed_minutes"],
+		minute = frappe.qb.DocType("Beacon Service Minute")
+		good, valid, observed = (
+			int(value or 0)
+			for value in (
+				frappe.qb.from_(minute)
+				.select(Sum(minute.good), Sum(minute.valid), Count(minute.name))
+				.where(
+					(minute.service == self.service.name)
+					& (minute.region == self.region)
+					& (minute.minute > self.minute - BUDGET_PERIOD)
+					& (minute.minute <= self.minute)
+				)
+			).run()[0]
 		)
-		good = sum(day.good for day in days)
-		valid = sum(day.valid for day in days)
-		observed = sum(day.observed_minutes for day in days)
 		if not valid:
 			return None
 
@@ -174,5 +176,9 @@ class BurnPolicy:
 def format_window(window: timedelta) -> str:
 	minutes = int(window / timedelta(minutes=1))
 	if minutes % (24 * 60) == 0:
-		return f"{minutes // (24 * 60)} d"
-	return f"{minutes // 60} h" if minutes % 60 == 0 else f"{minutes} min"
+		count, unit = minutes // (24 * 60), "day"
+	elif minutes % 60 == 0:
+		count, unit = minutes // 60, "hour"
+	else:
+		count, unit = minutes, "minute"
+	return f"{count} {unit}" if count == 1 else f"{count} {unit}s"

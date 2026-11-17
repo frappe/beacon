@@ -1,0 +1,138 @@
+{
+ "actions": [],
+ "autoname": "field:chart_key",
+ "creation": "2026-11-17 12:00:00",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "chart_section",
+  "chart_key",
+  "title",
+  "resource_type",
+  "section",
+  "chart_column",
+  "unit",
+  "style",
+  "is_key_chart",
+  "sort_order",
+  "source",
+  "query_section",
+  "query"
+ ],
+ "fields": [
+  {
+   "fieldname": "chart_section",
+   "fieldtype": "Section Break",
+   "label": "Chart"
+  },
+  {
+   "fieldname": "chart_key",
+   "fieldtype": "Data",
+   "label": "Chart Key",
+   "read_only": 1,
+   "reqd": 1,
+   "unique": 1
+  },
+  {
+   "fieldname": "title",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Title",
+   "reqd": 1
+  },
+  {
+   "description": "Comma-separated. Empty means every type.",
+   "fieldname": "resource_type",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Resource Type",
+   "show_description_on_click": 1
+  },
+  {
+   "fieldname": "section",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Section"
+  },
+  {
+   "fieldname": "chart_column",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "unit",
+   "fieldtype": "Data",
+   "label": "Unit"
+  },
+  {
+   "default": "Line",
+   "fieldname": "style",
+   "fieldtype": "Select",
+   "label": "Style",
+   "options": "Line\nBar"
+  },
+  {
+   "description": "Shown as a now card and in the incident view.",
+   "fieldname": "is_key_chart",
+   "fieldtype": "Check",
+   "label": "Key Chart",
+   "show_description_on_click": 1
+  },
+  {
+   "fieldname": "sort_order",
+   "fieldtype": "Int",
+   "label": "Sort Order"
+  },
+  {
+   "fieldname": "source",
+   "fieldtype": "Data",
+   "label": "Source",
+   "read_only": 1
+  },
+  {
+   "fieldname": "query_section",
+   "fieldtype": "Section Break",
+   "label": "Query"
+  },
+  {
+   "fieldname": "query",
+   "fieldtype": "Code",
+   "label": "Query",
+   "options": "SQL",
+   "reqd": 1
+  }
+ ],
+ "link_display_mode": "Search",
+ "links": [],
+ "modified": "2026-11-17 12:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Beacon",
+ "name": "Beacon Chart",
+ "naming_rule": "By fieldname",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "export": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Beacon Admin"
+  },
+  {
+   "export": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Beacon Responder"
+  },
+  {
+   "export": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager"
+  }
+ ],
+ "row_format": "Dynamic",
+ "show_title_field_in_link": 1,
+ "sort_field": "sort_order",
+ "sort_order": "ASC",
+ "states": [],
+ "title_field": "title"
+}

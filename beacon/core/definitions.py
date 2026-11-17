@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import re
 from collections.abc import Callable
+from datetime import timedelta
 from typing import TYPE_CHECKING
 
 import frappe
@@ -13,9 +14,10 @@ from frappe.utils import now_datetime
 from beacon.core.alert.endpoint_check import ENDPOINT_KINDS
 from beacon.core.alert.evaluation_schedule import EvaluationSchedule
 from beacon.core.alert.rule_evaluator import RuleQuery
-from beacon.core.alert.rules import AlertRules
+from beacon.core.alert.rules import BURN_KIND, AlertRules
 from beacon.core.exceptions import ClickHouseError, DefinitionSourceError, RuleContractError
 from beacon.core.github_client import GitHubClient
+from beacon.core.resource.charts import ChartQuery
 from beacon.core.resource.clickhouse import ClickHouseClient
 from beacon.core.resource.regions import RegionSelection
 from beacon.core.transaction import RecordTransaction
@@ -31,6 +33,7 @@ DEFINITION_KEY = re.compile(r"^[a-z0-9][a-z0-9-]*$")
 
 RULE_HEADER_FIELDS = {
 	"title": str,
+	"description": str,
 	"severity": str,
 	"resource_type": str,
 	"runbook_url": str,
@@ -68,16 +71,37 @@ SERVICE_HEADER_FIELDS = {
 	"measurement": str,
 	"status_page_group": str,
 }
+CHART_KIND = "Chart"
+CHART_HEADER_FIELDS = {
+	"title": str,
+	"resource_type": str,
+	"section": str,
+	"unit": str,
+	"style": str,
+	"is_key_chart": int,
+	"sort_order": int,
+}
 
 LAYOUT_FIELD_TYPES = ("Tab Break", "Section Break", "Column Break", "HTML")
 # The fields that Desk can change on a record from a file. The query region of a global service and the regions of an endpoint check depend on the site, so a file can leave them out.
-DESK_FIELDS = {"Beacon Alert Rule": ("enabled",), "Beacon Service": ("enabled", "query_region")}
+DESK_FIELDS = {"Beacon Alert Rule": ("enabled", "query_region")}
 ENDPOINT_DESK_FIELDS = ("enabled", "regions")
+RULE_KINDS = ("SQL", "HTTP", "TLS")
+DEFINITION_FILES = {
+	"rules": {
+		".sql": ("SQL", RULE_HEADER_FIELDS),
+		".http": ("HTTP", HTTP_HEADER_FIELDS),
+		".tls": ("TLS", TLS_HEADER_FIELDS),
+	},
+	"services": {".sql": (BURN_KIND, SERVICE_HEADER_FIELDS)},
+	"charts": {".sql": (CHART_KIND, CHART_HEADER_FIELDS)},
+}
 
 BUILT_IN_RULES = (
 	{
 		"rule_key": "region-unreachable",
-		"title": "Region unreachable",
+		"title": "Beacon cannot read metrics",
+		"description": "Beacon cannot reach the region, so its hosts, VMs and sites are not watched.",
 		"severity": "Critical",
 		"resource_type": "Region",
 		"pending_for": 0,
@@ -87,10 +111,11 @@ BUILT_IN_RULES = (
 
 
 class DefinitionFile:
-	"""One .sql file of a source: a `-- key: value` header and the query."""
+	"""One definition file: a `-- key: value` header and the query."""
 
-	def __init__(self, path: str, text: str, header_fields: dict[str, type]):
+	def __init__(self, path: str, text: str, kind: str, header_fields: dict[str, type]):
 		self.path = path
+		self.kind = kind
 		self.key = path.rsplit("/", 1)[-1].rsplit(".", 1)[0]
 		self.query = text
 		if not DEFINITION_KEY.match(self.key):
@@ -109,9 +134,36 @@ class DefinitionFile:
 			except ValueError as error:
 				raise DefinitionSourceError(f"{path}: bad value for {name}") from error
 
+	@property
+	def doctype(self) -> str:
+		return "Beacon Chart" if self.kind == CHART_KIND else "Beacon Alert Rule"
+
+	def get_values(self) -> dict:
+		"""The Alert Rule or Chart fields of this file."""
+		if self.kind == CHART_KIND:
+			return {**self.values, "query": self.query}
+		if self.kind == BURN_KIND:
+			return {
+				"kind": BURN_KIND,
+				"measurement": "Measured",
+				"status_page_group": "",
+				**self.values,
+				"sli_query": self.query,
+			}
+		if self.kind == "SQL":
+			return {**self.values, "kind": "SQL", "query": self.query, "regions": []}
+
+		values = {name: value for name, value in self.values.items() if name != "region"}
+		region = self.values.get("region")
+		if region:
+			values["regions"] = [] if region == ALL_REGIONS else [{"region": region}]
+		elif not frappe.db.exists("Beacon Alert Rule", self.key):
+			values["enabled"] = 0  # empty Regions means every region, so the check waits for Desk
+		return {**values, "kind": self.kind}
+
 
 class DefinitionSync:
-	"""Reads the rule and service files of every definition source and applies them. Runs only on demand."""
+	"""Reads the rule, service and chart files of every definition source and applies them. Runs only on demand."""
 
 	def __init__(self, settings: BeaconSettings):
 		self.settings = settings
@@ -143,73 +195,68 @@ class SourceSync:
 		RecordTransaction.start_new()  # no lock is held during the GitHub and ClickHouse calls
 		try:
 			commit = self.client.get_commit(self.repository, self.source.branch)
-			rule_paths = self._list(commit, "rules")
-			sql_rules = self._read(commit, rule_paths, ".sql", RULE_HEADER_FIELDS)
-			http_rules = self._read(commit, rule_paths, ".http", HTTP_HEADER_FIELDS)
-			tls_rules = self._read(commit, rule_paths, ".tls", TLS_HEADER_FIELDS)
-			rules = sql_rules + http_rules + tls_rules
-			services = self._read(commit, self._list(commit, "services"), ".sql", SERVICE_HEADER_FIELDS)
-			if not rules and not services:
+			files = self._read(commit)
+			if not files:
 				# A wrong path or branch must not turn off every rule of the source.
 				raise DefinitionSourceError(
-					f"No rule or service files in {self.path or 'the root'}/rules or /services."
+					f"No rule, service or chart files in {self.path or 'the root'}/rules, /services or /charts."
 				)
-			self._check_endpoint_rules(http_rules, "url")
-			self._check_endpoint_rules(tls_rules, "host")
-			self._check_owners("Beacon Alert Rule", rules)
-			self._check_owners("Beacon Service", services)
-			self._check_queries(sql_rules)
+			self._check(files)
 		except DefinitionSourceError as error:
 			frappe.log_error(f"Beacon definition sync failed for {self.repository}")
 			return self._record(None, str(error))
 
-		for rule in sql_rules:
-			self._apply(
-				"Beacon Alert Rule",
-				rule.key,
-				{**rule.values, "kind": "SQL", "query": rule.query, "regions": []},
-			)
-		self._apply_endpoint_rules("HTTP", http_rules)
-		self._apply_endpoint_rules("TLS", tls_rules)
-		for service in services:
-			self._apply(
-				"Beacon Service",
-				service.key,
-				{
-					"measurement": "Measured",
-					"status_page_group": "",
-					**service.values,
-					"sli_query": service.query,
-				},
-			)
-		removed = self._prune("Beacon Alert Rule", rules) + self._prune("Beacon Service", services)
+		charts = [file for file in files if file.kind == CHART_KIND]
+		definitions = {file.key: file.get_values() for file in files if file.kind != CHART_KIND}
+		chart_definitions = {file.key: file.get_values() for file in charts}
+		removed = self._get_removed(set(definitions))
+		removed_charts = self._get_removed_charts(set(chart_definitions))
+		for name in [*definitions, *removed]:
+			self._apply(name, definitions.get(name))
+		for name in [*chart_definitions, *removed_charts]:
+			self._apply_chart(name, chart_definitions.get(name))
 
-		summary = f"{len(rules)} rules, {len(services)} services, {removed} removed"
-		return self._record(commit, "\n".join([summary, *self._get_warnings(rules), *self.errors]))
+		services = sum(1 for file in files if file.kind == BURN_KIND)
+		rules = len(files) - services - len(charts)
+		summary = (
+			f"{rules} rules, {services} services, {len(charts)} charts, "
+			f"{len(removed) + len(removed_charts)} removed"
+		)
+		return self._record(commit, "\n".join([summary, *self._get_warnings(files), *self.errors]))
 
 	def _list(self, commit: str, folder: str) -> list[str]:
 		directory = f"{self.path}/{folder}" if self.path else folder
 		return sorted(self.client.list_files(self.repository, commit, directory))
 
-	def _read(
-		self, commit: str, paths: list[str], extension: str, header_fields: dict[str, type]
-	) -> list[DefinitionFile]:
-		return [
-			DefinitionFile(path, self.client.read_file(self.repository, commit, path), header_fields)
-			for path in paths
-			if path.endswith(extension)
-		]
+	def _read(self, commit: str) -> list[DefinitionFile]:
+		files = []
+		for folder, kinds in DEFINITION_FILES.items():
+			for path in self._list(commit, folder):
+				extension = "." + path.rsplit(".", 1)[-1]
+				if extension in kinds:
+					kind, header_fields = kinds[extension]
+					text = self.client.read_file(self.repository, commit, path)
+					files.append(DefinitionFile(path, text, kind, header_fields))
+		return files
 
-	def _check_endpoint_rules(self, rules: list[DefinitionFile], target: str) -> None:
-		for rule in rules:
-			missing = [name for name in ("title", "severity", target) if not rule.values.get(name)]
+	def _check(self, files: list[DefinitionFile]) -> None:
+		charts = [file for file in files if file.kind == CHART_KIND]
+		for file in files:
+			if file.kind not in ("HTTP", "TLS"):
+				continue
+			target = "url" if file.kind == "HTTP" else "host"
+			missing = [name for name in ("title", "severity", target) if not file.values.get(name)]
 			if missing:
-				raise DefinitionSourceError(f"{rule.path}: add the header {', '.join(missing)}")
+				raise DefinitionSourceError(f"{file.path}: add the header {', '.join(missing)}")
+		self._check_owners([file for file in files if file.kind != CHART_KIND])
+		self._check_chart_owners(charts)
+		self._check_queries(files)
 
-	def _get_warnings(self, rules: list[DefinitionFile]) -> list[str]:
+	def _get_warnings(self, files: list[DefinitionFile]) -> list[str]:
 		unmeasured = frappe.get_all(
-			"Beacon Service",
+			"Beacon Alert Rule",
 			filters={
+				"kind": BURN_KIND,
 				"source": self.repository,
 				"scope": "Global",
 				"measurement": "Measured",
@@ -218,27 +265,27 @@ class SourceSync:
 			pluck="name",
 		)
 		unplaced = [
-			rule.key
-			for rule in rules
-			if rule.path.endswith((".http", ".tls"))
-			and "region" not in rule.values
+			file.key
+			for file in files
+			if file.kind in ("HTTP", "TLS")
+			and "region" not in file.values
 			and not frappe.get_all(
-				"Beacon Region Item", filters={"parent": rule.key, "parenttype": "Beacon Alert Rule"}, limit=1
+				"Beacon Region Item", filters={"parent": file.key, "parenttype": "Beacon Alert Rule"}, limit=1
 			)
 		]
 		known_types = set(frappe.get_all("Beacon Resource", pluck="resource_type", distinct=True))
 		return (
 			[
-				f"{rule.path}: no resource has the type {name}. Check resource_type: Beacon drops rows of other types."
-				for rule in rules
+				f"{file.path}: no resource has the type {name}. Check resource_type: Beacon drops rows of other types."
+				for file in files
 				for name in sorted(
-					AlertRules.get_resource_types(rule.values.get("resource_type")) - known_types
+					AlertRules.get_resource_types(file.values.get("resource_type")) - known_types
 				)
 			]
 			+ [
-				f"{rule.path}: a {rule.values['severity']} rule pages, so add a runbook_url."
-				for rule in rules
-				if rule.values.get("severity") in PAGING_SEVERITIES and not rule.values.get("runbook_url")
+				f"{file.path}: a {file.values['severity']} rule notifies, so add a runbook_url."
+				for file in files
+				if file.values.get("severity") in PAGING_SEVERITIES and not file.values.get("runbook_url")
 			]
 			+ [f"{name}: a global service needs a Query Region. Set it in Desk." for name in unmeasured]
 			+ [
@@ -247,25 +294,21 @@ class SourceSync:
 			]
 		)
 
-	def _check_owners(self, doctype: str, files: list[DefinitionFile]) -> None:
-		"""A name belongs to one source. Built-in and burn rules have no source, so a file cannot take them.
+	def _check_owners(self, files: list[DefinitionFile]) -> None:
+		"""A name belongs to one source. A file cannot take a Built In rule.
 
 		A Custom rule has no owner yet. A source takes a name over when the old source removed its file or is no longer configured, so a rule can move between repositories.
 		"""
 		owners = {
 			row.name: row.source
 			for row in frappe.get_all(
-				doctype,
+				"Beacon Alert Rule",
 				filters={"name": ("in", [file.key for file in files] or [""])},
 				fields=["name", "source", "is_removed"],
 			)
 			if not row.source or (row.source in self.repositories and not row.is_removed)
 		}
-		custom = set(
-			frappe.get_all(doctype, filters={"is_custom": 1}, pluck="name")
-			if doctype == "Beacon Alert Rule"
-			else []
-		)
+		custom = set(frappe.get_all("Beacon Alert Rule", filters={"is_custom": 1}, pluck="name"))
 		keys = [file.key for file in files]
 		for file in files:
 			if keys.count(file.key) > 1:
@@ -274,79 +317,116 @@ class SourceSync:
 				owner = owners[file.key] or "Beacon"
 				raise DefinitionSourceError(f"{file.path}: the name {file.key} belongs to {owner}.")
 
-	def _check_queries(self, rules: list[DefinitionFile]) -> None:
-		"""Run each new or changed rule query once, in the first active region."""
-		saved = dict(
-			frappe.get_all(
-				"Beacon Alert Rule",
-				filters={"name": ("in", [rule.key for rule in rules] or [""])},
-				fields=["name", "query"],
-				as_list=True,
+	def _check_chart_owners(self, charts: list[DefinitionFile]) -> None:
+		"""A chart name belongs to one source. A chart may share a name with a rule."""
+		owners = {
+			row.name: row.source
+			for row in frappe.get_all(
+				"Beacon Chart",
+				filters={"name": ("in", [chart.key for chart in charts] or [""])},
+				fields=["name", "source"],
 			)
-		)
-		changed = [rule for rule in rules if saved.get(rule.key) != rule.query]
+		}
+		keys = [chart.key for chart in charts]
+		for chart in charts:
+			if keys.count(chart.key) > 1:
+				raise DefinitionSourceError(f"{chart.path}: another file has the name {chart.key}.")
+			owner = owners.get(chart.key)
+			if owner and owner != self.repository and owner in self.repositories:
+				raise DefinitionSourceError(f"{chart.path}: the chart {chart.key} belongs to {owner}.")
+
+	def _check_queries(self, files: list[DefinitionFile]) -> None:
+		"""Run each new or changed rule or chart query once, in the first active region."""
+		changed = [
+			file
+			for file in files
+			if file.kind in ("SQL", CHART_KIND)
+			and frappe.db.get_value(file.doctype, file.key, "query") != file.query
+		]
 		regions = RegionSelection.get_active()
 		if not changed or not regions:
 			return
 
+		now = now_datetime()
 		clickhouse = ClickHouseClient(frappe.get_doc("Beacon Region", regions[0]))
-		for rule in changed:
+		for file in changed:
 			try:
-				RuleQuery(clickhouse, rule.query).run()
+				if file.kind == CHART_KIND:
+					ChartQuery(clickhouse, file.query).run("", now - timedelta(minutes=10), now, 60)
+				else:
+					RuleQuery(clickhouse, file.query).run()
 			except (ClickHouseError, RuleContractError) as error:
 				raise DefinitionSourceError(
-					f"{rule.path}: the query failed in {regions[0]}: {error}"
+					f"{file.path}: the query failed in {regions[0]}: {error}"
 				) from error
 
-	def _apply_endpoint_rules(self, kind: str, rules: list[DefinitionFile]) -> None:
-		for rule in rules:
-			values = {name: value for name, value in rule.values.items() if name != "region"}
-			region = rule.values.get("region")
-			if region:
-				values["regions"] = [] if region == ALL_REGIONS else [{"region": region}]
-			elif not frappe.db.exists("Beacon Alert Rule", rule.key):
-				values["enabled"] = 0  # empty Regions means every region, so the check waits for Desk
-			self._apply("Beacon Alert Rule", rule.key, {**values, "kind": kind})
-
-	def _apply(self, doctype: str, name: str, values: dict) -> None:
-		def save() -> None:
-			if frappe.db.exists(doctype, name):
-				doc = frappe.get_doc(doctype, name, for_update=True)
-				if doc.is_removed:
-					doc.enabled = 1
-			else:
-				doc = frappe.new_doc(doctype)
-			if doctype == "Beacon Alert Rule":
-				doc.update({"rule_key": name, "is_custom": 0})
-			else:
-				doc.service_key = name
-			doc.update({**values, "source": self.repository, "is_removed": 0})
-			doc.flags.loading_definitions = True
-			doc.save(ignore_permissions=True)
-
-		self._run(doctype, name, save)
-
-	def _prune(self, doctype: str, files: list[DefinitionFile]) -> int:
+	def _get_removed(self, present: set[str]) -> list[str]:
 		"""Turn off what this source no longer has. Keep the record for its alert history."""
-		names = frappe.get_all(
-			doctype,
+		return frappe.get_all(
+			"Beacon Alert Rule",
 			filters={
 				"source": self.repository,
 				"is_removed": 0,
-				"name": ("not in", [file.key for file in files] or [""]),
+				"kind": ("in", [*RULE_KINDS, BURN_KIND]),
+				"name": ("not in", list(present) or [""]),
 			},
 			pluck="name",
 		)
-		for name in names:
 
-			def remove(name: str = name) -> None:
-				doc = frappe.get_doc(doctype, name, for_update=True)
+	def _get_removed_charts(self, present: set[str]) -> list[str]:
+		return frappe.get_all(
+			"Beacon Chart",
+			filters={"source": self.repository, "name": ("not in", list(present) or [""])},
+			pluck="name",
+		)
+
+	def _apply(self, name: str, values: dict | None) -> None:
+		"""Apply one definition. `values` is None when its file is gone."""
+
+		def save() -> None:
+			exists = frappe.db.exists("Beacon Alert Rule", name)
+			if not exists and values is None:
+				return
+			doc = (
+				frappe.get_doc("Beacon Alert Rule", name, for_update=True)
+				if exists
+				else frappe.new_doc("Beacon Alert Rule")
+			)
+			if values is None:
 				doc.update({"is_removed": 1, "enabled": 0})
-				doc.flags.loading_definitions = True
-				doc.save(ignore_permissions=True)
+			else:
+				if doc.is_removed:
+					doc.enabled = 1
+				doc.update(
+					{
+						"rule_key": name,
+						"is_custom": 0,
+						"source": self.repository,
+						"is_removed": 0,
+						**values,
+					}
+				)
+			doc.flags.loading_definitions = True
+			doc.save(ignore_permissions=True)
 
-			self._run(doctype, name, remove)
-		return len(names)
+		self._run("Beacon Alert Rule", name, save)
+
+	def _apply_chart(self, name: str, values: dict | None) -> None:
+		"""Apply one chart. A chart whose file is gone is deleted."""
+
+		def save() -> None:
+			if values is None:
+				frappe.delete_doc("Beacon Chart", name, ignore_permissions=True)
+				return
+			doc = (
+				frappe.get_doc("Beacon Chart", name, for_update=True)
+				if frappe.db.exists("Beacon Chart", name)
+				else frappe.new_doc("Beacon Chart")
+			)
+			doc.update({"chart_key": name, "source": self.repository, **values})
+			doc.save(ignore_permissions=True)
+
+		self._run("Beacon Chart", name, save)
 
 	def _run(self, doctype: str, name: str, work: Callable[[], None]) -> None:
 		"""Apply one record. A failure is logged and shown in the result; the other records go on."""

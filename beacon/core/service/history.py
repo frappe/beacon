@@ -5,8 +5,6 @@ from datetime import datetime
 
 import frappe
 
-OUTAGE_STATUSES = ("Partial Outage", "Major Outage")
-
 
 @dataclass
 class ServiceSample:
@@ -27,7 +25,7 @@ class ServiceSample:
 
 
 class ServiceHistory:
-	"""Writes the minute rows and the daily totals of one service in one region."""
+	"""Writes the minute rows of one service in one region."""
 
 	def __init__(self, service: str, region: str):
 		self.service = service
@@ -47,25 +45,3 @@ class ServiceHistory:
 				"bad_reporters": sample.bad_reporters,
 			}
 		).insert(ignore_permissions=True)
-
-		day = frappe.qb.DocType("Beacon Service Day")
-		(
-			frappe.qb.update(day)
-			.set(day.good, day.good + sample.good)
-			.set(day.valid, day.valid + sample.valid)
-			.set(day.observed_minutes, day.observed_minutes + 1)
-			.set(day.degraded_minutes, day.degraded_minutes + int(status == "Degraded"))
-			.set(day.outage_minutes, day.outage_minutes + int(status in OUTAGE_STATUSES))
-			.set(day.partial_outage_minutes, day.partial_outage_minutes + int(status == "Partial Outage"))
-			.set(day.maintenance_minutes, day.maintenance_minutes + int(status == "Maintenance"))
-			.where(day.name == self._get_day(minute))
-		).run()
-
-	def _get_day(self, minute: datetime) -> str:
-		filters = {"service": self.service, "region": self.region, "date": minute.date()}
-		return (
-			frappe.db.get_value("Beacon Service Day", filters)
-			or frappe.get_doc({"doctype": "Beacon Service Day", **filters})
-			.insert(ignore_permissions=True)
-			.name
-		)

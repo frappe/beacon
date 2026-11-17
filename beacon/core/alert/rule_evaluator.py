@@ -6,13 +6,12 @@ from datetime import datetime, timedelta
 import frappe
 from frappe.utils import now_datetime
 
-from beacon.core.alert.reconciler import AlertChanges, AlertReconciler, RuleFailure
+from beacon.beacon.doctype.beacon_notification.beacon_notification import BeaconNotification
+from beacon.core.alert.reconciler import AlertReconciler, RuleFailure
 from beacon.core.alert.rules import AlertRules
 from beacon.core.alert.states import SEVERITIES
 from beacon.core.exceptions import ClickHouseError, RuleContractError
 from beacon.core.incident.coordinator import IncidentCoordinator
-from beacon.core.incident.outbox import NotificationOutbox
-from beacon.core.incident.recovery import IncidentRecovery
 from beacon.core.resource.clickhouse import ClickHouseClient
 from beacon.core.resource.regions import RegionSelection
 from beacon.core.resource.registry import ResourceRegistry
@@ -72,23 +71,17 @@ class RegionEvaluation:
 
 		registry = ResourceRegistry(self.region.name)
 		clickhouse = ClickHouseClient(self.region)
-		changes = AlertChanges()
 
 		def evaluate(name: str) -> None:
 			# Run Now and the scheduled run can both reach one evaluation. One runs at a time.
 			with frappe.db.advisory_lock(f"{frappe.db.cur_db_name}:beacon-evaluation:{name}", timeout=60):
-				result = RuleEvaluator(name, registry, clickhouse).run()
+				RuleEvaluator(name, registry, clickhouse).run()
 				frappe.db.commit()  # nosemgrep: commit before the next run can take the lock
-			if result:
-				changes.firing_changes += result.firing_changes
-				changes.recovered_incidents |= result.recovered_incidents
 
 		RecordTransaction.run_each(
 			"Beacon Rule Evaluation", names, f"Beacon evaluation failed in {self.region.name}", evaluate
 		)
-		IncidentRecovery.queue(changes.recovered_incidents)
-		if changes.firing_changes:
-			IncidentCoordinator(self.region.name).reconcile()
+		IncidentCoordinator(self.region.name).reconcile()
 
 	def _postpone(self, names: list[str]) -> None:
 		"""The region alert covers an Unreachable region. A postponed evaluation counts as a run."""
@@ -121,7 +114,7 @@ class RuleEvaluator:
 		self.rule = frappe.db.get_value("Beacon Alert Rule", rule, RULE_FIELDS, as_dict=True)
 		self.now = now_datetime()
 
-	def run(self) -> AlertChanges | None:
+	def run(self) -> None:
 		"""Evaluate once. A query or contract error changes no alert. The query runs before any lock is taken."""
 		started = time.monotonic()
 		try:
@@ -136,15 +129,17 @@ class RuleEvaluator:
 		self.evaluation.next_run_at = self.now + timedelta(seconds=self.rule.interval)
 		if error:
 			self._record_error(error)
-			return None
+			return
 
 		reconciler = AlertReconciler(self.rule, self.registry, self.now)
-		if self._has_gap():
-			reconciler.reset_timers()
+		last_success = self.evaluation.last_success_at
+		if last_success and self.now - last_success > timedelta(seconds=3 * self.rule.interval):
+			reconciler.restart_timers()
 
 		failing, unknown = self._get_failing_rows(rows)
-		changes = reconciler.reconcile(failing)
+		reconciler.reconcile(failing)
 
+		was_broken = self.evaluation.state == "Broken"
 		self.evaluation.update(
 			{
 				"state": "Healthy",
@@ -157,12 +152,14 @@ class RuleEvaluator:
 			}
 		)
 		self.evaluation.save(ignore_permissions=True)
-		return changes
+		if was_broken:
+			BeaconNotification.post_to_chat(
+				f"✅ **Rule {self.rule.title} works again in {self.registry.region}.**"
+			)
 
 	def _get_failing_rows(self, rows: list[dict]) -> tuple[list[RuleFailure], int]:
 		failing: list[RuleFailure] = []
 		unknown = 0
-		seen: set[tuple[str, str]] = set()
 		# Any token in the region can send any metric, so a row for a resource of another type is not trusted.
 		resource_types = AlertRules.get_resource_types(self.rule.resource_type)
 		for row in rows:
@@ -170,18 +167,12 @@ class RuleEvaluator:
 			if not resource or (resource_types and resource.resource_type not in resource_types):
 				unknown += 1
 				continue
-
-			key = (resource.name, row["alert_key"])
-			if key in seen or not self.registry.is_evaluated(resource, self.now):
+			if not self.registry.is_evaluated(resource, self.now):
 				continue
-
-			seen.add(key)
-			failing.append(RuleFailure(resource, key[1], row["value"], row["detail"], row["severity"]))
+			failing.append(
+				RuleFailure(resource, row["alert_key"], row["value"], row["detail"], row["severity"])
+			)
 		return failing, unknown
-
-	def _has_gap(self) -> bool:
-		last_success = self.evaluation.last_success_at
-		return bool(last_success) and self.now - last_success > timedelta(seconds=3 * self.rule.interval)
 
 	def _record_error(self, error: str) -> None:
 		"""Log and post only when the state changes, so a rule that keeps failing does not flood the logs."""
@@ -201,8 +192,9 @@ class RuleEvaluator:
 			reference_name=evaluation.name,
 		)
 		if evaluation.state == "Broken":
-			NotificationOutbox().post_to_chat(
-				f"Rule {self.rule.name} is broken in {self.registry.region}: {error[:500]}"
+			BeaconNotification.post_to_chat(
+				f"⚠️ **Rule {self.rule.title} is broken in {self.registry.region}.**"
+				f" Its alerts keep their state until the query works. Error: {error[:500]}"
 			)
 
 

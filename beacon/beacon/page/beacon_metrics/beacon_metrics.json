@@ -1,0 +1,31 @@
+{
+ "content": null,
+ "creation": "2026-11-17 18:00:00.000000",
+ "docstatus": 0,
+ "doctype": "Page",
+ "idx": 0,
+ "island": "beacon.metrics",
+ "modified": "2026-11-17 18:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Beacon",
+ "name": "beacon-metrics",
+ "owner": "Administrator",
+ "page_name": "beacon-metrics",
+ "roles": [
+  {
+   "role": "Beacon Admin"
+  },
+  {
+   "role": "Beacon Responder"
+  },
+  {
+   "role": "System Manager"
+  }
+ ],
+ "script": null,
+ "standard": "Yes",
+ "style": null,
+ "system_page": 0,
+ "title": "Metrics",
+ "type": "Frappe UI"
+}

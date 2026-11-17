@@ -1,5 +1,4 @@
 const OPEN_STATUSES = ["Triggered", "Investigating", "Identified", "Monitoring"];
-// Each dialog starts with the usual message for its status. Staff edit it before they send it.
 const MESSAGES = {
 	Investigating: __("We are investigating the problem. We will post an update soon."),
 	Identified: __("We found the cause and are working on a fix."),
@@ -18,13 +17,6 @@ const messageField = (message) => ({
 	reqd: 1,
 });
 
-// Replace the message only while it is still a prefilled one, so a typed message stays.
-function prefillMessage(dialog, message) {
-	const current = dialog.get_value("message");
-	if (!current || Object.values(MESSAGES).includes(current))
-		dialog.set_value("message", message);
-}
-
 class IncidentForm {
 	constructor(frm) {
 		this.frm = frm;
@@ -33,17 +25,14 @@ class IncidentForm {
 	}
 
 	refresh() {
-		// Only actions add updates. Staff can change only the Public flag of a row.
 		this.frm.set_df_property("updates", "cannot_add_rows", true);
 		this.frm.set_df_property("updates", "cannot_delete_rows", true);
-		if (this.frm.is_new()) return;
-		this.view.related("alerts_html", "Beacon Alert", { incident: this.doc.name }, [
-			["title", "Title"],
-			["status", "Status"],
-			["started_at", "Started at"],
-			["suppressed_by", "Suppressed by"],
-			["resource", "Resource"],
-		]);
+		this.frm.dashboard.hide();
+		if (this.frm.is_new()) {
+			this.frm.layout.tabs.find((tab) => tab.df.fieldname === "details_tab")?.set_active();
+			return;
+		}
+		this.renderSubscribers();
 		this.view.related(
 			"notifications_html",
 			"Beacon Notification",
@@ -56,7 +45,6 @@ class IncidentForm {
 				["error", "Error"],
 			]
 		);
-		this.showEscalation();
 		if (this.doc.type === "Maintenance") this.maintenanceActions();
 		else this.incidentActions();
 		if (!["Merged", "Cancelled"].includes(this.doc.status)) this.visibilityActions();
@@ -65,29 +53,61 @@ class IncidentForm {
 			__("Show Affected Resources"),
 			"get_affected_resources",
 			null,
-			(rows) =>
-				beacon.show_results(
-					__("Affected resources, including child resources"),
-					rows
-						.slice(1)
-						.map((row) =>
-							Object.fromEntries(rows[0].map((key, index) => [key, row[index]]))
-						)
-				),
+			(rows) => this.showAffectedResources(rows),
 			{ read: true }
 		);
 		this.irreversibleActions();
 	}
 
-	showEscalation() {
-		if (!["Waiting", "Calling"].includes(this.doc.escalation)) return;
-		const next = frappe.datetime.str_to_user(this.doc.next_page_at);
-		this.frm.set_intro(
-			this.doc.escalation === "Waiting"
-				? __("Beacon notifies the on-call team at {0}. Acknowledge to stop it.", [next])
-				: __("Beacon is notifying the on-call team. Next notification at {0}.", [next]),
-			"orange"
+	async renderSubscribers() {
+		const field = this.frm.fields_dict.subscribers_html;
+		if (!field) return;
+		const count = await frappe.db.count("Beacon Incident Subscriber", {
+			filters: { incident: this.doc.name },
+		});
+		field.$wrapper.html(`<p class="text-muted">${__("{0} subscribers", [count])}</p>`);
+	}
+
+	showAffectedResources(rows) {
+		beacon.show_rows(
+			__("Affected resources, including child resources"),
+			rows
+				.slice(1)
+				.map((row) => Object.fromEntries(rows[0].map((key, index) => [key, row[index]])))
 		);
+	}
+
+	messageFields(message, status) {
+		return [
+			...(status
+				? [
+						{
+							fieldname: "status",
+							fieldtype: "Select",
+							label: __("Status"),
+							options: ["Investigating", "Identified", "Monitoring"],
+							default: status,
+							reqd: 1,
+							onchange() {
+								const current = cur_dialog.get_value("message");
+								if (!current || Object.values(MESSAGES).includes(current))
+									cur_dialog.set_value("message", MESSAGES[this.get_value()]);
+							},
+						},
+				  ]
+				: []),
+			...(this.doc.visibility === "Internal"
+				? []
+				: [
+						{
+							fieldname: "is_public",
+							fieldtype: "Check",
+							label: __("Show this update to customers"),
+							default: 1,
+						},
+				  ]),
+			messageField(message),
+		];
 	}
 
 	incidentActions() {
@@ -114,27 +134,12 @@ class IncidentForm {
 			this.frm,
 			__("Post Update"),
 			"post_update",
-			[
-				{
-					fieldname: "status",
-					fieldtype: "Select",
-					label: __("Status"),
-					options: ["Investigating", "Identified", "Monitoring"],
-					default: status,
-					reqd: 1,
-					onchange() {
-						prefillMessage(cur_dialog, MESSAGES[this.get_value()]);
-					},
-				},
-				...this.audienceField(),
-				messageField(MESSAGES[status]),
-			],
+			this.messageFields(MESSAGES[status], status),
 			null,
 			{ standalone: true }
 		);
 		beacon.add_action(this.frm, __("Resolve"), "resolve", [
-			...this.audienceField(),
-			messageField(MESSAGES.Resolved),
+			...this.messageFields(MESSAGES.Resolved),
 			{
 				fieldname: "silence_hours",
 				fieldtype: "Int",
@@ -161,21 +166,23 @@ class IncidentForm {
 	}
 
 	maintenanceActions() {
-		if (this.doc.status === "Scheduled") {
+		const window = this.maintenanceWindow;
+		if (this.doc.status === "Scheduled")
 			beacon.add_action(this.frm, __("Start Maintenance"), "start_maintenance", null, null, {
 				primary: true,
 				confirm: [
 					__("Start this maintenance now?"),
-					__("Planned time: {0}.", [this.maintenanceWindow]),
+					__("Planned time: {0}.", [window]),
 					__("Alerts for its resources stop until the maintenance ends."),
 				],
 			});
-		}
 		if (["Scheduled", "In Progress"].includes(this.doc.status))
-			beacon.add_action(this.frm, __("Post Update"), "post_update", [
-				messageField(MESSAGES.Maintenance),
-				...this.audienceField(),
-			]);
+			beacon.add_action(
+				this.frm,
+				__("Post Update"),
+				"post_update",
+				this.messageFields(MESSAGES.Maintenance)
+			);
 		if (this.doc.status === "In Progress") {
 			beacon.add_action(this.frm, __("Extend Maintenance"), "extend_maintenance", [
 				{
@@ -203,19 +210,6 @@ class IncidentForm {
 		}
 	}
 
-	audienceField() {
-		return this.doc.visibility === "Internal"
-			? []
-			: [
-					{
-						fieldname: "is_public",
-						fieldtype: "Check",
-						label: __("Show this update to customers"),
-						default: 1,
-					},
-			  ];
-	}
-
 	visibilityActions() {
 		if (this.doc.visibility === "Internal") {
 			beacon.add_action(
@@ -223,13 +217,6 @@ class IncidentForm {
 				__("Publish"),
 				"publish",
 				[
-					{
-						fieldname: "preview",
-						fieldtype: "HTML",
-						options: `<p><b>${frappe.utils.escape_html(this.doc.title)}</b></p><p>${__(
-							"Customers see this title, the message and the impact below."
-						)}</p><p>${__("Earlier internal updates stay hidden.")}</p>`,
-					},
 					{
 						fieldname: "visibility",
 						fieldtype: "Select",
@@ -251,10 +238,11 @@ class IncidentForm {
 							{
 								fieldname: "service",
 								fieldtype: "Link",
-								options: "Beacon Service",
+								options: "Beacon Alert Rule",
 								label: __("Service"),
 								reqd: 1,
 								in_list_view: 1,
+								link_filters: '[["Beacon Alert Rule", "kind", "=", "SLO Burn"]]',
 							},
 							{
 								fieldname: "region",
@@ -306,35 +294,35 @@ class IncidentForm {
 					},
 				}
 			);
-		} else {
-			const visibility = this.doc.visibility === "Public" ? "Unlisted" : "Public";
-			beacon.add_action(
-				this.frm,
-				__("Make {0}", [__(visibility)]),
-				"change_visibility",
-				null,
-				null,
-				{
-					confirm: [
-						__("Make this incident {0}?", [__(visibility)]),
-						visibility === "Public"
-							? __("The status page lists it for everyone.")
-							: __(
-									"The status page does not list it. Only people with its link can see it."
-							  ),
-					],
-					prepare: () => ({ visibility }),
-				}
-			);
-			beacon.add_action(
-				this.frm,
-				__("Copy Link"),
-				"get_public_link",
-				null,
-				(link) => frappe.utils.copy_to_clipboard(link),
-				{ read: true }
-			);
+			return;
 		}
+		const visibility = this.doc.visibility === "Public" ? "Unlisted" : "Public";
+		beacon.add_action(
+			this.frm,
+			__("Make {0}", [__(visibility)]),
+			"change_visibility",
+			null,
+			null,
+			{
+				confirm: [
+					__("Make this incident {0}?", [__(visibility)]),
+					visibility === "Public"
+						? __("The status page lists it for everyone.")
+						: __(
+								"The status page does not list it. Only people with its link can see it."
+						  ),
+				],
+				prepare: () => ({ visibility }),
+			}
+		);
+		beacon.add_action(
+			this.frm,
+			__("Copy Link"),
+			"get_public_link",
+			null,
+			(link) => frappe.utils.copy_to_clipboard(link),
+			{ read: true }
+		);
 	}
 
 	irreversibleActions() {
@@ -376,7 +364,9 @@ class IncidentForm {
 				"regenerate_public_link",
 				null,
 				null,
-				{ confirm: [__("Make a new link?"), __("The old link stops working.")] }
+				{
+					confirm: [__("Make a new link?"), __("The old link stops working.")],
+				}
 			);
 	}
 }

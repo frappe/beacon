@@ -6,17 +6,31 @@
  "engine": "InnoDB",
  "field_order": [
   "overview_tab",
+  "overview",
+  "updates_tab",
+  "updates",
+  "postmortem_tab",
+  "rca_section",
+  "postmortem_required",
+  "rca",
+  "public_rca",
+  "notifications_tab",
+  "notifications_html",
+  "details_tab",
   "title",
   "type",
   "severity",
   "detected_by",
-  "overview_column",
+  "details_column",
   "status",
   "visibility",
+  "subscribers_html",
   "merged_into",
-  "acknowledgement_column",
+  "acknowledgement_section",
   "acknowledged_by",
   "acknowledged_at",
+  "acknowledgement_column",
+  "alerts_recovered_at",
   "resolved_at",
   "maintenance_window_section",
   "scheduled_start",
@@ -28,22 +42,9 @@
   "scope",
   "impact_section",
   "affected_services",
-  "updates_tab",
-  "updates",
-  "rca_section",
-  "postmortem_required",
-  "rca",
-  "public_rca",
-  "action_items",
-  "alerts_tab",
-  "alerts_html",
   "grouping_section",
   "created_by_beacon",
   "public_id",
-  "grouping_column",
-  "group_keys",
-  "notifications_tab",
-  "notifications_html",
   "escalation_section",
   "escalation",
   "next_page_at",
@@ -56,6 +57,11 @@
    "fieldname": "overview_tab",
    "fieldtype": "Tab Break",
    "label": "Overview"
+  },
+  {
+   "fieldname": "overview",
+   "fieldtype": "Vue Component",
+   "options": "beacon.incident_overview"
   },
   {
    "fieldname": "title",
@@ -94,7 +100,7 @@
    "show_description_on_click": 1
   },
   {
-   "fieldname": "overview_column",
+   "fieldname": "details_column",
    "fieldtype": "Column Break"
   },
   {
@@ -116,6 +122,11 @@
    "read_only": 1
   },
   {
+   "fieldname": "subscribers_html",
+   "fieldtype": "HTML",
+   "label": "Subscribers"
+  },
+  {
    "depends_on": "eval:doc.status == 'Merged'",
    "fieldname": "merged_into",
    "fieldtype": "Link",
@@ -124,8 +135,9 @@
    "read_only": 1
   },
   {
-   "fieldname": "acknowledgement_column",
-   "fieldtype": "Column Break"
+   "fieldname": "acknowledgement_section",
+   "fieldtype": "Section Break",
+   "label": "Acknowledgement"
   },
   {
    "fieldname": "acknowledged_by",
@@ -138,6 +150,16 @@
    "fieldname": "acknowledged_at",
    "fieldtype": "Datetime",
    "label": "Acknowledged At",
+   "read_only": 1
+  },
+  {
+   "fieldname": "acknowledgement_column",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "alerts_recovered_at",
+   "fieldtype": "Datetime",
+   "label": "Alerts Recovered At",
    "read_only": 1
   },
   {
@@ -213,13 +235,18 @@
   {
    "fieldname": "updates_tab",
    "fieldtype": "Tab Break",
-   "label": "Updates and RCA"
+   "label": "Updates"
   },
   {
    "fieldname": "updates",
    "fieldtype": "Table",
    "label": "Updates",
    "options": "Beacon Incident Update"
+  },
+  {
+   "fieldname": "postmortem_tab",
+   "fieldtype": "Tab Break",
+   "label": "Postmortem"
   },
   {
    "fieldname": "rca_section",
@@ -229,7 +256,7 @@
   {
    "default": "0",
    "depends_on": "eval:doc.type == 'Incident'",
-   "description": "Beacon sets this on resolve for a public, Critical or long incident, or one that a customer found. Write the RCA and add action items.",
+   "description": "Beacon sets this on resolve for a public, Critical or long incident, or one that a customer found. Write the RCA and its action items.",
    "fieldname": "postmortem_required",
    "fieldtype": "Check",
    "label": "Postmortem Required",
@@ -246,23 +273,6 @@
    "fieldtype": "Text Editor",
    "label": "Public RCA",
    "show_description_on_click": 1
-  },
-  {
-   "depends_on": "eval:doc.type == 'Incident'",
-   "fieldname": "action_items",
-   "fieldtype": "Table",
-   "label": "Action Items",
-   "options": "Beacon Incident Action Item"
-  },
-  {
-   "fieldname": "alerts_tab",
-   "fieldtype": "Tab Break",
-   "label": "Alerts"
-  },
-  {
-   "fieldname": "alerts_html",
-   "fieldtype": "HTML",
-   "label": "Alerts"
   },
   {
    "fieldname": "grouping_section",
@@ -285,16 +295,6 @@
    "unique": 1
   },
   {
-   "fieldname": "grouping_column",
-   "fieldtype": "Column Break"
-  },
-  {
-   "fieldname": "group_keys",
-   "fieldtype": "Small Text",
-   "label": "Group Keys",
-   "read_only": 1
-  },
-  {
    "fieldname": "notifications_tab",
    "fieldtype": "Tab Break",
    "label": "Notifications"
@@ -303,6 +303,11 @@
    "fieldname": "notifications_html",
    "fieldtype": "HTML",
    "label": "Notifications"
+  },
+  {
+   "fieldname": "details_tab",
+   "fieldtype": "Tab Break",
+   "label": "Details"
   },
   {
    "fieldname": "escalation_section",
@@ -320,7 +325,7 @@
   {
    "fieldname": "next_page_at",
    "fieldtype": "Datetime",
-   "label": "Next Page At",
+   "label": "Next notification at",
    "read_only": 1
   },
   {
@@ -330,27 +335,21 @@
   {
    "fieldname": "page_round",
    "fieldtype": "Int",
-   "label": "Page Round",
+   "label": "Call round",
    "read_only": 1
   },
   {
    "description": "The position, in the responder list, of the person Beacon notifies now.",
    "fieldname": "page_index",
    "fieldtype": "Int",
-   "label": "Page Index",
+   "label": "Responder index",
    "read_only": 1,
    "show_description_on_click": 1
   }
  ],
  "link_display_mode": "Search",
- "links": [
-  {
-   "group": "Subscribers",
-   "link_doctype": "Beacon Incident Subscriber",
-   "link_fieldname": "incident"
-  }
- ],
- "modified": "2026-11-15 12:00:00.000000",
+ "links": [],
+ "modified": "2026-11-17 12:00:00.000000",
  "modified_by": "Administrator",
  "module": "Beacon",
  "name": "Beacon Incident",

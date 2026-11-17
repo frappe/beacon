@@ -5,14 +5,16 @@ from datetime import timedelta
 import frappe
 from frappe.utils import now_datetime
 
+from beacon.beacon.doctype.beacon_alert.beacon_alert import BeaconAlert
+from beacon.beacon.doctype.beacon_incident.beacon_incident import BeaconIncident
+from beacon.beacon.doctype.beacon_notification.beacon_notification import BeaconNotification
 from beacon.core.alert.endpoint_check import EndpointChecks
 from beacon.core.alert.reconciler import AlertReconciler, RuleFailure
+from beacon.core.alert.rules import BURN_KIND
 from beacon.core.alert.suppression import AlertSuppression
 from beacon.core.heartbeat import Heartbeat
 from beacon.core.incident.coordinator import IncidentCoordinator
 from beacon.core.incident.escalation import IncidentEscalation
-from beacon.core.incident.maintenance import MaintenanceSchedule
-from beacon.core.incident.recovery import IncidentRecovery
 from beacon.core.jobs import queue_region_schedule
 from beacon.core.resource.region_probe import RegionProbe
 from beacon.core.resource.regions import RegionSelection
@@ -25,7 +27,7 @@ REGION_UNREACHABLE_RULE = "region-unreachable"
 RESOLVED_ALERT_DAYS = 90
 CLEARED_ALERT_DAYS = 7
 NOTIFICATION_DAYS = 180
-SERVICE_MINUTE_DAYS = 3
+SERVICE_MINUTE_DAYS = 90
 TERMINATED_RESOURCE_DAYS = 90
 
 
@@ -48,7 +50,7 @@ class RegionSchedule:
 		region.run(lambda: self._run_endpoint_checks(context), "Beacon could not run the HTTP and TLS checks")
 		services = {service.name: service for service in self._get_services()}
 		RecordTransaction.run_each(
-			"Beacon Service",
+			"Beacon Alert Rule",
 			services,
 			f"Beacon SLO failed in {self.region.name}",
 			lambda name: ServiceMeasurement(services[name], context).measure(),
@@ -65,8 +67,7 @@ class RegionSchedule:
 		rows = []
 		if self.region.telemetry_state == "Unreachable":
 			rows = [RuleFailure(context.registry.region_resource, detail="ClickHouse probe failed")]
-		reconciler = AlertReconciler.for_rule(REGION_UNREACHABLE_RULE, context.registry, self.now)
-		IncidentRecovery.queue(reconciler.reconcile(rows).recovered_incidents)
+		AlertReconciler.for_rule(REGION_UNREACHABLE_RULE, context.registry, self.now).reconcile(rows)
 
 	def _run_endpoint_checks(self, context: RegionMeasurementContext) -> None:
 		"""The run starts a new transaction first, so no lock is held during the HTTP and TLS calls."""
@@ -75,8 +76,8 @@ class RegionSchedule:
 
 	def _get_services(self) -> list[frappe._dict]:
 		services = frappe.get_all(
-			"Beacon Service",
-			filters={"enabled": 1, "measurement": "Measured"},
+			"Beacon Alert Rule",
+			filters={"kind": BURN_KIND, "enabled": 1, "measurement": "Measured"},
 			fields=[
 				"name",
 				"scope",
@@ -88,7 +89,7 @@ class RegionSchedule:
 				"major_outage_below",
 			],
 		)
-		selection = RegionSelection("Beacon Service")
+		selection = RegionSelection("Beacon Alert Rule")
 
 		def is_measured_here(service: frappe._dict) -> bool:
 			if service.scope == "Global":
@@ -103,26 +104,31 @@ class BeaconScheduler:
 
 	def run(self) -> None:
 		"""Scheduled every minute: time-based work, then one job for each region. Each step runs alone."""
-		MaintenanceSchedule().advance()
+		BeaconIncident.advance_maintenances()
 		settings = RecordTransaction("Beacon Settings", "Beacon Settings")
-		settings.run(self._resolve_disabled_alerts, "Beacon could not resolve disabled alerts")
+		settings.run(self._resolve_inactive_alerts, "Beacon could not resolve inactive alerts")
 		for region in RegionSelection.get_active():
 			queue_region_schedule(region)
 
+		BeaconIncident.close_recovered()
 		IncidentEscalation.step_due()
+		BeaconNotification.requeue_waiting()
 		Heartbeat().send()
 
-	def _resolve_disabled_alerts(self) -> None:
-		"""Close open alerts of disabled rules and disabled regions."""
-		incidents: set[str] = set()
-		disabled_rules = frappe.get_all("Beacon Alert Rule", filters={"enabled": 0}, pluck="name")
-		if disabled_rules:
-			incidents |= AlertReconciler.resolve_matching({"rule": ("in", disabled_rules)}, "Disabled")
+	def _resolve_inactive_alerts(self) -> None:
+		"""Close open alerts of disabled rules, declared services and disabled regions."""
+		inactive = frappe.get_all("Beacon Alert Rule", filters={"enabled": 0}, pluck="name")
+		inactive += frappe.get_all(
+			"Beacon Alert Rule",
+			filters={"kind": BURN_KIND, "measurement": "Declared"},
+			pluck="name",
+		)
+		if inactive:
+			BeaconAlert.resolve_open("Disabled", rule=("in", inactive))
 
 		disabled_regions = frappe.get_all("Beacon Region", filters={"status": "Disabled"}, pluck="name")
 		if disabled_regions:
-			incidents |= AlertReconciler.resolve_matching({"region": ("in", disabled_regions)}, "Disabled")
-		IncidentRecovery.queue(incidents)
+			BeaconAlert.resolve_open("Disabled", region=("in", disabled_regions))
 
 
 class RecordRetention:

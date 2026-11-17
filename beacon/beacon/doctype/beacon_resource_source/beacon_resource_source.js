@@ -8,7 +8,7 @@ frappe.ui.form.on("Beacon Resource Source", {
 			"sync",
 			null,
 			async (result) => {
-				beacon.show_results(__("Fetch result"), result);
+				beacon.show_fields(__("Fetch result"), result);
 				await frm.reload_doc();
 			},
 			{ standalone: true }
@@ -43,7 +43,7 @@ frappe.ui.form.on("Beacon Resource Source", {
 				"apply_held_removals",
 				null,
 				async (result) => {
-					beacon.show_results(__("Removal result"), result);
+					beacon.show_fields(__("Removal result"), result);
 					await frm.reload_doc();
 				},
 				{
@@ -61,7 +61,7 @@ frappe.ui.form.on("Beacon Resource Source", {
 			console.error(error);
 			wrapper.html(
 				`<p class="text-danger">${__(
-					"The held removals did not load. Reload the page, then examine them before you approve."
+					"The held removals did not load. Reload the form, then examine them before you approve."
 				)}</p>`
 			);
 		}

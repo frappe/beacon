@@ -6,7 +6,11 @@ frappe.ui.form.on("Beacon Region", {
 			__("Check Connection"),
 			"check_connection",
 			null,
-			(result) => beacon.show_results(__("Connection"), result),
+			(result) =>
+				beacon.show_fields(__("Connection"), {
+					latency_ms: result.latency_ms,
+					...result.settings,
+				}),
 			{ draft: true }
 		);
 		if (frm.doc.status === "Active")

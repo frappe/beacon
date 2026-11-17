@@ -6,8 +6,8 @@ from typing import TYPE_CHECKING
 import frappe
 from frappe.utils import get_datetime, now_datetime
 
+from beacon.beacon.doctype.beacon_notification.beacon_notification import BeaconNotification
 from beacon.core.incident.chat_message import ChatMessage
-from beacon.core.incident.outbox import NotificationOutbox
 from beacon.core.transaction import RecordTransaction
 
 if TYPE_CHECKING:
@@ -51,6 +51,7 @@ class IncidentEscalation:
 		return self.incident.escalation in ACTIVE_ESCALATIONS
 
 	def start(self, wait: bool) -> None:
+		"""Start with the first responder, at once or after the page delay. Does not save."""
 		self.incident.page_round = 1
 		self.incident.page_index = 0
 		if wait:
@@ -58,7 +59,6 @@ class IncidentEscalation:
 			self.incident.next_page_at = self.now + timedelta(seconds=self.settings.page_delay_seconds)
 		else:
 			self.call_next()
-		self.incident.save(ignore_permissions=True)
 
 	def step(self) -> None:
 		"""After the page delay, call the first responder. While calling, move on to the next one."""
@@ -67,7 +67,14 @@ class IncidentEscalation:
 		if self.incident.escalation == "Calling":
 			self.move_to_next_responder()
 		self.call_next()
-		self.incident.save(ignore_permissions=True)
+		self.incident.db_set(
+			{
+				"escalation": self.incident.escalation,
+				"next_page_at": self.incident.next_page_at,
+				"page_round": self.incident.page_round,
+				"page_index": self.incident.page_index,
+			}
+		)
 
 	def stop(self) -> None:
 		"""Called on acknowledge and close. Does not save."""
@@ -82,15 +89,10 @@ class IncidentEscalation:
 			self.incident.page_round += 1
 
 	def call_next(self) -> None:
-		"""Call and mail the current responder, then plan the next step. High incidents stop after max_rounds."""
+		"""Call and mail the current responder, then plan the next step."""
 		responders = self.settings.get_active_responders()
 		if not responders:
-			self._finish("no responder is active. Contact a responder directly.")
-			return
-		if self.incident.severity == "High" and self.incident.page_round > self.settings.max_rounds:
-			self._finish(
-				f"nobody acknowledged after {self.settings.max_rounds} rounds. Contact a responder directly."
-			)
+			self._finish("No responder is active. Contact the team directly.")
 			return
 
 		self.incident.escalation = "Calling"
@@ -98,9 +100,12 @@ class IncidentEscalation:
 			self.incident.page_index = 0
 		responder = responders[self.incident.page_index]
 		message = f"{self.incident.severity} incident {self.incident.name}: {self.incident.title}"
-		outbox = NotificationOutbox()
 		for channel in ("Call", "Email"):
-			outbox.queue(channel, message, self.incident.name, responder.user, self.incident.page_round)
+			if channel == "Email" and self._has_emailed(responder.user):
+				continue
+			BeaconNotification.queue(
+				channel, message, self.incident.name, responder.user, self.incident.page_round
+			)
 
 		is_last = self.incident.page_index == len(responders) - 1
 		minutes = (
@@ -110,10 +115,26 @@ class IncidentEscalation:
 		)
 		self.incident.next_page_at = self.now + timedelta(minutes=minutes)
 
+	def _has_emailed(self, responder: str) -> bool:
+		"""One escalation email for each responder in each round. A cancelled or failed email was not sent."""
+		return bool(
+			frappe.db.get_value(
+				"Beacon Notification",
+				{
+					"incident": self.incident.name,
+					"responder": responder,
+					"page_round": self.incident.page_round,
+					"channel": "Email",
+					"status": ("in", ("Queued", "Sending", "Sent")),
+				},
+				"name",
+			)
+		)
+
 	def _finish(self, reason: str) -> None:
 		self.incident.escalation = "Done"
 		self.incident.next_page_at = None
-		NotificationOutbox().announce(
+		BeaconNotification.announce(
 			self.incident,
-			f"⛔ **Automatic calls stopped** on {ChatMessage.link(self.incident.name)}: {reason}",
+			f"⛔ **Calls stopped for {ChatMessage.link(self.incident.name)}.** {reason}",
 		)

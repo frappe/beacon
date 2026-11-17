@@ -36,8 +36,12 @@ class ClickHouseClient:
 		excluded = frappe.get_all(
 			"Beacon Resource", filters={"region": self.region, "monitoring_disabled": 1}, pluck="resource_id"
 		)
-		quoted = (name.replace("\\", "\\\\").replace("'", "\\'") for name in excluded)
-		self.excluded = "[" + ",".join(f"'{name}'" for name in quoted) + "]"
+		self.excluded = self.quote_array(excluded)
+
+	@staticmethod
+	def quote_array(values: list[str]) -> str:
+		escaped = (str(value).replace("\\", "\\\\").replace("'", "\\'") for value in values)
+		return "[" + ",".join(f"'{value}'" for value in escaped) + "]"
 
 	def query(self, sql: str, **parameters: Any) -> list[dict[str, Any]]:
 		"""Run one SELECT and return its rows. `{region:String}` and `{excluded:Array(String)}`, the resources

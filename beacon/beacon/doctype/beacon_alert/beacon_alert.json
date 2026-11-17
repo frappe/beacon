@@ -24,6 +24,7 @@
   "suppressed",
   "suppression_column",
   "suppressed_by",
+  "silenced_until",
   "details_section",
   "fired_at",
   "clean_since",
@@ -158,6 +159,12 @@
    "read_only": 1
   },
   {
+   "fieldname": "silenced_until",
+   "fieldtype": "Datetime",
+   "label": "Silenced Until",
+   "read_only": 1
+  },
+  {
    "collapsible": 1,
    "fieldname": "details_section",
    "fieldtype": "Section Break",
@@ -224,15 +231,18 @@
  "permissions": [
   {
    "read": 1,
-   "role": "Beacon Admin"
+   "role": "Beacon Admin",
+   "write": 1
   },
   {
    "read": 1,
-   "role": "Beacon Responder"
+   "role": "Beacon Responder",
+   "write": 1
   },
   {
    "read": 1,
-   "role": "System Manager"
+   "role": "System Manager",
+   "write": 1
   }
  ],
  "row_format": "Dynamic",

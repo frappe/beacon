@@ -6,17 +6,16 @@ from typing import TYPE_CHECKING
 import frappe
 from frappe.utils import get_datetime, now_datetime, strip_html_tags
 
+from beacon.beacon.doctype.beacon_notification.beacon_notification import BeaconNotification
 from beacon.core.alert.states import PAGED_SEVERITIES
 from beacon.core.incident.chat_message import ChatMessage
-from beacon.core.incident.outbox import NotificationOutbox
 
 if TYPE_CHECKING:
 	from beacon.beacon.doctype.beacon_incident.beacon_incident import BeaconIncident
 
 LONG_INCIDENT = timedelta(hours=1)
-# Beacon reminds the team each day in this window after the resolve.
-REMINDER_STARTS_AFTER = timedelta(days=3)
-REMINDER_STOPS_AFTER = timedelta(days=30)
+# Beacon reminds the team once at 3 days and once at 7 days after the resolve.
+REMINDER_DAYS = (3, 7)
 
 TEMPLATE = """<h3>Summary</h3><p></p>
 <h3>Impact</h3><p>Who was affected, how much and for how long.</p>
@@ -24,7 +23,8 @@ TEMPLATE = """<h3>Summary</h3><p></p>
 <h3>Root cause</h3><p></p>
 <h3>Trigger</h3><p>The change or event that started the problem.</p>
 <h3>Detection</h3><p>How we found the problem, and how we can find it sooner.</p>
-<h3>Lessons</h3><p>What went well, and what went badly.</p>"""
+<h3>Lessons</h3><p>What went well, and what went badly.</p>
+<h3>Action items</h3><p>[ ] Add a disk alert - @assignee - https://github.com/org/repo/issues/123</p>"""
 
 
 class Postmortem:
@@ -58,26 +58,26 @@ class Postmortem:
 
 	@staticmethod
 	def remind_missing() -> None:
-		"""Scheduled daily: post to chat for each required postmortem that is still empty."""
+		"""Scheduled daily: post to chat at 3 and 7 days for each required postmortem that is still empty."""
 		now = now_datetime()
-		incidents = frappe.get_all(
+		names = frappe.get_all(
 			"Beacon Incident",
 			filters={
 				"postmortem_required": 1,
 				"status": "Resolved",
-				"resolved_at": ("between", [now - REMINDER_STOPS_AFTER, now - REMINDER_STARTS_AFTER]),
+				"resolved_at": ("between", [now - timedelta(days=8), now - timedelta(days=3)]),
 			},
-			fields=["name", "title", "rca", "resolved_at"],
+			pluck="name",
 		)
-		outbox = NotificationOutbox()
-		for incident in incidents:
-			if is_empty(incident.rca):
-				days = (now - get_datetime(incident.resolved_at)).days
-				outbox.queue(
+		for name in names:
+			incident = frappe.get_doc("Beacon Incident", name)
+			days = (now - get_datetime(incident.resolved_at)).days
+			if days in REMINDER_DAYS and is_empty(incident.rca):
+				BeaconNotification.queue(
 					"Chat",
-					f"📝 **Postmortem missing** on {ChatMessage.link(incident.name)}: {incident.title}."
-					f" Resolved {days} days ago.",
-					incident.name,
+					f"📝 **Postmortem needed for {ChatMessage.link(name)}.**"
+					f" Resolved {days} days ago. Write the root cause.",
+					name,
 				)
 
 

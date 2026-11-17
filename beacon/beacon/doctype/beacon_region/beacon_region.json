@@ -167,11 +167,6 @@
    "group": "Alerts",
    "link_doctype": "Beacon Alert",
    "link_fieldname": "region"
-  },
-  {
-   "group": "Alerts",
-   "link_doctype": "Beacon Silence",
-   "link_fieldname": "region"
   }
  ],
  "modified": "2026-11-14 02:11:06.277305",

@@ -8,8 +8,8 @@ from frappe import _
 from frappe.model.document import Document
 from frappe.utils import now_datetime
 
+from beacon.beacon.doctype.beacon_notification.beacon_notification import BeaconNotification
 from beacon.core.exceptions import SourceFetchError
-from beacon.core.incident.outbox import NotificationOutbox
 from beacon.core.resource.source import ResourceSync, SyncResult
 from beacon.core.resource.source_client import ResourceSourceClient
 from beacon.core.transaction import RecordTransaction
@@ -76,7 +76,7 @@ class BeaconResourceSource(Document):
 		if not self.held_removals:
 			frappe.throw(_("There are no held removals."))
 		if expected_count is not None and self.get_held_removals()["total"] != int(expected_count):
-			frappe.throw(_("The list of resources to remove changed. Reload the page and check it again."))
+			frappe.throw(_("The list of resources to remove changed. Reload the form and check it again."))
 		return self.sync(allow_removals=True)
 
 	@frappe.whitelist()
@@ -146,7 +146,8 @@ class BeaconResourceSource(Document):
 				reference_name=source.name,
 			)
 		if source.failed_fetches == FAILED_FETCHES_TO_REPORT:
-			NotificationOutbox().post_to_chat(
-				f"Resource source {source.name} failed {FAILED_FETCHES_TO_REPORT} fetches in a row."
-				f" Beacon does not see new or removed resources from it: {source.last_error[:500]}"
+			BeaconNotification.post_to_chat(
+				f"⚠️ **Resource sync failed for {source.title or source.name}.**"
+				f" {FAILED_FETCHES_TO_REPORT} fetches failed in a row."
+				f" New and removed resources are not updated. Error: {source.last_error[:500]}"
 			)

@@ -13,7 +13,6 @@ import requests
 
 from beacon.core.alert.reconciler import AlertReconciler, RuleFailure
 from beacon.core.exceptions import EndpointVariableError
-from beacon.core.incident.recovery import IncidentRecovery
 from beacon.core.resource.regions import RegionSelection
 from beacon.core.resource.registry import ResourceRegistry
 from beacon.core.transaction import RecordTransaction
@@ -107,8 +106,7 @@ class EndpointChecks:
 		def apply(rule: str) -> None:
 			failure = failures[rule]
 			rows = [RuleFailure(registry.region_resource, detail=failure)] if failure else []
-			reconciler = AlertReconciler.for_rule(rule, registry, now)
-			IncidentRecovery.queue(reconciler.reconcile(rows).recovered_incidents)
+			AlertReconciler.for_rule(rule, registry, now).reconcile(rows)
 
 		RecordTransaction.run_each(
 			"Beacon Alert Rule",

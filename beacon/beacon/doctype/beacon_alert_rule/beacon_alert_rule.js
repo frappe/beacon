@@ -17,26 +17,25 @@ frappe.ui.form.on("Beacon Alert Rule", {
 		} else
 			view.managed(
 				frm.doc.kind === "SLO Burn"
-					? []
+					? ["enabled", "query_region"]
 					: ["HTTP", "TLS"].includes(frm.doc.kind)
 					? ["enabled", "regions"]
 					: ["enabled"]
 			);
 		if (frm.is_new()) return;
-		if (frm.doc.kind === "SLO Burn")
+		if (frm.doc.kind === "SLO Burn") {
 			frm.set_intro(
 				__(
-					"This rule has no query. Each minute Beacon measures {0} and raises the fast, medium and slow burn alerts, and the SLA alert when the service has an SLA Target. The targets come from the service file. Turn the service on or off to turn this rule on or off.",
-					[
-						frappe.utils.get_form_link(
-							"Beacon Service",
-							frm.doc.service,
-							true,
-							frappe.utils.get_link_title("Beacon Service", frm.doc.service)
-						),
-					]
+					"This rule is the service definition. Each minute Beacon measures it and raises the fast, medium and slow burn alerts, and the SLA alert when the service has an SLA Target. The targets come from the service file. Turn it on or off to start or stop its measurement."
 				)
 			);
+			view.related("health_html", "Beacon Service State", { service: frm.doc.name }, [
+				["region", "Region"],
+				["status", "Status"],
+				["checked_at", "Last measured"],
+				["budget_left", "Budget left, 30 days"],
+			]);
+		}
 		view.related("evaluations_html", "Beacon Rule Evaluation", { rule: frm.doc.name }, [
 			["region", "Region"],
 			["state", "State"],
@@ -44,14 +43,32 @@ frappe.ui.form.on("Beacon Alert Rule", {
 			["last_error", "Last error"],
 		]);
 		beacon.add_runbook_button(frm, frm.doc.runbook_url);
-		if (["SQL", "HTTP", "TLS"].includes(frm.doc.kind))
+		if (frm.doc.kind === "SLO Burn" && frm.doc.measurement === "Measured")
+			beacon.add_action(
+				frm,
+				__("Test SLI Query"),
+				"test",
+				null,
+				(results) =>
+					beacon.show_rows(
+						__(
+							"Test result. These numbers include unknown resources and maintenance time."
+						),
+						results
+					),
+				{ standalone: true, draft: true }
+			);
+		else if (["SQL", "HTTP", "TLS"].includes(frm.doc.kind)) {
+			const show = frm.doc.kind === "SQL" ? beacon.show_test : beacon.show_rows;
 			beacon.add_action(
 				frm,
 				__("Test Rule"),
 				"test",
 				null,
-				(results) => beacon.show_results(__("Test result"), results),
+				(results) => show(__("Test result"), results),
 				{ standalone: true, draft: true }
 			);
+		}
+		beacon.add_silence_actions(frm);
 	},
 });

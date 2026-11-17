@@ -19,7 +19,7 @@ RESOURCE_FIELDS = (
 	"status",
 	"is_checked",
 	"active_since",
-	"removal_held",
+	"monitoring_disabled",
 	"source",
 )
 
@@ -79,9 +79,11 @@ class ResourceRegistry:
 		return bool(resource.is_checked) and not is_new
 
 	def get_ancestors(self, resource: frappe._dict) -> list[frappe._dict]:
-		"""Return the resource and each parent up to its root."""
+		"""Return the resource and each parent up to its root. A parent loop ends the chain where it repeats."""
 		chain = []
-		while resource:
+		seen: set[str] = set()
+		while resource and resource.name not in seen:
 			chain.append(resource)
+			seen.add(resource.name)
 			resource = self.by_name.get(resource.parent_resource)
 		return chain

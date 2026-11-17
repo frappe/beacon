@@ -25,15 +25,11 @@
 </template>
 
 <script setup>
-import { watch } from "vue";
-
 import { formatTime, useCall } from "../api.js";
 import IncidentList from "../components/IncidentList.vue";
 import StatusBadge from "../components/StatusBadge.vue";
 import ServiceList from "../components/ServiceList.vue";
 import { SUMMARY, statusClass } from "../status.js";
 
-const emit = defineEmits(["title"]);
 const { data, error } = useCall("get_status", () => ({}), 60);
-watch(data, (value) => value?.title && emit("title", value.title));
 </script>

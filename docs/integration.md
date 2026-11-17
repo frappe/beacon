@@ -99,13 +99,15 @@ batch.gauge("backup_age", age_seconds, unit="seconds", cluster="garage-1")
 batch.counter("backups", completed, cluster="garage-1")  # cargo_object_storage_backups_total
 
 with Datum(url, token) as datum:
-    datum.send(batch)
+	datum.send(batch)
 ```
 
 A Frappe app can also post the JSON body itself from a scheduled job. Send each minute at most. Read the result: a 4xx means that the batch is not valid, and Datum stored nothing.
 
 ```python
-requests.post(f"{url}/v1/ingest", json={"samples": samples}, headers={"Authorization": f"Bearer {token}"}, timeout=10)
+requests.post(
+	f"{url}/v1/ingest", json={"samples": samples}, headers={"Authorization": f"Bearer {token}"}, timeout=10
+)
 ```
 
 Keep the data of a failed push when you can send it again without a duplicate, such as a count that you read and reset. Put it back and send it with the next push.
@@ -163,12 +165,13 @@ flowchart TD
 
 ## 6. Write a rule and a runbook
 
-Add a rule only when it points to one fix. Each rule is one file, `beacon/rules/<rule-key>.sql`. Write the rule key, the service key, the runbook name and a fixed `alert_key` in lowercase with `-`, such as `host-disk-full`, because they are file names and parts of URLs. Metric and label names use `_`, because Datum refuses `-` in them. It returns only failing rows, with `resource_id`, `alert_key`, `value`, `detail` and an optional `severity`. See [Alerts](alerts.md) for the contract and the header.
+Add a rule only when it points to one fix. Each rule is one file, `beacon/rules/<rule-key>.sql`. Write the rule key, the service key, the runbook name and a fixed `alert_key` in lowercase with `-`, such as `host-disk-full`, because they are file names and parts of URLs. Metric and label names use `_`, because Datum refuses `-` in them. It returns only failing rows, with `resource_id`, `alert_key`, `value`, `detail` and an optional `severity`. The optional `-- description:` header tells the responder what broke, and the Overview tab of the incident shows it. See [Alerts](alerts.md) for the contract and the header.
 
 ### An example
 
 ```sql
 -- title: Object storage backup stale
+-- description: Cargo has no recent metadata backup of the object storage cluster.
 -- severity: Medium
 -- resource_type: Cargo Server
 -- interval: 900
@@ -287,16 +290,19 @@ beacon/
   rules/<rule-key>.http      HTTP checks
   rules/<rule-key>.tls       TLS certificate checks
   services/<service>.sql     SLI queries
+  charts/<chart-key>.sql     chart queries
   runbooks/<rule-key>.md     the steps for each rule that pages
 ```
 
-Add each repository as a Definition Source in Beacon Settings. Set its branch and the folder `beacon`. Select Sync Definitions to read the rule and service files. Beacon does not read the runbooks.
+A chart file has `-- title:`, `-- resource_type:`, `-- section:`, `-- unit:`, `-- style:`, `-- is_key_chart:` and `-- sort_order:` header lines. `style` is `Line` or `Bar`. Metrics in Beacon shows the charts of a resource, grouped by `section`. `resource_type` can name more than one type, separated by commas, when the metrics are the same, such as the machine metrics of a host and a VM. A key chart also shows as a number card, and the incident Overview shows it for the cause resource. The rest is a query that returns `ts`, `series` and `value`. It returns at most 20 series and 2000 rows. A null `value` is a gap. The query gets `{resource_id:String}`, `{start:DateTime64(3)}`, `{end:DateTime64(3)}`, `{step:UInt32}` (seconds per bucket, at least 60), plus `{region:String}` and `{excluded:Array(String)}`. Group the rows by `toStartOfInterval(ts, toIntervalSecond({step:UInt32}))`. Beacon deletes a chart when its file is gone.
 
-The sync applies all files of a source, or none. It applies none when one file has an invalid header, a name that another source owns, or a new or changed SQL query that fails.
+Add each repository as a Definition Source in Beacon Settings. Set its branch and the folder `beacon`. Select Sync Definitions to read the rule, service and chart files. Beacon does not read the runbooks.
 
-When a rule or service file is missing, Beacon disables that record and marks it Removed From Source. Beacon enables it again when the file comes back. A source can take a name when its old source removed the file or is no longer configured. So a rule can move between repositories.
+The sync checks all files of a source before it writes: an invalid header, a name that another source owns, or a new or changed SQL query that fails stops the source and Beacon changes nothing. It then applies each definition in its own committed transaction. A database failure after the checks can leave the earlier definitions applied, and the sync result names each failed definition.
 
-Desk can only turn a file rule or service on or off, set the Query Region of a global service, and set the Regions of an HTTP or TLS rule. A file that names a region sets the Regions again at each sync. To change anything else, change its file.
+When a rule or service file is missing, Beacon disables that record and marks it Removed From Source. Beacon enables it again when the file comes back. A chart whose file is missing is deleted. A source can take a name when its old source removed the file or is no longer configured. So a rule can move between repositories.
+
+Desk can only turn a file rule or service on or off, set the Query Region of a global service, and set the Regions of an HTTP or TLS rule. A service is an Alert Rule of kind SLO Burn, so its file and its burn rule are one record. A file that names a region sets the Regions again at each sync. To change anything else, change its file.
 
 After the sync, open the rule in Desk. A rule that fails 3 times in a row is Broken, and the control panel shows it in red. Fix it in the same week.
 

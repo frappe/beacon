@@ -61,19 +61,12 @@ def queue_source_sync(source: str) -> None:
 	)
 
 
-def queue_incident_recovery(incidents: list[str]) -> None:
-	frappe.enqueue(
-		"beacon.core.jobs.resolve_recovered_incidents",
-		queue=QUEUE,
-		enqueue_after_commit=True,
-		incidents=incidents,
-	)
-
-
 def queue_notification(notification: str) -> None:
 	frappe.enqueue(
 		"beacon.core.jobs.deliver_notification",
 		queue=NOTIFICATION_QUEUE,
+		job_id=f"beacon-notification:{notification}",
+		deduplicate=True,
 		enqueue_after_commit=True,
 		notification=notification,
 	)
@@ -111,13 +104,6 @@ def evaluate_region(region: str, evaluation: str | None = None) -> None:
 
 
 @run_as_admin
-def resolve_recovered_incidents(incidents: list[str]) -> None:
-	from beacon.core.incident.recovery import IncidentRecovery
-
-	IncidentRecovery().resolve_recovered(incidents)
-
-
-@run_as_admin
 def delete_old_rows() -> None:
 	from beacon.core.scheduler import RecordRetention
 
@@ -140,9 +126,9 @@ def notify_subscribers(incident: str, update: str) -> None:
 
 @run_as_admin
 def deliver_notification(notification: str) -> None:
-	from beacon.core.incident.outbox import NotificationDelivery
+	from beacon.beacon.doctype.beacon_notification.beacon_notification import BeaconNotification
 
-	NotificationDelivery(notification).send()
+	frappe.get_doc("Beacon Notification", notification).send()
 
 
 @run_as_admin

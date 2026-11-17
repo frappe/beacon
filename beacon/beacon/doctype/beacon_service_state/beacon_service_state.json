@@ -40,8 +40,9 @@
    "fieldname": "service",
    "fieldtype": "Link",
    "label": "Service",
-   "options": "Beacon Service",
-   "read_only": 1
+   "options": "Beacon Alert Rule",
+   "read_only": 1,
+   "link_filters": "[[\"Beacon Alert Rule\", \"kind\", \"=\", \"SLO Burn\"]]"
   },
   {
    "fieldname": "region",

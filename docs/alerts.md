@@ -24,6 +24,7 @@ The lines at the top of the file set the rule fields:
 
 ```sql
 -- title: Host disk almost full
+-- description: A disk on the host has little free space.
 -- severity: High
 -- resource_type: Metal Host
 -- runbook_url: https://example.com/runbooks/host-disk-full.md
@@ -35,6 +36,7 @@ SELECT ...
 
 | Field | Meaning |
 | --- | --- |
+| `description` | Optional. What broke, in one line. The incident Overview shows it. |
 | `severity` | The highest severity of the rule. A row can set a lower one. |
 | `resource_type` | The registry type of the resources in the rows, such as `Metal Host`. When the rows can have more types, write a list, such as `Metal Host, Virtual Machine`. Beacon drops each row for a resource of another type. The sync warns about a type that no resource has. |
 | `interval` | Seconds between two runs. |
@@ -49,7 +51,7 @@ SELECT ...
 | --- | --- |
 | Critical | Customers are down now, and a person must act at once. |
 | High | Customers are or will soon be affected. It pages. |
-| Medium | A person must look today. Chat and email. |
+| Medium | A person must look today. Chat only. |
 | Low | Something to know about. Chat only. |
 
 Use the `severity` column when one rule has a soft limit and a hard limit. For example, a disk with less than 25% free is Low, and with less than 10% free it is High.
@@ -85,7 +87,7 @@ Each minute, Beacon queues one job for each region that has due rules. For each 
 4. When the last good run is older than 3 intervals, restart the pending and clean timers, because the time is no longer continuous.
 5. Drop the rows of unknown resources, of resources that are not of the rule's resource type, of resources that are not checked, and of resources that are new in the last 10 minutes.
 6. Compare the rows with the open alerts and write only the changes.
-7. When an alert starts firing or becomes more severe, make sure that it belongs to an incident. When alerts recover, a separate job checks whether their incident can close.
+7. Make sure that each Firing alert belongs to an incident. Each minute, the recovery sweep checks whether an incident whose alerts all recovered can close.
 
 ## Alert states
 
@@ -103,11 +105,11 @@ stateDiagram-v2
     Resolved --> [*]
 ```
 
-A query error or an Unreachable region changes no state. A Resolved alert stores its resolution: Cleared, Recovered, Resource Removed or Disabled.
+A query error or an Unreachable region changes no state. The `STATUS` state machine of the alert refuses every other move, so a Resolved alert never fires again. A Resolved alert stores its resolution: Cleared, Recovered, Resource Removed or Disabled.
 
 | From | Event | To |
 | --- | --- | --- |
-| none | A new row | Pending. A built-in rule with `pending_for` 0, such as Region unreachable, fires at once. |
+| none | A new row | Pending. A built-in rule with `pending_for` 0, such as Beacon cannot read metrics, fires at once. |
 | Pending | The row fails for `pending_for` | Firing |
 | Pending | A good run without the row | Resolved (Cleared) |
 | Firing | No row for `resolve_after` | Resolved (Recovered) |
@@ -126,13 +128,17 @@ A suppressed alert keeps its state, but it does not join an incident and does no
 
 An alert is suppressed when:
 
-- an active silence matches its rule, alert key or resource, or
+- a person silenced the alert, and the silence has not ended, or
+- a person silenced its rule, and the silence has not ended, or
 - an In Progress maintenance covers its resource, and for 10 minutes after the maintenance ends, so rebooted hosts can come back, or
-- the maintenance has "Mute SLO Burn" set, and the alert is a burn alert of a region in the maintenance, or
-- the resource has a held removal: the last resource list would terminate more than 10% of the resources, and an admin must apply it.
+- the maintenance has "Mute SLO Burn" set, and the alert is a burn alert of a region in the maintenance.
+
+A silence ends at a set time, at most 30 days later, or when a person ends it. It needs a reason. The Suppressed By field of the alert shows what mutes it.
+
+A held removal does not suppress alerts. Beacon posts to chat one time when it holds a removal, and the alerts of the held resources stay visible.
 
 ## Region health
 
-Each minute, the region run probes ClickHouse. After 2 failed probes, the region is Unreachable. Beacon raises one Critical alert, "Region unreachable", skips the rules of the region, and shows its services as Unknown.
+Each minute, the region run probes ClickHouse. After 2 failed probes, the region is Unreachable. Beacon raises one Critical alert, "Beacon cannot read metrics", skips the rules of the region, and shows its services as Unknown.
 
 When more than half of the hosts that Atlas syncs are silent in Datum, the region is Suspect. Rules still run, and the services show as Unknown. After 2 good checks the region is OK again.

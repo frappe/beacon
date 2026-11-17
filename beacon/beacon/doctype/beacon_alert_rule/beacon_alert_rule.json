@@ -7,13 +7,26 @@
  "field_order": [
   "rule_tab",
   "title",
+  "description",
   "kind",
-  "service",
   "severity",
   "rule_column",
   "enabled",
+  "silenced_until",
   "resource_type",
   "runbook_url",
+  "service_section",
+  "measurement",
+  "slo_target",
+  "sla_target",
+  "major_outage_below",
+  "page_on_burn",
+  "service_column",
+  "show_on_status_page",
+  "sort_order",
+  "status_page_group",
+  "health_section",
+  "health_html",
   "http_section",
   "url",
   "host",
@@ -38,7 +51,12 @@
   "is_removed",
   "is_custom",
   "query_tab",
-  "query"
+  "query",
+  "sli_tab",
+  "scope",
+  "query_region",
+  "scope_column",
+  "sli_query"
  ],
  "fields": [
   {
@@ -50,7 +68,16 @@
    "fieldname": "title",
    "fieldtype": "Data",
    "label": "Title",
-   "reqd": 1
+   "reqd": 1,
+   "description": "For an SLO Burn rule, customers see this title on the status page.",
+   "show_description_on_click": 1
+  },
+  {
+   "fieldname": "description",
+   "fieldtype": "Small Text",
+   "label": "Description",
+   "description": "For an SLO Burn rule, customers see this text below the service name.",
+   "show_description_on_click": 1
   },
   {
    "default": "SQL",
@@ -61,14 +88,6 @@
    "label": "Kind",
    "options": "SQL\nHTTP\nTLS\nSLO Burn\nBuilt In",
    "set_only_once": 1
-  },
-  {
-   "depends_on": "eval:doc.kind == 'SLO Burn'",
-   "fieldname": "service",
-   "fieldtype": "Link",
-   "label": "Service",
-   "options": "Beacon Service",
-   "read_only": 1
   },
   {
    "default": "Medium",
@@ -93,10 +112,16 @@
    "label": "Enabled"
   },
   {
+   "fieldname": "silenced_until",
+   "fieldtype": "Datetime",
+   "label": "Silenced Until",
+   "read_only": 1
+  },
+  {
+   "depends_on": "eval:!['HTTP', 'TLS', 'SLO Burn'].includes(doc.kind)",
    "fieldname": "resource_type",
    "fieldtype": "Data",
-   "label": "Resource Type",
-   "depends_on": "eval:!['HTTP', 'TLS'].includes(doc.kind)"
+   "label": "Resource Type"
   },
   {
    "fieldname": "runbook_url",
@@ -111,13 +136,13 @@
    "label": "Endpoint check"
   },
   {
+   "depends_on": "eval:doc.kind == 'HTTP'",
    "description": "Beacon calls this URL every minute from the Beacon site. It can use {region}, {wildcard_domain}, {atlas_url} and {central_url}.",
    "fieldname": "url",
    "fieldtype": "Data",
    "label": "URL",
    "mandatory_depends_on": "eval:doc.kind == 'HTTP'",
-   "show_description_on_click": 1,
-   "depends_on": "eval:doc.kind == 'HTTP'"
+   "show_description_on_click": 1
   },
   {
    "depends_on": "eval:doc.kind == 'TLS'",
@@ -130,10 +155,10 @@
   },
   {
    "default": "200",
+   "depends_on": "eval:doc.kind == 'HTTP'",
    "fieldname": "expected_status",
    "fieldtype": "Int",
-   "label": "Expected Status",
-   "depends_on": "eval:doc.kind == 'HTTP'"
+   "label": "Expected Status"
   },
   {
    "default": "14",
@@ -147,12 +172,12 @@
    "fieldtype": "Column Break"
   },
   {
+   "depends_on": "eval:doc.kind == 'HTTP'",
    "description": "Optional. The response body must contain this text.",
    "fieldname": "expected_text",
    "fieldtype": "Data",
    "label": "Expected Text",
-   "show_description_on_click": 1,
-   "depends_on": "eval:doc.kind == 'HTTP'"
+   "show_description_on_click": 1
   },
   {
    "default": "10",
@@ -188,13 +213,15 @@
    "default": "300",
    "fieldname": "pending_for",
    "fieldtype": "Int",
-   "label": "Pending For (Seconds)"
+   "label": "Pending For (Seconds)",
+   "depends_on": "eval:doc.kind != 'SLO Burn'"
   },
   {
    "default": "120",
    "fieldname": "resolve_after",
    "fieldtype": "Int",
-   "label": "Resolve After (Seconds)"
+   "label": "Resolve After (Seconds)",
+   "depends_on": "eval:doc.kind != 'SLO Burn'"
   },
   {
    "fieldname": "regions_column",
@@ -210,12 +237,12 @@
   },
   {
    "default": "0",
+   "depends_on": "eval:!['HTTP', 'TLS', 'SLO Burn'].includes(doc.kind)",
    "description": "The incident also covers the resources under the alert's resource, such as servers on a host.",
    "fieldname": "scope_includes_descendants",
    "fieldtype": "Check",
    "label": "Include Child Resources",
-   "show_description_on_click": 1,
-   "depends_on": "eval:!['HTTP', 'TLS'].includes(doc.kind)"
+   "show_description_on_click": 1
   },
   {
    "collapsible": 1,
@@ -275,6 +302,138 @@
    "mandatory_depends_on": "eval:doc.kind == 'SQL'",
    "options": "SQL",
    "show_description_on_click": 1
+  },
+  {
+   "depends_on": "eval:doc.kind == 'SLO Burn'",
+   "fieldname": "service_section",
+   "fieldtype": "Section Break",
+   "label": "Service"
+  },
+  {
+   "default": "Measured",
+   "depends_on": "eval:doc.kind == 'SLO Burn'",
+   "description": "A Declared service has no SLI. Published incidents set its status.",
+   "fieldname": "measurement",
+   "fieldtype": "Select",
+   "label": "Measurement",
+   "options": "Measured\nDeclared",
+   "show_description_on_click": 1
+  },
+  {
+   "default": "99.9",
+   "depends_on": "eval:doc.kind == 'SLO Burn'",
+   "description": "The target for 30 days.",
+   "fieldname": "slo_target",
+   "fieldtype": "Percent",
+   "in_list_view": 1,
+   "label": "SLO Target",
+   "mandatory_depends_on": "eval:doc.kind == 'SLO Burn'",
+   "show_description_on_click": 1
+  },
+  {
+   "depends_on": "eval:doc.kind == 'SLO Burn'",
+   "description": "Optional. Lower than the SLO Target. Beacon alerts when the error rate is above it for 1 hour and 15 minutes.",
+   "fieldname": "sla_target",
+   "fieldtype": "Percent",
+   "label": "SLA Target",
+   "show_description_on_click": 1
+  },
+  {
+   "default": "80",
+   "depends_on": "eval:doc.kind == 'SLO Burn' && doc.measurement == 'Measured'",
+   "description": "An SLI below this shows Major Outage. From this value to 95% shows Partial Outage.",
+   "fieldname": "major_outage_below",
+   "fieldtype": "Percent",
+   "label": "Major Outage Below",
+   "show_description_on_click": 1
+  },
+  {
+   "default": "1",
+   "depends_on": "eval:doc.kind == 'SLO Burn'",
+   "description": "If you clear this, SLO burn alerts are Medium. Beacon then sends them only to chat.",
+   "fieldname": "page_on_burn",
+   "fieldtype": "Check",
+   "label": "Notify on error budget burn",
+   "show_description_on_click": 1
+  },
+  {
+   "fieldname": "service_column",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "1",
+   "depends_on": "eval:doc.kind == 'SLO Burn'",
+   "fieldname": "show_on_status_page",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Show on Status Page"
+  },
+  {
+   "depends_on": "eval:doc.kind == 'SLO Burn'",
+   "fieldname": "sort_order",
+   "fieldtype": "Int",
+   "label": "Sort Order"
+  },
+  {
+   "depends_on": "eval:doc.kind == 'SLO Burn'",
+   "description": "Services with the same group show under one heading.",
+   "fieldname": "status_page_group",
+   "fieldtype": "Data",
+   "label": "Status Page Group",
+   "show_description_on_click": 1
+  },
+  {
+   "depends_on": "eval:doc.kind == 'SLO Burn'",
+   "fieldname": "health_section",
+   "fieldtype": "Section Break",
+   "label": "Current service health"
+  },
+  {
+   "depends_on": "eval:doc.kind == 'SLO Burn'",
+   "fieldname": "health_html",
+   "fieldtype": "HTML",
+   "label": "Service health"
+  },
+  {
+   "depends_on": "eval:doc.kind == 'SLO Burn'",
+   "fieldname": "sli_tab",
+   "fieldtype": "Tab Break",
+   "label": "SLI query"
+  },
+  {
+   "default": "Region",
+   "depends_on": "eval:doc.kind == 'SLO Burn'",
+   "fieldname": "scope",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Scope",
+   "options": "Region\nGlobal"
+  },
+  {
+   "depends_on": "eval:doc.kind == 'SLO Burn' && doc.scope == 'Global'",
+   "description": "The region whose ClickHouse has the data for this service.",
+   "fieldname": "query_region",
+   "fieldtype": "Link",
+   "label": "Query Region",
+   "mandatory_depends_on": "eval:doc.kind == 'SLO Burn' && doc.scope == 'Global'",
+   "options": "Beacon Region",
+   "show_description_on_click": 1
+  },
+  {
+   "fieldname": "scope_column",
+   "fieldtype": "Column Break"
+  },
+  {
+   "depends_on": "eval:doc.kind == 'SLO Burn'",
+   "description": "Return resource_id, good, valid and last_ts for each resource that reported in the last 30 minutes.",
+   "fieldname": "sli_query",
+   "fieldtype": "Code",
+   "label": "SLI Query",
+   "mandatory_depends_on": "eval:doc.kind == 'SLO Burn' && doc.measurement == 'Measured'",
+   "options": "SQL",
+   "show_description_on_click": 1
   }
  ],
  "link_display_mode": "Search",
@@ -285,34 +444,39 @@
    "link_fieldname": "rule"
   },
   {
-   "group": "Alerts",
-   "link_doctype": "Beacon Silence",
-   "link_fieldname": "rule"
+   "group": "History",
+   "link_doctype": "Beacon Service State",
+   "link_fieldname": "service"
+  },
+  {
+   "group": "History",
+   "link_doctype": "Beacon Service Minute",
+   "link_fieldname": "service"
   }
  ],
- "modified": "2026-11-14 13:00:00.000000",
+ "modified": "2026-11-16 12:00:00.000000",
  "modified_by": "Administrator",
  "module": "Beacon",
  "name": "Beacon Alert Rule",
  "owner": "Administrator",
  "permissions": [
   {
+   "create": 1,
    "delete": 1,
    "read": 1,
    "role": "Beacon Admin",
-   "write": 1,
-   "create": 1
+   "write": 1
   },
   {
    "read": 1,
    "role": "Beacon Responder"
   },
   {
+   "create": 1,
    "delete": 1,
    "read": 1,
    "role": "System Manager",
-   "write": 1,
-   "create": 1
+   "write": 1
   }
  ],
  "row_format": "Dynamic",
