@@ -89,16 +89,32 @@ class ResourceCharts:
 	def __init__(self, resource: BeaconResource):
 		self.resource = resource
 
-	def get_definitions(self) -> list[dict]:
-		charts = frappe.get_all(
-			"Beacon Chart",
-			fields=["name", "title", "resource_type", "section", "unit", "style", "is_key_chart"],
-			order_by="section asc, sort_order asc, title asc",
-		)
-		return [
-			{key: value for key, value in chart.items() if key != "resource_type"}
-			for chart in charts
+	def get_definitions(self, start: datetime, end: datetime) -> list[dict]:
+		"""The charts of the resource type. A chart with a required metric shows only when the resource sent that metric in the window, because one type can have many roles."""
+		charts = [
+			chart
+			for chart in frappe.get_all(
+				"Beacon Chart",
+				fields=[
+					"name",
+					"title",
+					"resource_type",
+					"requires_metric",
+					"section",
+					"unit",
+					"style",
+					"is_key_chart",
+				],
+				order_by="section asc, sort_order asc, title asc",
+			)
 			if self._matches(chart.resource_type)
+		]
+		required = {chart.requires_metric for chart in charts if chart.requires_metric}
+		sent = self._get_sent_metrics(required, start, end) if required else set()
+		return [
+			{key: value for key, value in chart.items() if key not in ("resource_type", "requires_metric")}
+			for chart in charts
+			if not chart.requires_metric or chart.requires_metric in sent
 		]
 
 	def get_alerts(self, start: datetime, end: datetime) -> list[dict]:
@@ -145,6 +161,30 @@ class ResourceCharts:
 		result = self._build(definition, step, rows)
 		frappe.cache.set_value(key, result, expires_in_sec=60)
 		return result
+
+	def _get_sent_metrics(self, metrics: set[str], start: datetime, end: datetime) -> set[str]:
+		key = f"beacon:sent-metrics:{self.resource.name}:{start}:{end}:{','.join(sorted(metrics))}"
+		cached = frappe.cache.get_value(key)
+		if cached is not None:
+			return set(cached)
+
+		client = ClickHouseClient(frappe.get_doc("Beacon Region", self.resource.region))
+		try:
+			rows = client.query(
+				"SELECT DISTINCT metric FROM datum.samples"
+				" WHERE resource_id = {resource_id:String} AND has({metrics:Array(String)}, metric)"
+				" AND ts >= {start:DateTime64(3)} AND ts < {end:DateTime64(3)}",
+				resource_id=self.resource.resource_id,
+				metrics=client.quote_array(sorted(metrics)),
+				start=start.strftime("%Y-%m-%d %H:%M:%S"),
+				end=end.strftime("%Y-%m-%d %H:%M:%S"),
+			)
+		except ClickHouseError as error:
+			frappe.throw(_("Cannot read {0}: {1}").format(self.resource.region, str(error)))
+
+		sent = {row["metric"] for row in rows}
+		frappe.cache.set_value(key, sorted(sent), expires_in_sec=60)
+		return sent
 
 	def _matches(self, resource_type: str | None) -> bool:
 		types = AlertRules.get_resource_types(resource_type)
