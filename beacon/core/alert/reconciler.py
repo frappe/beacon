@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
 from datetime import datetime
 from functools import cached_property
@@ -16,13 +17,19 @@ RULE_FIELDS = ("name", "title", "kind", "severity", "pending_for", "resolve_afte
 
 @dataclass(frozen=True)
 class RuleFailure:
-	"""One failing resource that a rule found. Severity overrides the rule's severity."""
+	"""One failing resource that a rule found. Severity overrides the rule's severity. Affected names what
+	fails inside the resource, such as the servers of a region, as (name, one line) pairs."""
 
 	resource: frappe._dict
 	alert_key: str = ""
 	value: float = 0.0
 	detail: str = ""
 	severity: str | None = None
+	affected: tuple[tuple[str, str], ...] = ()
+
+	@property
+	def affected_json(self) -> str | None:
+		return json.dumps(self.affected) if self.affected else None
 
 
 class AlertReconciler:

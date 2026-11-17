@@ -13,8 +13,11 @@ Each row has these columns:
 | `value` | A number that shows how bad it is. |
 | `detail` | One line that a responder can read. |
 | `severity` | Optional. `Low`, `Medium`, `High` or `Critical` for this row. |
+| `affected` | Optional. A `Map(String, String)` of what fails inside the resource, such as the servers of a region, to one line each. |
 
 A pair of `resource_id` and `alert_key` occurs one time. A duplicate pair, a missing column or more than 50,000 rows fails the whole query.
+
+Beacon keeps the first 50 entries of `affected`, each cut to 200 characters, with the detail: when the alert fires and when it gets worse. The Overview tab of the incident lists them. A name that is the `resource_id` of a resource in the region links to its Metrics, Log viewer and owner. An SLO burn lists the reporters that fail now instead.
 
 Keep rules few. Each rule must point to one fix. Put a family of checks, such as all disk checks of a host, in one rule, and use the check name as the `alert_key`. Do not add a rule for one site or one VM when its own layer already tells its owner.
 

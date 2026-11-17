@@ -18,6 +18,8 @@ from beacon.core.resource.registry import ResourceRegistry
 from beacon.core.transaction import RecordTransaction
 
 MAX_ROWS = 50_000
+MAX_AFFECTED = 50
+AFFECTED_TEXT_LENGTH = 200
 BROKEN_AFTER_ERRORS = 3
 ROW_COLUMNS = ("resource_id", "alert_key", "value", "detail")
 RULE_FIELDS = (
@@ -170,7 +172,9 @@ class RuleEvaluator:
 			if not self.registry.is_evaluated(resource, self.now):
 				continue
 			failing.append(
-				RuleFailure(resource, row["alert_key"], row["value"], row["detail"], row["severity"])
+				RuleFailure(
+					resource, row["alert_key"], row["value"], row["detail"], row["severity"], row["affected"]
+				)
 			)
 		return failing, unknown
 
@@ -231,10 +235,16 @@ class RuleQuery:
 		severity = row.get("severity") or None
 		if severity is not None and severity not in SEVERITIES:
 			raise RuleContractError(f"severity must be one of {', '.join(SEVERITIES)}. It was {severity!r}.")
+		affected = row.get("affected") or {}
+		if not isinstance(affected, dict) or not all(isinstance(text, str) for text in affected.values()):
+			raise RuleContractError(f"affected must be a Map(String, String). It was {affected!r:.200}.")
 		return {
 			"resource_id": str(row["resource_id"]),
 			"alert_key": str(row["alert_key"] or ""),
 			"value": value,
 			"detail": str(row["detail"] or ""),
 			"severity": severity,
+			"affected": tuple((key, text[:AFFECTED_TEXT_LENGTH]) for key, text in affected.items())[
+				:MAX_AFFECTED
+			],
 		}

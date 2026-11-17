@@ -206,6 +206,8 @@ Page only for customer impact. A page at night must be worth the call. Use the [
 
 Return a `severity` column when one rule has a soft limit and a hard limit. Set the header to the highest severity that a row returns, because the runbook check reads the header.
 
+Return an `affected` column when a rule counts many things, such as servers of a region. Name each one, so the responder does not search for them. Use the `resource_id` as the key when the thing is a resource.
+
 ### Use these patterns
 
 - **Silence.** Start from a list of what must report, such as `daily_ingestion_stats` of the last 14 days or the inventory that Atlas sends. Join the last sample. A missing sample is silent. A rule that starts from the samples resolves when the samples expire.
