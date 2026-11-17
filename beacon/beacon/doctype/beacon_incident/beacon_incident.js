@@ -420,10 +420,11 @@ class IncidentForm {
 							{
 								fieldname: "service",
 								fieldtype: "Link",
-								options: "Beacon Service",
+								options: "Beacon Alert Rule",
 								label: __("Service"),
 								reqd: 1,
 								in_list_view: 1,
+								link_filters: '[["Beacon Alert Rule", "kind", "=", "SLO Burn"]]',
 							},
 							{
 								fieldname: "region",

@@ -23,7 +23,7 @@ Read them in this order:
 | Rule | A check for a problem, such as a host that is down. It uses SQL, HTTP or TLS. |
 | Alert | One problem on one resource, from its start to its end. |
 | Incident | The record that people work on. Customers can see it after a person publishes it. |
-| Service | One line on the status page, such as Sites in one region. It has an SLI and an SLO. |
+| Service | One line on the status page, such as Sites in one region. It is an Alert Rule of kind SLO Burn, with its SLI and SLO. |
 | SLI | The share of good events: good events divided by valid events. |
 | SLO | The SLI target for 30 days, such as 99.9%. |
 | Error budget | The share of valid events that the SLO lets fail. For 99.9%, it is 0.1%. |

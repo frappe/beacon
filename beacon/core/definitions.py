@@ -13,7 +13,7 @@ from frappe.utils import now_datetime
 from beacon.core.alert.endpoint_check import ENDPOINT_KINDS
 from beacon.core.alert.evaluation_schedule import EvaluationSchedule
 from beacon.core.alert.rule_evaluator import RuleQuery
-from beacon.core.alert.rules import AlertRules
+from beacon.core.alert.rules import BURN_KIND, AlertRules
 from beacon.core.exceptions import ClickHouseError, DefinitionSourceError, RuleContractError
 from beacon.core.github_client import GitHubClient
 from beacon.core.resource.clickhouse import ClickHouseClient
@@ -72,8 +72,9 @@ SERVICE_HEADER_FIELDS = {
 
 LAYOUT_FIELD_TYPES = ("Tab Break", "Section Break", "Column Break", "HTML")
 # The fields that Desk can change on a record from a file. The query region of a global service and the regions of an endpoint check depend on the site, so a file can leave them out.
-DESK_FIELDS = {"Beacon Alert Rule": ("enabled",), "Beacon Service": ("enabled", "query_region")}
+DESK_FIELDS = {"Beacon Alert Rule": ("enabled", "query_region")}
 ENDPOINT_DESK_FIELDS = ("enabled", "regions")
+RULE_KINDS = ("SQL", "HTTP", "TLS")
 
 BUILT_IN_RULES = (
 	{
@@ -158,8 +159,7 @@ class SourceSync:
 				)
 			self._check_endpoint_rules(http_rules, "url")
 			self._check_endpoint_rules(tls_rules, "host")
-			self._check_owners("Beacon Alert Rule", rules)
-			self._check_owners("Beacon Service", services)
+			self._check_owners("Beacon Alert Rule", rules + services)
 			self._check_queries(sql_rules)
 		except DefinitionSourceError as error:
 			frappe.log_error(f"Beacon definition sync failed for {self.repository}")
@@ -175,16 +175,17 @@ class SourceSync:
 		self._apply_endpoint_rules("TLS", tls_rules)
 		for service in services:
 			self._apply(
-				"Beacon Service",
+				"Beacon Alert Rule",
 				service.key,
 				{
+					"kind": BURN_KIND,
 					"measurement": "Measured",
 					"status_page_group": "",
 					**service.values,
 					"sli_query": service.query,
 				},
 			)
-		removed = self._prune("Beacon Alert Rule", rules) + self._prune("Beacon Service", services)
+		removed = self._prune(rules, RULE_KINDS) + self._prune(services, (BURN_KIND,))
 
 		summary = f"{len(rules)} rules, {len(services)} services, {removed} removed"
 		return self._record(commit, "\n".join([summary, *self._get_warnings(rules), *self.errors]))
@@ -210,8 +211,9 @@ class SourceSync:
 
 	def _get_warnings(self, rules: list[DefinitionFile]) -> list[str]:
 		unmeasured = frappe.get_all(
-			"Beacon Service",
+			"Beacon Alert Rule",
 			filters={
+				"kind": BURN_KIND,
 				"source": self.repository,
 				"scope": "Global",
 				"measurement": "Measured",
@@ -250,7 +252,7 @@ class SourceSync:
 		)
 
 	def _check_owners(self, doctype: str, files: list[DefinitionFile]) -> None:
-		"""A name belongs to one source. Built-in and burn rules have no source, so a file cannot take them.
+		"""A name belongs to one source. A file cannot take a Built In rule.
 
 		A Custom rule has no owner yet. A source takes a name over when the old source removed its file or is no longer configured, so a rule can move between repositories.
 		"""
@@ -263,11 +265,7 @@ class SourceSync:
 			)
 			if not row.source or (row.source in self.repositories and not row.is_removed)
 		}
-		custom = set(
-			frappe.get_all(doctype, filters={"is_custom": 1}, pluck="name")
-			if doctype == "Beacon Alert Rule"
-			else []
-		)
+		custom = set(frappe.get_all(doctype, filters={"is_custom": 1}, pluck="name"))
 		keys = [file.key for file in files]
 		for file in files:
 			if keys.count(file.key) > 1:
@@ -318,23 +316,21 @@ class SourceSync:
 					doc.enabled = 1
 			else:
 				doc = frappe.new_doc(doctype)
-			if doctype == "Beacon Alert Rule":
-				doc.update({"rule_key": name, "is_custom": 0})
-			else:
-				doc.service_key = name
+			doc.update({"rule_key": name, "is_custom": 0})
 			doc.update({**values, "source": self.repository, "is_removed": 0})
 			doc.flags.loading_definitions = True
 			doc.save(ignore_permissions=True)
 
 		self._run(doctype, name, save)
 
-	def _prune(self, doctype: str, files: list[DefinitionFile]) -> int:
+	def _prune(self, files: list[DefinitionFile], kinds: tuple[str, ...]) -> int:
 		"""Turn off what this source no longer has. Keep the record for its alert history."""
 		names = frappe.get_all(
-			doctype,
+			"Beacon Alert Rule",
 			filters={
 				"source": self.repository,
 				"is_removed": 0,
+				"kind": ("in", kinds),
 				"name": ("not in", [file.key for file in files] or [""]),
 			},
 			pluck="name",
@@ -342,12 +338,12 @@ class SourceSync:
 		for name in names:
 
 			def remove(name: str = name) -> None:
-				doc = frappe.get_doc(doctype, name, for_update=True)
+				doc = frappe.get_doc("Beacon Alert Rule", name, for_update=True)
 				doc.update({"is_removed": 1, "enabled": 0})
 				doc.flags.loading_definitions = True
 				doc.save(ignore_permissions=True)
 
-			self._run(doctype, name, remove)
+			self._run("Beacon Alert Rule", name, remove)
 		return len(names)
 
 	def _run(self, doctype: str, name: str, work: Callable[[], None]) -> None:

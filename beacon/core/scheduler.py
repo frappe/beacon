@@ -10,6 +10,7 @@ from beacon.beacon.doctype.beacon_incident.beacon_incident import BeaconIncident
 from beacon.beacon.doctype.beacon_notification.beacon_notification import BeaconNotification
 from beacon.core.alert.endpoint_check import EndpointChecks
 from beacon.core.alert.reconciler import AlertReconciler, RuleFailure
+from beacon.core.alert.rules import BURN_KIND
 from beacon.core.alert.suppression import AlertSuppression
 from beacon.core.heartbeat import Heartbeat
 from beacon.core.incident.coordinator import IncidentCoordinator
@@ -49,7 +50,7 @@ class RegionSchedule:
 		region.run(lambda: self._run_endpoint_checks(context), "Beacon could not run the HTTP and TLS checks")
 		services = {service.name: service for service in self._get_services()}
 		RecordTransaction.run_each(
-			"Beacon Service",
+			"Beacon Alert Rule",
 			services,
 			f"Beacon SLO failed in {self.region.name}",
 			lambda name: ServiceMeasurement(services[name], context).measure(),
@@ -75,8 +76,8 @@ class RegionSchedule:
 
 	def _get_services(self) -> list[frappe._dict]:
 		services = frappe.get_all(
-			"Beacon Service",
-			filters={"enabled": 1, "measurement": "Measured"},
+			"Beacon Alert Rule",
+			filters={"kind": BURN_KIND, "enabled": 1, "measurement": "Measured"},
 			fields=[
 				"name",
 				"scope",
@@ -88,7 +89,7 @@ class RegionSchedule:
 				"major_outage_below",
 			],
 		)
-		selection = RegionSelection("Beacon Service")
+		selection = RegionSelection("Beacon Alert Rule")
 
 		def is_measured_here(service: frappe._dict) -> bool:
 			if service.scope == "Global":
@@ -105,7 +106,7 @@ class BeaconScheduler:
 		"""Scheduled every minute: time-based work, then one job for each region. Each step runs alone."""
 		BeaconIncident.advance_maintenances()
 		settings = RecordTransaction("Beacon Settings", "Beacon Settings")
-		settings.run(self._resolve_disabled_alerts, "Beacon could not resolve disabled alerts")
+		settings.run(self._resolve_inactive_alerts, "Beacon could not resolve inactive alerts")
 		for region in RegionSelection.get_active():
 			queue_region_schedule(region)
 
@@ -114,11 +115,16 @@ class BeaconScheduler:
 		BeaconNotification.requeue_waiting()
 		Heartbeat().send()
 
-	def _resolve_disabled_alerts(self) -> None:
-		"""Close open alerts of disabled rules and disabled regions."""
-		disabled_rules = frappe.get_all("Beacon Alert Rule", filters={"enabled": 0}, pluck="name")
-		if disabled_rules:
-			BeaconAlert.resolve_open("Disabled", rule=("in", disabled_rules))
+	def _resolve_inactive_alerts(self) -> None:
+		"""Close open alerts of disabled rules, declared services and disabled regions."""
+		inactive = frappe.get_all("Beacon Alert Rule", filters={"enabled": 0}, pluck="name")
+		inactive += frappe.get_all(
+			"Beacon Alert Rule",
+			filters={"kind": BURN_KIND, "measurement": "Declared"},
+			pluck="name",
+		)
+		if inactive:
+			BeaconAlert.resolve_open("Disabled", rule=("in", inactive))
 
 		disabled_regions = frappe.get_all("Beacon Region", filters={"status": "Disabled"}, pluck="name")
 		if disabled_regions:

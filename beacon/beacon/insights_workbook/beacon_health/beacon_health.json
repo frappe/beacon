@@ -655,7 +655,7 @@
    "operations": [
     {
      "data_source": "Site DB",
-     "raw_sql": "SELECT day.date, service.title AS service, 100 * SUM(day.good) / SUM(day.valid) AS sli\nFROM `tabBeacon Service Day` AS day\nJOIN `tabBeacon Service` AS service ON service.name = day.service\nWHERE day.date >= CURDATE() - INTERVAL 30 DAY AND day.valid > 0\nGROUP BY day.date, service.name, service.title\n",
+     "raw_sql": "SELECT day.date, service.title AS service, 100 * SUM(day.good) / SUM(day.valid) AS sli\nFROM `tabBeacon Service Day` AS day\nJOIN `tabBeacon Alert Rule` AS service ON service.name = day.service\nWHERE service.kind = 'SLO Burn' AND day.date >= CURDATE() - INTERVAL 30 DAY AND day.valid > 0\nGROUP BY day.date, service.name, service.title\n",
      "type": "sql"
     }
    ],
@@ -673,7 +673,7 @@
    "operations": [
     {
      "data_source": "Site DB",
-     "raw_sql": "SELECT service.title AS service, service.slo_target,\n  100 * SUM(day.good) / NULLIF(SUM(day.valid), 0) AS sli,\n  SUM(day.degraded_minutes) AS degraded_minutes, SUM(day.outage_minutes) AS outage_minutes\nFROM `tabBeacon Service Day` AS day\nJOIN `tabBeacon Service` AS service ON service.name = day.service\nWHERE day.date >= CURDATE() - INTERVAL 30 DAY\nGROUP BY service.name, service.title, service.slo_target\nORDER BY sli\n",
+     "raw_sql": "SELECT service.title AS service, service.slo_target,\n  100 * SUM(day.good) / NULLIF(SUM(day.valid), 0) AS sli,\n  SUM(day.degraded_minutes) AS degraded_minutes, SUM(day.outage_minutes) AS outage_minutes\nFROM `tabBeacon Service Day` AS day\nJOIN `tabBeacon Alert Rule` AS service ON service.name = day.service\nWHERE service.kind = 'SLO Burn' AND day.date >= CURDATE() - INTERVAL 30 DAY\nGROUP BY service.name, service.title, service.slo_target\nORDER BY sli\n",
      "type": "sql"
     }
    ],

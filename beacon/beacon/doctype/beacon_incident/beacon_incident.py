@@ -10,6 +10,7 @@ from frappe.utils import get_datetime, now_datetime
 
 from beacon.beacon.doctype.beacon_alert.beacon_alert import BeaconAlert
 from beacon.beacon.doctype.beacon_notification.beacon_notification import BeaconNotification
+from beacon.core.alert.rules import BURN_KIND, AlertRules
 from beacon.core.alert.states import OPEN_ALERT_STATUSES, PAGED_SEVERITIES, SEVERITIES, Severity
 from beacon.core.exceptions import IncidentActionError
 from beacon.core.incident.chat_message import ChatMessage
@@ -130,6 +131,9 @@ class BeaconIncident(Document):
 			frappe.throw(_("Scheduled start must be before scheduled end."))
 		if self.status == "Resolved" and self.has_value_changed("status"):
 			Postmortem(self).prepare_on_resolve()
+		for row in self.affected_services:
+			if frappe.db.get_value("Beacon Alert Rule", row.service, "kind") != BURN_KIND:
+				frappe.throw(_("Affected services must be SLO Burn rules."))
 
 	def on_update(self) -> None:
 		if self.visibility != "Internal":
@@ -312,6 +316,9 @@ class BeaconIncident(Document):
 
 		open_rows = [row for row in rows if row.status in OPEN_ALERT_STATUSES]
 		cause = max(open_rows, key=lambda row: SEVERITIES.index(row.severity)) if open_rows else rows[0]
+		cause.rule_title, cause.rule_description = AlertRules.get_problem_text(
+			cause.rule_kind, cause.rule_title, cause.rule_description
+		)
 		fields = ("title", "detail", "severity", "status", "started_at", "resolution")
 		return {
 			"cause": cause,
@@ -344,6 +351,7 @@ class BeaconIncident(Document):
 				alert.value,
 				alert.resolution,
 				rule.name.as_("rule"),
+				rule.kind.as_("rule_kind"),
 				rule.title.as_("rule_title"),
 				rule.description.as_("rule_description"),
 				rule.runbook_url,
@@ -564,8 +572,12 @@ class BeaconIncident(Document):
 		on-call notification waits when the resource has a parent, so an incident of the parent can take
 		the alert first."""
 		rule = frappe.get_cached_value(
-			"Beacon Alert Rule", alert.rule, ["title", "scope_includes_descendants"], as_dict=True
+			"Beacon Alert Rule",
+			alert.rule,
+			["kind", "title", "description", "scope_includes_descendants"],
+			as_dict=True,
 		)
+		problem_title, _ = AlertRules.get_problem_text(rule.kind, rule.title, rule.description)
 		incident = frappe.get_doc(
 			{
 				"doctype": "Beacon Incident",
@@ -592,7 +604,7 @@ class BeaconIncident(Document):
 		BeaconNotification.announce(
 			incident,
 			f"{ChatMessage.header(incident.severity, incident.name, alert.region)}\n\n"
-			f"**{rule.title}**\n\n{ChatMessage.alert_table([alert.describe()])}",
+			f"**{problem_title}**\n\n{ChatMessage.alert_table([alert.describe()])}",
 			email=True,
 		)
 		if incident.severity in PAGED_SEVERITIES:

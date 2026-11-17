@@ -3,6 +3,7 @@ from __future__ import annotations
 import frappe
 
 BURN_KIND = "SLO Burn"
+BURN_RESOLVE_AFTER_SECONDS = 300
 
 
 class AlertRules:
@@ -13,8 +14,15 @@ class AlertRules:
 		return set(frappe.get_all("Beacon Alert Rule", filters={"kind": BURN_KIND}, pluck="name"))
 
 	@staticmethod
-	def get_burn_rule_name(service: str) -> str:
-		return f"slo-burn-{service}"
+	def get_problem_text(kind: str, title: str, description: str | None) -> tuple[str, str]:
+		"""The title and explanation that responders see. A burn names the error budget problem."""
+		if kind != BURN_KIND:
+			return title, description or ""
+		return (
+			f"{title} error budget burning fast",
+			f"The measured error rate for {title} is above its target."
+			" The 30-day error budget is burning fast.",
+		)
 
 	@staticmethod
 	def get_resource_types(resource_type: str | None) -> set[str]:

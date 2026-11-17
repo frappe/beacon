@@ -127,7 +127,7 @@ class ServiceMeasurement:
 		except ClickHouseError, KeyError, TypeError, ValueError:
 			frappe.log_error(
 				f"Beacon SLI query failed in {self.region}",
-				reference_doctype="Beacon Service",
+				reference_doctype="Beacon Alert Rule",
 				reference_name=self.service.name,
 			)
 			return None
@@ -170,9 +170,7 @@ class ServiceMeasurement:
 		self.state.budget_left = policy.get_budget_left()
 
 		registry = self.context.registry
-		reconciler = AlertReconciler.for_rule(
-			AlertRules.get_burn_rule_name(self.service.name), registry, self.now
-		)
+		reconciler = AlertReconciler.for_rule(self.service.name, registry, self.now)
 		reconciler.reconcile(policy.get_failures(registry.region_resource))
 
 	def _get_published_impact(self) -> str:

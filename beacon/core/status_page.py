@@ -9,6 +9,7 @@ from xml.etree import ElementTree
 import frappe
 from frappe.utils import add_days, get_datetime, getdate, now_datetime
 
+from beacon.core.alert.rules import BURN_KIND
 from beacon.core.resource.regions import RegionSelection
 from beacon.core.service.status import STATUS_ORDER, ServiceStatus
 
@@ -169,8 +170,11 @@ class StatusPage:
 		]
 		titles = dict(
 			frappe.get_all(
-				"Beacon Service",
-				filters={"name": ("in", [row.service for row in incident.affected_services])},
+				"Beacon Alert Rule",
+				filters={
+					"kind": BURN_KIND,
+					"name": ("in", [row.service for row in incident.affected_services]),
+				},
 				fields=["name", "title"],
 				as_list=True,
 			)
@@ -237,8 +241,8 @@ class StatusPage:
 
 	def _get_services(self) -> list[frappe._dict]:
 		services = frappe.get_all(
-			"Beacon Service",
-			filters={"show_on_status_page": 1, "enabled": 1},
+			"Beacon Alert Rule",
+			filters={"kind": BURN_KIND, "show_on_status_page": 1, "enabled": 1},
 			fields=[
 				"name",
 				"title",
@@ -251,7 +255,7 @@ class StatusPage:
 			],
 			order_by="sort_order asc, title asc",
 		)
-		selection = RegionSelection("Beacon Service")
+		selection = RegionSelection("Beacon Alert Rule")
 		for service in services:
 			service.region_names = selection.chosen.get(service.name) or selection.active
 		return services

@@ -15,8 +15,9 @@
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Service",
-   "options": "Beacon Service",
-   "reqd": 1
+   "options": "Beacon Alert Rule",
+   "reqd": 1,
+   "link_filters": "[[\"Beacon Alert Rule\", \"kind\", \"=\", \"SLO Burn\"]]"
   },
   {
    "fieldname": "region",

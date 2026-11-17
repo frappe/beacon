@@ -7,7 +7,7 @@ frappe.ui.form.on("Beacon Service State", {
 		});
 		if (frm.doc.service)
 			frm.add_custom_button(__("Open Service"), () =>
-				frappe.set_route("Form", "Beacon Service", frm.doc.service)
+				frappe.set_route("Form", "Beacon Alert Rule", frm.doc.service)
 			);
 	},
 });

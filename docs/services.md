@@ -4,7 +4,7 @@ Beacon follows the Google SRE book and workbook for SLOs and burn-rate alerts.
 
 ## SLI, SLO and error budget
 
-A service is one line on the status page, such as Sites. It can be regional or global. Each service has an SLI query, an SLO target and an optional SLA target.
+A service is one line on the status page, such as Sites. It can be regional or global. A service is a Beacon Alert Rule of kind SLO Burn, so the rule of its burn alerts is the service definition itself. Each service has an SLI query, an SLO target and an optional SLA target.
 
 | Term | Meaning | Example |
 | --- | --- | --- |
@@ -48,9 +48,9 @@ These limits stop false pages:
 - A window with fewer than 100 valid events does not alert.
 - A window alerts only when Service Minutes cover at least half of it, so a new service does not page on its first bad minutes.
 - A burn alert pages only when, in one minute of its short window, 3 or more reporters were bad, or every reporter when fewer than 3 reported. Else it is Low, because one bad reporter has its own cause alert.
-- A service with "Page On Burn" off gets Medium instead of High.
+- A service with "Notify and Call on Burn" off gets Medium instead of High.
 
-A burn alert is a normal alert. Its rule is the "error budget burning fast" rule of the service, its resource is the region (or the global resource for a global service), and its alert key is the name in the table. It fires at once and resolves after 5 minutes without a burn.
+A burn alert is a normal alert. Its rule is the service, its title names the error budget problem, its resource is the region (or the global resource for a global service), and its alert key is the name in the table. It fires at once and resolves after 5 minutes without a burn. The customer title and description of the service stay separate from the responder problem text.
 
 The error budget for 30 days sums the Service Days. Until 30 days are measured, Beacon projects the valid events to 30 days.
 
@@ -72,7 +72,7 @@ Uptime on the status page is the measured SLI: good divided by valid, for each d
 
 ## Declared services and groups
 
-A service with `measurement: Declared` has no SLI, and Beacon does not measure it. Its status is the impact of the open published incidents on it, else Operational. Its bars show the minutes of published impact on each day since Beacon added it, with the same colors. The page says "Set by incidents, not measured" in place of the uptime. Use a declared service for a part that customers see but that has no metric yet.
+A service with `measurement: Declared` has no SLI, and Beacon does not measure it. Its burn alerts resolve. Its status is the impact of the open published incidents on it, else Operational. Its bars show the minutes of published impact on each day since Beacon added it, with the same colors. The page says "Set by incidents, not measured" in place of the uptime. Use a declared service for a part that customers see but that has no metric yet.
 
 Services with the same `status_page_group` show under one heading with that name. The group takes the place of its first service in the sort order.
 

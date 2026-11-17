@@ -299,7 +299,7 @@ The sync applies all files of a source, or none. It applies none when one file h
 
 When a rule or service file is missing, Beacon disables that record and marks it Removed From Source. Beacon enables it again when the file comes back. A source can take a name when its old source removed the file or is no longer configured. So a rule can move between repositories.
 
-Desk can only turn a file rule or service on or off, set the Query Region of a global service, and set the Regions of an HTTP or TLS rule. A file that names a region sets the Regions again at each sync. To change anything else, change its file.
+Desk can only turn a file rule or service on or off, set the Query Region of a global service, and set the Regions of an HTTP or TLS rule. A service is an Alert Rule of kind SLO Burn, so its file and its burn rule are one record. A file that names a region sets the Regions again at each sync. To change anything else, change its file.
 
 After the sync, open the rule in Desk. A rule that fails 3 times in a row is Broken, and the control panel shows it in red. Fix it in the same week.
 

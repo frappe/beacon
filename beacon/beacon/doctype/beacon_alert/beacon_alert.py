@@ -8,6 +8,7 @@ from frappe import _
 from frappe.model.document import Document
 from frappe.utils import add_to_date, now_datetime
 
+from beacon.core.alert.rules import AlertRules
 from beacon.core.alert.states import OPEN_ALERT_STATUSES, Severity
 from beacon.core.state_machine import StateMachine
 from beacon.core.transaction import document_action
@@ -155,8 +156,12 @@ class BeaconAlert(Document):
 		resource = frappe.db.get_value(
 			"Beacon Resource", self.resource, ["title", "resource_id"], as_dict=True
 		)
+		rule = frappe.get_cached_value(
+			"Beacon Alert Rule", self.rule, ["kind", "title", "description"], as_dict=True
+		)
+		title, _ = AlertRules.get_problem_text(rule.kind, rule.title, rule.description)
 		return frappe._dict(
-			rule_title=frappe.get_cached_value("Beacon Alert Rule", self.rule, "title"),
+			rule_title=title,
 			resource_title=resource.title or resource.resource_id,
 			value=self.value,
 			detail=self.detail,

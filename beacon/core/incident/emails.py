@@ -108,7 +108,7 @@ class IncidentEmail:
 		return titles[:ALERTS_SHOWN] + ([f"and {more} more"] if more > 0 else [])
 
 	def _get_services(self) -> list[dict]:
-		services, regions = self._get_titles("Beacon Service"), self._get_titles("Beacon Region")
+		services, regions = self._get_titles("Beacon Alert Rule"), self._get_titles("Beacon Region")
 		return [
 			{
 				"title": " in ".join(filter(None, (services.get(row.service), regions.get(row.region)))),

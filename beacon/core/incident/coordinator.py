@@ -141,7 +141,7 @@ class IncidentCoordinator:
 			for name in (state.bad_reporters or "").split():
 				if resource := self.registry.get(name):
 					resources.update(item.name for item in self.registry.get_ancestors(resource))
-			burn_resources[AlertRules.get_burn_rule_name(state.service)] = resources
+			burn_resources[state.service] = resources
 		return burn_resources
 
 	def _load_orphan_alerts(self) -> dict[str, frappe._dict]:

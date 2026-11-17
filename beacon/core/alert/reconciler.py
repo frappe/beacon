@@ -7,10 +7,11 @@ from functools import cached_property
 import frappe
 
 from beacon.beacon.doctype.beacon_alert.beacon_alert import BeaconAlert
+from beacon.core.alert.rules import AlertRules
 from beacon.core.alert.suppression import AlertSuppression
 from beacon.core.resource.registry import ResourceRegistry
 
-RULE_FIELDS = ("name", "title", "severity", "pending_for", "resolve_after")
+RULE_FIELDS = ("name", "title", "kind", "severity", "pending_for", "resolve_after")
 
 
 @dataclass(frozen=True)
@@ -61,4 +62,6 @@ class AlertReconciler:
 
 	@classmethod
 	def for_rule(cls, rule: str, registry: ResourceRegistry, now: datetime) -> AlertReconciler:
-		return cls(frappe.db.get_value("Beacon Alert Rule", rule, RULE_FIELDS, as_dict=True), registry, now)
+		values = frappe.db.get_value("Beacon Alert Rule", rule, RULE_FIELDS, as_dict=True)
+		values.title, _ = AlertRules.get_problem_text(values.kind, values.title, None)
+		return cls(values, registry, now)
