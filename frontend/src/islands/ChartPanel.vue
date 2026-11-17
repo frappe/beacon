@@ -47,7 +47,7 @@ const referenceLines = computed(() =>
 		v-bind="chartSummary(chart, result.data)"
 		:loading="result.loading && !result.data"
 	/>
-	<ChartCard v-else class="h-72">
+	<ChartCard v-else :class="result.data && !rows.length ? 'h-24' : 'h-72'">
 		<component
 			:is="chart.style === 'Bar' ? BarChart : LineChart"
 			:title="chart.title"
