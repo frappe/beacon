@@ -1,7 +1,7 @@
 {
  "actions": [],
  "autoname": "INC-.#####",
- "creation": "2026-11-13 12:00:00",
+ "creation": "2026-11-17 21:52:01.001418",
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
@@ -45,13 +45,14 @@
   "affected_services",
   "grouping_section",
   "created_by_beacon",
+  "column_break_zoug",
   "public_id",
   "escalation_section",
-  "escalation",
-  "next_page_at",
-  "escalation_column",
   "page_round",
-  "page_index"
+  "escalation",
+  "escalation_column",
+  "page_index",
+  "next_page_at"
  ],
  "fields": [
   {
@@ -116,10 +117,10 @@
   {
    "fieldname": "firing_alerts",
    "fieldtype": "Int",
-   "label": "Firing Alerts",
+   "hidden": 1,
    "is_virtual": 1,
-   "read_only": 1,
-   "hidden": 1
+   "label": "Firing Alerts",
+   "read_only": 1
   },
   {
    "default": "Internal",
@@ -286,6 +287,7 @@
   {
    "fieldname": "grouping_section",
    "fieldtype": "Section Break",
+   "hidden": 1,
    "label": "Grouping"
   },
   {
@@ -354,11 +356,15 @@
    "label": "Responder index",
    "read_only": 1,
    "show_description_on_click": 1
+  },
+  {
+   "fieldname": "column_break_zoug",
+   "fieldtype": "Column Break"
   }
  ],
  "link_display_mode": "Search",
  "links": [],
- "modified": "2026-11-17 12:00:00.000000",
+ "modified": "2026-11-17 21:59:27.097013",
  "modified_by": "Administrator",
  "module": "Beacon",
  "name": "Beacon Incident",

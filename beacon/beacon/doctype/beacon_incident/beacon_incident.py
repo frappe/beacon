@@ -80,7 +80,6 @@ class BeaconIncident(Document):
 			"Completed",
 			"Cancelled",
 		]
-		subscribers_html: DF.HTML | None
 		title: DF.Data
 		type: DF.Literal["Incident", "Maintenance"]
 		updates: DF.Table[BeaconIncidentUpdate]
