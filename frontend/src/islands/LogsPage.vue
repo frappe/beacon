@@ -39,7 +39,9 @@ watch(resource, (value) => value && chosen.reload(), { immediate: true });
 </script>
 
 <template>
-	<div class="flex flex-col gap-4 px-3 pb-10 pt-5 text-ink-gray-8 sm:px-5">
+	<div
+		class="flex h-full flex-col gap-4 overflow-y-auto px-3 pb-10 pt-5 text-ink-gray-8 sm:px-5"
+	>
 		<Alert
 			v-if="regions.error"
 			theme="red"
