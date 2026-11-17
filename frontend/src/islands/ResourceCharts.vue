@@ -1,7 +1,7 @@
 <script setup>
 import { Alert, useCall } from "frappe-ui";
 import { NumberCard } from "frappe-ui/charts";
-import { computed, reactive } from "vue";
+import { computed, reactive, watch } from "vue";
 import ChartPanel from "./ChartPanel.vue";
 import { chartSummary, methodUrl } from "./api";
 
@@ -13,6 +13,7 @@ const props = defineProps({
 	// The charts that the alert rule names. With keyOnly they show as trends before the key numbers.
 	chartKeys: { type: Array, default: () => [] },
 });
+const emit = defineEmits(["count"]);
 
 const results = reactive({});
 
@@ -29,6 +30,12 @@ const shown = computed(() =>
 	charts.value.filter(
 		(chart) => !props.keyOnly || (chart.is_key_chart && !props.chartKeys.includes(chart.name))
 	)
+);
+// The Overview hides an empty resource section once the listing tells it no chart applies.
+watch(
+	() => (listing.data ? named.value.length + shown.value.length : null),
+	(count) => count !== null && emit("count", count),
+	{ immediate: true }
 );
 const sections = computed(() => {
 	const bySection = {};

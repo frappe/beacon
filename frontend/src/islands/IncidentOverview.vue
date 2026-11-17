@@ -142,6 +142,26 @@ const openWithWindow = (route) =>
 			pickerTime(new Date(span.value.end))
 		)
 	);
+const resourceLinks = computed(() => {
+	const resource = overview.value?.cause_resource;
+	if (!resource) return [];
+	return [
+		{ label: "Metrics", icon: "lucide-line-chart", route: `beacon-metrics/${resource}` },
+		{
+			label: "Log viewer",
+			icon: "lucide-scroll-text",
+			route: `beacon-logs/${cause.value.region}/${resource}`,
+		},
+		cause.value.url && { label: "Atlas", href: cause.value.url },
+		overview.value.central_url && { label: "Central", href: overview.value.central_url },
+	].filter(Boolean);
+});
+// A Region shows no logs, so its section is empty without charts or a parent. Its links then join the cause.
+const chartCount = ref(null);
+const isResourceEmpty = computed(
+	() =>
+		cause.value?.resource_type === "Region" && chartCount.value === 0 && !overview.value.parent
+);
 const notifications = computed(() =>
 	(overview.value?.notifications || []).filter((item) => item.sent_at)
 );
@@ -199,7 +219,7 @@ async function copyAffected() {
 						{{ cause.rule_description }}
 					</p>
 				</div>
-				<div class="flex gap-2">
+				<div class="flex flex-wrap gap-2">
 					<Button
 						v-if="cause.runbook_url"
 						label="Runbook"
@@ -212,12 +232,29 @@ async function copyAffected() {
 						icon-left="lucide-list-checks"
 						@click="openDocument('Beacon Alert Rule', cause.rule)"
 					/>
+					<template v-if="isResourceEmpty">
+						<Button
+							v-for="link in resourceLinks"
+							:key="link.label"
+							:label="link.label"
+							:icon-left="link.icon"
+							:icon-right="link.href && 'lucide-arrow-up-right'"
+							:href="link.href"
+							@click="link.route && openWithWindow(link.route)"
+						/>
+					</template>
 				</div>
 			</div>
 
 			<dl class="flex flex-wrap gap-x-8 gap-y-4">
 				<div class="min-w-0">
-					<dt class="text-sm text-ink-gray-5">{{ cause.resource_type }}</dt>
+					<dt class="text-sm text-ink-gray-5">
+						{{
+							cause.resource_type === cause.resource_title
+								? "Resource"
+								: cause.resource_type
+						}}
+					</dt>
 					<dd class="mt-1 flex h-5 items-center text-base-medium text-ink-gray-8">
 						<span class="truncate">{{ cause.resource_title }}</span>
 					</dd>
@@ -350,7 +387,7 @@ async function copyAffected() {
 			class="flex flex-col gap-4 border-t border-outline-gray-1 py-6 first-of-type:border-t-0 first-of-type:pt-0"
 		>
 			<div class="flex flex-wrap items-center gap-x-4 gap-y-1">
-				<h2 class="flex flex-1 items-baseline gap-2 text-base-semibold">
+				<h2 class="flex flex-1 items-baseline gap-2 whitespace-nowrap text-base-semibold">
 					What happened
 					<span
 						v-if="overview.total > 1"
@@ -362,7 +399,7 @@ async function copyAffected() {
 						}}</span
 					>
 				</h2>
-				<div class="flex gap-3 text-sm text-ink-gray-5">
+				<div class="flex flex-wrap gap-x-3 gap-y-1 text-sm text-ink-gray-5">
 					<span
 						v-for="[kind, segment] in legend"
 						:key="kind"
@@ -463,36 +500,20 @@ async function copyAffected() {
 
 		<section
 			v-if="overview.cause_resource"
+			v-show="!isResourceEmpty"
 			class="flex flex-col gap-4 border-t border-outline-gray-1 py-6 first-of-type:border-t-0 first-of-type:pt-0"
 		>
 			<div class="flex flex-wrap items-center gap-x-2 gap-y-1">
 				<h2 class="flex-1 text-base-semibold">{{ cause.resource_title }}</h2>
 				<div class="flex flex-wrap gap-2">
 					<Button
-						label="Metrics"
-						icon-left="lucide-line-chart"
-						@click="openWithWindow(`beacon-metrics/${overview.cause_resource}`)"
-					/>
-					<Button
-						label="Log viewer"
-						icon-left="lucide-scroll-text"
-						@click="
-							openWithWindow(
-								`beacon-logs/${cause.region}/${overview.cause_resource}`
-							)
-						"
-					/>
-					<Button
-						v-if="cause.url"
-						label="Atlas"
-						icon-right="lucide-arrow-up-right"
-						:href="cause.url"
-					/>
-					<Button
-						v-if="overview.central_url"
-						label="Central"
-						icon-right="lucide-arrow-up-right"
-						:href="overview.central_url"
+						v-for="link in resourceLinks"
+						:key="link.label"
+						:label="link.label"
+						:icon-left="link.icon"
+						:icon-right="link.href && 'lucide-arrow-up-right'"
+						:href="link.href"
+						@click="link.route && openWithWindow(link.route)"
 					/>
 				</div>
 			</div>
@@ -502,6 +523,7 @@ async function copyAffected() {
 				:end="iso(span.end)"
 				key-only
 				:chart-keys="overview.chart_keys"
+				@count="chartCount = $event"
 			/>
 			<div
 				v-if="overview.parent"
