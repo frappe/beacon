@@ -17,13 +17,15 @@ import { computed, ref, watch } from "vue";
 import { formatTime, lastHours, methodUrl, utcClock } from "./api";
 import TimeWindow from "./TimeWindow.vue";
 
-// `start` and `end` fix the window, as in the incident view. Without them the reader picks the window, by default the last 6 hours.
+// `start` and `end` fix the window, as in the incident view. Without them the reader picks the window, from `initialFrom` and `initialTo` or the last 6 hours.
 // Without `resource`, the viewer shows every resource of the region.
 const props = defineProps({
 	region: { type: String, required: true },
 	resource: { type: String, default: null },
 	start: { type: String, default: null },
 	end: { type: String, default: null },
+	initialFrom: { type: String, default: null },
+	initialTo: { type: String, default: null },
 	emptyText: { type: String, default: "No log lines in this window." },
 	initialMode: { type: String, default: "lines" },
 });
@@ -69,8 +71,8 @@ const wrap = ref(false);
 const opened = ref(null);
 const older = ref(null);
 const lines = ref([]);
-const from = ref(lastHours().from);
-const to = ref(lastHours().to);
+const from = ref(props.initialFrom || lastHours().from);
+const to = ref(props.initialTo || lastHours().to);
 
 const timeWindow = computed(() =>
 	props.start ? { start: props.start, end: props.end } : { start: from.value, end: to.value }

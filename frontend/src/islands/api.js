@@ -15,6 +15,10 @@ export const methodUrl = (doctype, name, method) =>
 /** A UTC time as a date picker value, such as "2026-11-17 13:00:00". */
 export const pickerTime = (date) => date.toISOString().slice(0, 19).replace("T", " ");
 
+/** A Desk route that opens Metrics or the Log viewer at the given window, as picker values. */
+export const routeWithWindow = (route, from, to) =>
+	`${route}?${new URLSearchParams({ from, to })}`;
+
 /** The picker values of the window that ends now, the last 6 hours by default. */
 export function lastHours(hours = 6) {
 	const now = new Date();

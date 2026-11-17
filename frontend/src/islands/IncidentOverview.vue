@@ -4,7 +4,7 @@ import { Alert, Badge, Button, Skeleton, Tooltip, useCall } from "frappe-ui";
 import { computed, onBeforeUnmount, ref, watch } from "vue";
 import LogViewer from "./LogViewer.vue";
 import ResourceCharts from "./ResourceCharts.vue";
-import { formatTime, methodUrl } from "./api";
+import { formatTime, methodUrl, pickerTime, routeWithWindow } from "./api";
 
 const props = defineProps({
 	name: { type: String, required: true },
@@ -129,6 +129,15 @@ const legend = computed(() => {
 	);
 	return Object.entries(SEGMENTS).filter(([kind]) => kinds.has(kind));
 });
+// Metrics and the Log viewer open at the window of the incident.
+const openWithWindow = (route) =>
+	host.navigate?.(
+		routeWithWindow(
+			route,
+			pickerTime(new Date(span.value.start)),
+			pickerTime(new Date(span.value.end))
+		)
+	);
 const notifications = computed(() =>
 	(overview.value?.notifications || []).filter((item) => item.sent_at)
 );
@@ -375,13 +384,13 @@ const notifications = computed(() =>
 					<Button
 						label="Metrics"
 						icon-left="lucide-line-chart"
-						@click="host.navigate?.(`beacon-metrics/${overview.cause_resource}`)"
+						@click="openWithWindow(`beacon-metrics/${overview.cause_resource}`)"
 					/>
 					<Button
 						label="Log viewer"
 						icon-left="lucide-scroll-text"
 						@click="
-							host.navigate?.(
+							openWithWindow(
 								`beacon-logs/${cause.region}/${overview.cause_resource}`
 							)
 						"
