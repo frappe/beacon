@@ -266,7 +266,7 @@ async function copyAffected() {
 					<dt class="text-sm text-ink-gray-5">Alerts</dt>
 					<dd class="mt-1 text-base-medium tabular-nums text-ink-gray-9">
 						<button
-							class="underline decoration-outline-gray-3 underline-offset-4 hover:decoration-ink-gray-9"
+							class="inline-flex items-center gap-1 underline-offset-4 hover:underline"
 							@click="
 								host.navigate?.(
 									`/desk/beacon-alert?incident=${encodeURIComponent(name)}`
@@ -278,6 +278,10 @@ async function copyAffected() {
 									? `${overview.firing} of ${overview.total} firing`
 									: `None of ${overview.total} firing`
 							}}
+							<span
+								class="lucide-arrow-up-right size-3.5 text-ink-gray-5"
+								aria-hidden="true"
+							/>
 						</button>
 					</dd>
 				</div>
