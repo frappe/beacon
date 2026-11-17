@@ -31,6 +31,7 @@ class BeaconAlert(Document):
 	if TYPE_CHECKING:
 		from frappe.types import DF
 
+		affected: DF.JSON | None
 		alert_key: DF.Data | None
 		clean_since: DF.Datetime | None
 		detail: DF.SmallText | None
@@ -75,6 +76,7 @@ class BeaconAlert(Document):
 				severity=severity,
 				value=failure.value,
 				detail=failure.detail[:DETAIL_LENGTH],
+				affected=failure.affected_json,
 				clean_since=None,
 			)
 		else:
@@ -98,6 +100,7 @@ class BeaconAlert(Document):
 				"fired_at": now,
 				"value": failure.value,
 				"detail": failure.detail[:DETAIL_LENGTH],
+				"affected": failure.affected_json,
 			}
 		)
 		self.save(ignore_permissions=True)
@@ -186,6 +189,7 @@ class BeaconAlert(Document):
 				"first_value": failure.value,
 				"value": failure.value,
 				"detail": failure.detail[:DETAIL_LENGTH],
+				"affected": failure.affected_json,
 				"started_at": now,
 				"fired_at": now if is_firing else None,
 				"suppressed": int(bool(suppressed_by)),

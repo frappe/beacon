@@ -141,6 +141,16 @@ const openWithWindow = (route) =>
 const notifications = computed(() =>
 	(overview.value?.notifications || []).filter((item) => item.sent_at)
 );
+
+const copied = ref(false);
+async function copyAffected() {
+	const lines = overview.value.affected.map((item) =>
+		[item.key, item.text].filter(Boolean).join(": ")
+	);
+	await navigator.clipboard.writeText(lines.join("\n"));
+	copied.value = true;
+	setTimeout(() => (copied.value = false), 2000);
+}
 </script>
 
 <template>
@@ -263,6 +273,60 @@ const notifications = computed(() =>
 			>
 				{{ cause.detail }}
 			</p>
+
+			<div
+				v-if="overview.affected.length"
+				class="mt-3 rounded-4 border border-outline-gray-1"
+			>
+				<div
+					class="flex items-center gap-2 border-b border-outline-gray-1 py-1 pl-3 pr-1 text-sm"
+				>
+					<span class="text-base-medium text-ink-gray-9">{{
+						cause.rule_kind === "SLO Burn" ? "Failing now" : "Affected when it fired"
+					}}</span>
+					<span class="flex-1 text-ink-gray-5">{{ overview.affected.length }}</span>
+					<Button
+						variant="ghost"
+						:label="copied ? 'Copied' : 'Copy'"
+						@click="copyAffected"
+					/>
+				</div>
+				<div
+					v-for="item in overview.affected"
+					:key="item.key"
+					class="grid min-h-8 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 border-outline-gray-1 py-0.5 pl-3 pr-1 md:grid-cols-[10rem_minmax(0,1fr)_auto] [&+&]:border-t"
+				>
+					<span class="truncate text-base-medium text-ink-gray-9">{{ item.key }}</span>
+					<span
+						class="min-w-0 text-sm text-ink-gray-6 max-md:col-span-2 max-md:row-start-2 max-md:pb-1 md:truncate"
+						:title="item.text"
+						>{{ item.text }}</span
+					>
+					<span class="flex">
+						<Button
+							v-if="item.resource"
+							variant="ghost"
+							icon="lucide-line-chart"
+							tooltip="Metrics"
+							@click="openWithWindow(`beacon-metrics/${item.resource}`)"
+						/>
+						<Button
+							v-if="item.resource"
+							variant="ghost"
+							icon="lucide-scroll-text"
+							tooltip="Log viewer"
+							@click="openWithWindow(`beacon-logs/${cause.region}/${item.resource}`)"
+						/>
+						<Button
+							v-if="item.url"
+							variant="ghost"
+							label="Atlas"
+							icon-right="lucide-arrow-up-right"
+							:href="item.url"
+						/>
+					</span>
+				</div>
+			</div>
 
 			<div v-if="history?.incidents?.length" class="mt-3 flex flex-wrap items-center gap-1">
 				<span class="mr-1 text-sm text-ink-gray-5">Earlier incidents</span>
@@ -454,6 +518,7 @@ const notifications = computed(() =>
 				/>
 			</div>
 			<LogViewer
+				v-if="cause.resource_type !== 'Region'"
 				:region="cause.region"
 				:resource="overview.cause_resource"
 				:start="iso(span.start)"

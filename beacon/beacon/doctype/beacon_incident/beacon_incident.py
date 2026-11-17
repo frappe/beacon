@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from datetime import timedelta
 from urllib.parse import urlencode
 
@@ -371,7 +372,48 @@ class BeaconIncident(Document):
 			"chart_keys": AlertRules.get_chart_keys(cause.charts) if cause else [],
 			"central_url": self._get_central_url(cause),
 			"parent": self._get_parent(cause),
+			"affected": self._get_affected(cause),
 		}
+
+	@staticmethod
+	def _get_affected(cause: frappe._dict | None) -> list[dict]:
+		"""What fails inside the cause resource. A burn names the reporters that fail now. A rule names what
+		failed when its alert fired or got worse. A name that is a resource of the region links to it."""
+		if not cause:
+			return []
+		if cause.rule_kind == BURN_KIND:
+			reporters = frappe.db.get_value(
+				"Beacon Service State", {"service": cause.rule, "region": cause.region}, "bad_reporters"
+			)
+			names = (reporters or "").split()[:50]
+			resources = frappe.get_all(
+				"Beacon Resource",
+				filters={"name": ("in", names or [""])},
+				fields=["name", "resource_id", "url"],
+			)
+			return [
+				{"key": row.resource_id, "text": "", "resource": row.name, "url": row.url}
+				for row in resources
+			]
+
+		pairs = json.loads(cause.affected or "[]")
+		resources = {
+			row.resource_id: row
+			for row in frappe.get_all(
+				"Beacon Resource",
+				filters={"region": cause.region, "resource_id": ("in", [key for key, text in pairs] or [""])},
+				fields=["name", "resource_id", "url"],
+			)
+		}
+		return [
+			{
+				"key": key,
+				"text": text,
+				"resource": resources[key].name if key in resources else None,
+				"url": resources[key].url if key in resources else None,
+			}
+			for key, text in pairs
+		]
 
 	@staticmethod
 	def _get_central_url(cause: frappe._dict | None) -> str | None:
@@ -461,6 +503,7 @@ class BeaconIncident(Document):
 				alert.name,
 				alert.title,
 				alert.detail,
+				alert.affected,
 				alert.severity,
 				alert.status,
 				alert.started_at,
