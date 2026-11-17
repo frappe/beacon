@@ -177,10 +177,12 @@ async function copyAffected() {
 	<div v-else class="flex flex-col gap-4 text-ink-gray-8">
 		<Alert v-if="banner" theme="amber" :title="banner" />
 
-		<section class="rounded-6 border border-outline-gray-1 bg-surface-base p-4">
+		<section
+			class="flex flex-col gap-4 rounded-6 border border-outline-gray-1 bg-surface-base p-4"
+		>
 			<div class="flex flex-wrap items-start gap-3">
 				<div class="min-w-0 flex-1 basis-64">
-					<h2 class="text-lg-semibold text-ink-gray-9">
+					<h2 class="flex min-h-7 items-center text-lg-semibold text-ink-gray-9">
 						{{ cause.rule_title || cause.title }}
 					</h2>
 					<p v-if="cause.rule_description" class="mt-1 text-p-sm text-ink-gray-5">
@@ -203,7 +205,7 @@ async function copyAffected() {
 				</div>
 			</div>
 
-			<dl class="mt-4 grid grid-cols-2 gap-x-4 gap-y-3 md:grid-cols-3">
+			<dl class="grid grid-cols-2 gap-x-4 gap-y-3 md:grid-cols-3">
 				<div class="min-w-0">
 					<dt class="text-sm text-ink-gray-5">Resource</dt>
 					<dd class="mt-0.5 truncate text-base-medium">
@@ -269,22 +271,21 @@ async function copyAffected() {
 
 			<p
 				v-if="cause.detail"
-				class="mt-4 whitespace-pre-wrap break-words rounded-4 bg-surface-gray-1 px-3 py-2 font-mono text-sm text-ink-gray-7"
+				class="whitespace-pre-wrap break-words rounded-4 bg-surface-gray-1 px-3 py-2 font-mono text-sm text-ink-gray-7"
 			>
 				{{ cause.detail }}
 			</p>
 
-			<div
-				v-if="overview.affected.length"
-				class="mt-3 rounded-4 border border-outline-gray-1"
-			>
+			<div v-if="overview.affected.length" class="rounded-4 border border-outline-gray-1">
 				<div
-					class="flex items-center gap-2 border-b border-outline-gray-1 py-1 pl-3 pr-1 text-sm"
+					class="flex min-h-9 items-center gap-2 border-b border-outline-gray-1 py-1 pl-3 pr-1"
 				>
 					<span class="text-base-medium text-ink-gray-9">{{
 						cause.rule_kind === "SLO Burn" ? "Failing now" : "Affected when it fired"
 					}}</span>
-					<span class="flex-1 text-ink-gray-5">{{ overview.affected.length }}</span>
+					<span class="flex-1 text-base text-ink-gray-5">{{
+						overview.affected.length
+					}}</span>
 					<Button
 						variant="ghost"
 						:label="copied ? 'Copied' : 'Copy'"
@@ -294,7 +295,7 @@ async function copyAffected() {
 				<div
 					v-for="item in overview.affected"
 					:key="item.key"
-					class="grid min-h-8 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 border-outline-gray-1 py-0.5 pl-3 pr-1 md:grid-cols-[10rem_minmax(0,1fr)_auto] [&+&]:border-t"
+					class="grid min-h-9 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 border-outline-gray-1 py-1 pl-3 pr-1 md:grid-cols-[10rem_minmax(0,1fr)_auto] [&+&]:border-t"
 				>
 					<span class="truncate text-base-medium text-ink-gray-9">{{ item.key }}</span>
 					<span
@@ -328,7 +329,7 @@ async function copyAffected() {
 				</div>
 			</div>
 
-			<div v-if="history?.incidents?.length" class="mt-3 flex flex-wrap items-center gap-1">
+			<div v-if="history?.incidents?.length" class="flex flex-wrap items-center gap-1">
 				<span class="mr-1 text-sm text-ink-gray-5">Earlier incidents</span>
 				<Button
 					v-for="incident in history.incidents"
@@ -341,7 +342,9 @@ async function copyAffected() {
 			</div>
 		</section>
 
-		<section class="rounded-6 border border-outline-gray-1 bg-surface-base p-4">
+		<section
+			class="flex flex-col gap-4 rounded-6 border border-outline-gray-1 bg-surface-base p-4"
+		>
 			<div class="flex flex-wrap items-center gap-x-4 gap-y-1">
 				<h2 class="flex-1 text-base-semibold">What happened</h2>
 				<div class="flex gap-3 text-sm text-ink-gray-5">
@@ -361,53 +364,58 @@ async function copyAffected() {
 				</div>
 			</div>
 
-			<div v-for="lane in shownLanes" :key="lane.name" class="mt-3">
-				<div v-if="lanes.length > 1" class="flex min-w-0 flex-wrap items-center gap-x-1">
-					<Button
-						variant="ghost"
-						size="sm"
-						class="-ml-2 min-w-0 max-w-full"
-						:label="lane.title"
-						:tooltip="lane.detail"
-						@click="openDocument('Beacon Alert', lane.name)"
-					/>
-					<span v-if="lane.count > 1" class="text-sm text-ink-gray-5"
-						>{{ lane.count }} alerts</span
+			<div class="flex flex-col gap-3">
+				<div v-for="lane in shownLanes" :key="lane.name">
+					<div
+						v-if="lanes.length > 1"
+						class="flex min-w-0 flex-wrap items-center gap-x-1"
 					>
-				</div>
-				<div
-					class="relative mt-1 h-4 cursor-pointer rounded-3 bg-surface-gray-2"
-					@click="openDocument('Beacon Alert', lane.name)"
-				>
-					<Tooltip
-						v-for="(segment, index) in lane.segments"
-						:key="index"
-						:text="`${SEGMENTS[segment.kind].label} from ${formatTime(
-							iso(segment.from)
-						)} to ${formatTime(iso(segment.to))} UTC`"
-					>
-						<div
-							class="absolute inset-y-0.5 rounded-1"
-							:class="SEGMENTS[segment.kind].class"
-							:style="{
-								left: position(segment.from),
-								width: width(segment.from, segment.to),
-							}"
+						<Button
+							variant="ghost"
+							size="sm"
+							class="-ml-2 min-w-0 max-w-full"
+							:label="lane.title"
+							:tooltip="lane.detail"
+							@click="openDocument('Beacon Alert', lane.name)"
 						/>
-					</Tooltip>
+						<span v-if="lane.count > 1" class="text-sm text-ink-gray-5"
+							>{{ lane.count }} alerts</span
+						>
+					</div>
+					<div
+						class="relative mt-1 h-4 cursor-pointer rounded-3 bg-surface-gray-2"
+						@click="openDocument('Beacon Alert', lane.name)"
+					>
+						<Tooltip
+							v-for="(segment, index) in lane.segments"
+							:key="index"
+							:text="`${SEGMENTS[segment.kind].label} from ${formatTime(
+								iso(segment.from)
+							)} to ${formatTime(iso(segment.to))} UTC`"
+						>
+							<div
+								class="absolute inset-y-0.5 rounded-1"
+								:class="SEGMENTS[segment.kind].class"
+								:style="{
+									left: position(segment.from),
+									width: width(segment.from, segment.to),
+								}"
+							/>
+						</Tooltip>
+					</div>
 				</div>
+				<Button
+					v-if="lanes.length > LANES_SHOWN"
+					class="-ml-2 self-start"
+					variant="ghost"
+					size="sm"
+					:label="showAllLanes ? 'Show fewer' : `Show all ${lanes.length}`"
+					@click="showAllLanes = !showAllLanes"
+				/>
 			</div>
-			<Button
-				v-if="lanes.length > LANES_SHOWN"
-				class="-ml-2 mt-2"
-				variant="ghost"
-				size="sm"
-				:label="showAllLanes ? 'Show fewer' : `Show all ${lanes.length}`"
-				@click="showAllLanes = !showAllLanes"
-			/>
 
 			<div
-				class="relative mt-3 h-8 border-t border-outline-gray-1 text-sm tabular-nums text-ink-gray-5"
+				class="relative h-8 border-t border-outline-gray-1 text-sm tabular-nums text-ink-gray-5"
 			>
 				<Tooltip
 					v-for="(notification, index) in notifications"
