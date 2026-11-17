@@ -65,10 +65,9 @@ Each minute, the recovery sweep looks for open incidents whose alerts all recove
 The Overview tab of the incident form shows what a responder needs before they open an alert. It only reads data. Actions stay in the form.
 
 - The form intro shows only when someone must act: Beacon is about to call, Beacon is calling, or nobody has acknowledged the incident.
-- The **Open** group of the form opens the runbook, the alert rule, Metrics and the Log viewer of the cause resource, its Atlas record and the Central record. Metrics and the Log viewer open at the incident window: from 30 min before the first alert to 15 min after the resolution or now, at most 7 days.
-- The cause card names the worst open alert, else the oldest alert. It shows the rule description, the resource, the severity, the fire time, the acknowledge or resolve time, the count of firing alerts, the last 30 days of the same rule on the same resource, and the alert detail.
+- The cause card names the worst open alert, else the oldest alert. It shows the severity, the problem title and description, the resource, the fire time, the acknowledge or resolve time, the count of firing alerts, the last 30 days of the same rule on the same resource, the alert detail and the affected list. Runbook and Rule open the runbook and the alert rule.
 - What happened shows one lane for each rule and resource, with the pending, firing and clean periods, and a dot for each notification. It shows the first 6 lanes, and Show all shows the rest.
-- The resource card shows the key charts of the cause resource and its logs while the incident was open, grouped by pattern.
+- The resource card shows the key charts of the cause resource and its logs while the incident was open, grouped by pattern. Metrics, Log viewer, Atlas and Central open the full views. Metrics and the Log viewer open at the incident window: from 30 min before the first alert to 15 min after the resolution or now, at most 7 days. A Region without charts has no resource card, and its links show in the cause card.
 
 An open incident reads the overview again each minute, because alerts change without a save of the incident.
 
@@ -105,7 +104,7 @@ A silence mutes paging for a known problem. A person silences one alert, or a ru
 
 A silenced alert keeps its state and stays visible. It does not join an incident and does not page. When the silence ends, the alerts that still fire join incidents.
 
-The Resolve action of an incident can silence the alerts that still fire, for some hours. The incident then closes, and those alerts stay open and silenced.
+The Resolve action of an incident can silence the alerts that still fire, for some hours. When alerts still fire, the Resolve form shows their count and requires the hours. The incident then closes, and those alerts stay open and silenced. An SLO burn alert clears only when the error rate drops, so a burn that continues needs a silence to resolve.
 
 | Use | When | Alerts | SLO |
 | --- | --- | --- | --- |

@@ -47,10 +47,7 @@ class IncidentForm {
 		);
 		this.showEscalation();
 		if (this.doc.type === "Maintenance") this.maintenanceActions();
-		else {
-			this.incidentActions();
-			this.addOpenLinks();
-		}
+		else this.incidentActions();
 		if (!["Merged", "Cancelled"].includes(this.doc.status)) this.visibilityActions();
 		beacon.add_action(
 			this.frm,
@@ -85,50 +82,6 @@ class IncidentForm {
 			);
 		else if (!doc.acknowledged_at)
 			this.frm.set_intro(__("Nobody has acknowledged this incident."), "orange");
-	}
-
-	// The runbook, the rule and the cause resource, with Metrics and the Log viewer at the incident window.
-	async addOpenLinks() {
-		const url = `/api/v2/document/Beacon Incident/${encodeURIComponent(
-			this.doc.name
-		)}/method/get_overview`;
-		const overview = (await (await fetch(url)).json()).data;
-		const cause = overview?.cause;
-		if (!cause || this.frm.doc.name !== this.doc.name) return;
-
-		const group = __("Open");
-		const range = new URLSearchParams({
-			from: overview.window.start,
-			to: overview.window.end,
-		});
-		const external = (label, href) =>
-			href &&
-			this.frm.add_custom_button(
-				label,
-				() => window.open(href, "_blank", "noopener"),
-				group
-			);
-		external(__("Runbook"), cause.runbook_url);
-		this.frm.add_custom_button(
-			__("Rule"),
-			() => frappe.set_route("Form", "Beacon Alert Rule", cause.rule),
-			group
-		);
-		this.frm.add_custom_button(
-			__("Metrics"),
-			() => frappe.set_route(`beacon-metrics/${overview.cause_resource}?${range}`),
-			group
-		);
-		this.frm.add_custom_button(
-			__("Log viewer"),
-			() =>
-				frappe.set_route(
-					`beacon-logs/${cause.region}/${overview.cause_resource}?${range}`
-				),
-			group
-		);
-		external(__("Atlas"), cause.url);
-		external(__("Central"), overview.central_url);
 	}
 
 	async renderSubscribers() {
@@ -210,17 +163,23 @@ class IncidentForm {
 			null,
 			{ standalone: true }
 		);
+		const firing = this.doc.firing_alerts;
 		beacon.add_action(this.frm, __("Resolve"), "resolve", [
 			...this.messageFields(MESSAGES.Resolved),
-			{
-				fieldname: "silence_hours",
-				fieldtype: "Int",
-				label: __("Silence Hours"),
-				description: __(
-					"Only for alerts that still fire. Without it, Beacon does not resolve while alerts fire."
-				),
-				default: 0,
-			},
+			...(firing
+				? [
+						{
+							fieldname: "silence_hours",
+							fieldtype: "Int",
+							label: __("Silence Hours"),
+							description: __(
+								"{0} alerts still fire. Beacon silences them for these hours. An SLO burn alert clears only when the error rate drops.",
+								[firing]
+							),
+							reqd: 1,
+						},
+				  ]
+				: []),
 		]);
 		beacon.add_action(this.frm, __("Notify On-call"), "page_on_call", null, null, {
 			confirm: [

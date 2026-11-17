@@ -321,6 +321,13 @@ class BeaconIncident(Document):
 		self.require_published()
 		return frappe.get_cached_doc("Beacon Settings").get_status_page_url(f"/incidents/{self.public_id}")
 
+	@property
+	def firing_alerts(self) -> int:
+		"""Unsuppressed firing alerts. They block Resolve unless the person silences them."""
+		if self.is_new():
+			return 0
+		return frappe.db.count("Beacon Alert", {"incident": self.name, "status": "Firing", "suppressed": 0})
+
 	@frappe.whitelist(methods=["GET"])
 	@frappe.read_only()
 	def get_overview(self) -> dict:
@@ -447,7 +454,7 @@ class BeaconIncident(Document):
 		end = get_datetime(self.resolved_at) + timedelta(minutes=15) if self.resolved_at else now_datetime()
 		first = min([get_datetime(alert.started_at) for alert in alerts] + [end - timedelta(hours=1)])
 		start = max(first - timedelta(minutes=30), end - timedelta(days=7))
-		return {"start": f"{start:%Y-%m-%d %H:%M:%S}", "end": f"{end:%Y-%m-%d %H:%M:%S}"}
+		return {"from": f"{start:%Y-%m-%d %H:%M:%S}", "to": f"{end:%Y-%m-%d %H:%M:%S}"}
 
 	def _get_history(self, alerts: list[frappe._dict]) -> list[dict]:
 		pairs = {(alert.rule, alert.resource) for alert in alerts if alert.rule and alert.resource}

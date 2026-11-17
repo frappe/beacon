@@ -23,6 +23,7 @@
   "detected_by",
   "details_column",
   "status",
+  "firing_alerts",
   "visibility",
   "subscribers_html",
   "merged_into",
@@ -111,6 +112,14 @@
    "label": "Status",
    "options": "Triggered\nInvestigating\nIdentified\nMonitoring\nResolved\nMerged\nScheduled\nIn Progress\nCompleted\nCancelled",
    "read_only": 1
+  },
+  {
+   "fieldname": "firing_alerts",
+   "fieldtype": "Int",
+   "label": "Firing Alerts",
+   "is_virtual": 1,
+   "read_only": 1,
+   "hidden": 1
   },
   {
    "default": "Internal",

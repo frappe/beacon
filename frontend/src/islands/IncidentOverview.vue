@@ -4,7 +4,7 @@ import { Alert, Badge, Button, Skeleton, Tooltip, useCall } from "frappe-ui";
 import { computed, onBeforeUnmount, ref, watch } from "vue";
 import LogViewer from "./LogViewer.vue";
 import ResourceCharts from "./ResourceCharts.vue";
-import { formatTime, methodUrl, pickerTime, routeWithWindow } from "./api";
+import { formatTime, methodUrl, routeWithWindow } from "./api";
 
 const props = defineProps({
 	name: { type: String, required: true },
@@ -18,6 +18,7 @@ const SEGMENTS = {
 };
 const LANES_SHOWN = 6;
 const SEVERITY_THEME = { Critical: "red", High: "red", Medium: "amber", Low: "gray" };
+const CARD = "rounded-6 border border-outline-gray-1 bg-surface-base p-4";
 
 const host = useHost();
 const result = useCall({
@@ -44,6 +45,7 @@ const time = (value) => (value ? new Date(`${value.replace(" ", "T")}Z`).getTime
 const iso = (milliseconds) => new Date(milliseconds).toISOString();
 const date = (milliseconds) => new Date(milliseconds).toUTCString().slice(5, 11);
 const utc = (value) => (value ? `${formatTime(iso(time(value)))} UTC` : "");
+const plural = (count, word) => `${count} ${count === 1 ? word : `${word}s`}`;
 const openDocument = (doctype, name) =>
 	host.navigate?.(`${doctype.toLowerCase().replaceAll(" ", "-")}/${name}`);
 
@@ -55,11 +57,25 @@ function duration(from, to) {
 }
 
 const firedAt = computed(() => cause.value.fired_at || cause.value.started_at);
+const resourceMeta = computed(() =>
+	[
+		cause.value.resource_type !== cause.value.resource_title && cause.value.resource_type,
+		cause.value.resource_type !== "Region" && cause.value.region,
+	]
+		.filter(Boolean)
+		.join(", ")
+);
+const historyText = computed(() => {
+	if (!history.value) return "First time";
+	const last = date(time(history.value.last_started_at));
+	if (history.value.count === 1) return `Once, on ${last}`;
+	return `${history.value.count} times on ${plural(history.value.days, "day")}, last ${last}`;
+});
 
 // The lanes, charts and logs show the incident window that get_overview gives.
 const span = computed(() => ({
-	start: time(overview.value.window.start),
-	end: time(overview.value.window.end),
+	start: time(overview.value.window.from),
+	end: time(overview.value.window.to),
 }));
 const position = (value) => {
 	const { start, end } = span.value;
@@ -112,23 +128,32 @@ const legend = computed(() => {
 	);
 	return Object.entries(SEGMENTS).filter(([kind]) => kinds.has(kind));
 });
+const notifications = computed(() =>
+	(overview.value?.notifications || []).filter((item) => item.sent_at)
+);
+
 // Metrics and the Log viewer open at the window of the incident.
 const openWithWindow = (route) =>
-	host.navigate?.(
-		routeWithWindow(
-			route,
-			pickerTime(new Date(span.value.start)),
-			pickerTime(new Date(span.value.end))
-		)
-	);
-// A Region shows no logs, so its section is empty without charts or a parent.
+	host.navigate?.(routeWithWindow(route, overview.value.window.from, overview.value.window.to));
+const resourceLinks = computed(() => {
+	const resource = overview.value.cause_resource;
+	if (!resource) return [];
+	return [
+		{ label: "Metrics", icon: "lucide-line-chart", route: `beacon-metrics/${resource}` },
+		{
+			label: "Log viewer",
+			icon: "lucide-scroll-text",
+			route: `beacon-logs/${cause.value.region}/${resource}`,
+		},
+		cause.value.url && { label: "Atlas", href: cause.value.url },
+		overview.value.central_url && { label: "Central", href: overview.value.central_url },
+	].filter(Boolean);
+});
+// A Region shows no logs, so its card is empty without charts or a parent. Its links then join the cause.
 const chartCount = ref(null);
 const isResourceEmpty = computed(
 	() =>
 		cause.value?.resource_type === "Region" && chartCount.value === 0 && !overview.value.parent
-);
-const notifications = computed(() =>
-	(overview.value?.notifications || []).filter((item) => item.sent_at)
 );
 
 const copied = ref(false);
@@ -163,102 +188,119 @@ async function copyAffected() {
 		This incident has no alerts. The Updates tab has what people wrote about it.
 	</p>
 
-	<div v-else class="flex flex-col pb-6 text-ink-gray-8">
-		<section
-			class="flex flex-col gap-4 border-t border-outline-gray-1 py-6 first-of-type:border-t-0 first-of-type:pt-0"
-		>
-			<div>
-				<h2 class="text-lg-semibold text-ink-gray-9">
-					{{ cause.rule_title || cause.title }}
-				</h2>
-				<p v-if="cause.rule_description" class="mt-1 text-p-sm text-ink-gray-5">
-					{{ cause.rule_description }}
-				</p>
+	<div v-else class="flex flex-col gap-4 pb-4 text-ink-gray-8">
+		<section :class="CARD">
+			<div class="flex flex-wrap items-start gap-x-3 gap-y-2">
+				<div class="min-w-0 flex-1 basis-72">
+					<div class="flex min-h-7 items-center gap-2">
+						<Badge
+							size="lg"
+							:theme="SEVERITY_THEME[cause.severity]"
+							:label="cause.severity"
+						/>
+						<h2 class="truncate text-lg-semibold text-ink-gray-9">
+							{{ cause.rule_title || cause.title }}
+						</h2>
+					</div>
+					<p v-if="cause.rule_description" class="mt-1 text-p-sm text-ink-gray-5">
+						{{ cause.rule_description }}
+					</p>
+				</div>
+				<div class="flex flex-wrap gap-2">
+					<Button
+						v-if="cause.runbook_url"
+						label="Runbook"
+						icon-left="lucide-book-open"
+						icon-right="lucide-arrow-up-right"
+						:href="cause.runbook_url"
+					/>
+					<Button
+						v-if="cause.rule"
+						label="Rule"
+						icon-left="lucide-list-checks"
+						@click="openDocument('Beacon Alert Rule', cause.rule)"
+					/>
+					<template v-if="isResourceEmpty">
+						<Button
+							v-for="link in resourceLinks"
+							:key="link.label"
+							:label="link.label"
+							:icon-left="link.icon"
+							:icon-right="link.href && 'lucide-arrow-up-right'"
+							:href="link.href"
+							@click="link.route && openWithWindow(link.route)"
+						/>
+					</template>
+				</div>
 			</div>
 
-			<dl class="flex flex-wrap gap-x-8 gap-y-4">
+			<dl class="mt-4 grid grid-cols-2 gap-x-4 gap-y-3 md:grid-cols-3">
 				<div class="min-w-0">
-					<dt class="text-sm text-ink-gray-5">
-						{{
-							cause.resource_type === cause.resource_title
-								? "Resource"
-								: cause.resource_type
-						}}
-					</dt>
-					<dd class="mt-1 flex h-5 items-center text-base-medium text-ink-gray-8">
-						<span class="truncate">{{ cause.resource_title }}</span>
-					</dd>
-				</div>
-				<div v-if="cause.resource_type !== 'Region'">
-					<dt class="text-sm text-ink-gray-5">Region</dt>
-					<dd class="mt-1 flex h-5 items-center text-base-medium text-ink-gray-8">
-						{{ cause.region }}
-					</dd>
-				</div>
-				<div>
-					<dt class="text-sm text-ink-gray-5">Severity</dt>
-					<dd class="mt-1 flex h-5 items-center">
-						<Badge :theme="SEVERITY_THEME[cause.severity]" :label="cause.severity" />
+					<dt class="text-sm text-ink-gray-5">Resource</dt>
+					<dd class="mt-1 truncate text-base-medium text-ink-gray-9">
+						{{ cause.resource_title }}
+						<span class="text-base text-ink-gray-5">{{ resourceMeta }}</span>
 					</dd>
 				</div>
 				<div>
 					<dt class="text-sm text-ink-gray-5">Fired</dt>
-					<dd
-						class="mt-1 flex h-5 items-center text-base-medium text-ink-gray-8 tabular-nums"
-					>
+					<dd class="mt-1 text-base-medium tabular-nums text-ink-gray-9">
 						{{ date(time(firedAt)) }}, {{ utc(firedAt) }}
 					</dd>
 				</div>
 				<div v-if="doc.status === 'Resolved'">
 					<dt class="text-sm text-ink-gray-5">Resolved</dt>
-					<dd
-						class="mt-1 flex h-5 items-center text-base-medium text-ink-gray-8 tabular-nums"
-					>
+					<dd class="mt-1 text-base-medium tabular-nums text-ink-gray-9">
 						{{ utc(doc.resolved_at) }}, after {{ duration(firedAt, doc.resolved_at) }}
 					</dd>
 				</div>
 				<div v-else-if="doc.acknowledged_at" class="min-w-0">
 					<dt class="text-sm text-ink-gray-5">Acknowledged</dt>
-					<dd
-						class="mt-1 flex h-5 items-center text-base-medium text-ink-gray-8 tabular-nums"
-					>
-						<span class="truncate"
-							>{{ doc.acknowledged_by }}, {{ utc(doc.acknowledged_at) }}</span
-						>
+					<dd class="mt-1 truncate text-base-medium tabular-nums text-ink-gray-9">
+						{{ doc.acknowledged_by }}, {{ utc(doc.acknowledged_at) }}
+					</dd>
+				</div>
+				<div v-if="overview.total > 1">
+					<dt class="text-sm text-ink-gray-5">Alerts</dt>
+					<dd class="mt-1 text-base-medium tabular-nums text-ink-gray-9">
+						{{
+							overview.firing
+								? `${overview.firing} of ${overview.total} firing`
+								: `None of ${overview.total} firing`
+						}}
 					</dd>
 				</div>
 				<div class="min-w-0">
 					<dt class="text-sm text-ink-gray-5">Last 30 days</dt>
-					<dd class="mt-1 flex h-5 items-center text-base-medium text-ink-gray-8">
-						<span class="truncate">{{
-							history
-								? `${history.count} times on ${history.days} days, last ${date(
-										time(history.last_started_at)
-								  )}`
-								: "First time"
-						}}</span>
+					<dd class="mt-1 truncate text-base-medium text-ink-gray-9">
+						{{ historyText }}
 					</dd>
 				</div>
 			</dl>
 
 			<p
 				v-if="cause.detail"
-				class="whitespace-pre-wrap break-words border-l-2 border-outline-gray-2 pl-3 font-mono text-sm text-ink-gray-7"
+				class="mt-4 whitespace-pre-wrap break-words rounded-4 bg-surface-gray-1 px-3 py-2 font-mono text-sm text-ink-gray-7"
 			>
 				{{ cause.detail }}
 			</p>
 
-			<div v-if="overview.affected.length" class="divide-y divide-outline-gray-1">
-				<div class="flex min-h-9 items-center gap-2 pb-1">
-					<span class="flex-1 text-sm text-ink-gray-5"
-						>{{
-							cause.rule_kind === "SLO Burn"
-								? "Failing now"
-								: "Affected when it fired"
-						}}, {{ overview.affected.length }}</span
-					>
+			<div
+				v-if="overview.affected.length"
+				class="mt-3 rounded-4 border border-outline-gray-1"
+			>
+				<div
+					class="flex min-h-9 items-center gap-2 border-b border-outline-gray-1 py-1 pl-3 pr-1 text-sm"
+				>
+					<span class="text-base-medium text-ink-gray-9">{{
+						cause.rule_kind === "SLO Burn" ? "Failing now" : "Affected when it fired"
+					}}</span>
+					<span class="flex-1 tabular-nums text-ink-gray-5">{{
+						overview.affected.length
+					}}</span>
 					<Button
 						variant="ghost"
+						icon-left="lucide-copy"
 						:label="copied ? 'Copied' : 'Copy'"
 						@click="copyAffected"
 					/>
@@ -266,9 +308,11 @@ async function copyAffected() {
 				<div
 					v-for="item in overview.affected"
 					:key="item.key"
-					class="grid min-h-9 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 py-1 md:grid-cols-[10rem_minmax(0,1fr)_auto]"
+					class="grid min-h-9 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 border-outline-gray-1 py-0.5 pl-3 pr-1 md:grid-cols-[minmax(0,16rem)_minmax(0,1fr)_auto] [&+&]:border-t"
 				>
-					<span class="truncate text-base-medium text-ink-gray-8">{{ item.key }}</span>
+					<span class="truncate text-base-medium text-ink-gray-9" :title="item.key">{{
+						item.key
+					}}</span>
 					<span
 						class="min-w-0 text-base text-ink-gray-6 max-md:col-span-2 max-md:row-start-2 max-md:pb-1 md:truncate"
 						:title="item.text"
@@ -300,7 +344,7 @@ async function copyAffected() {
 				</div>
 			</div>
 
-			<div v-if="history?.incidents?.length" class="flex flex-wrap items-center gap-1">
+			<div v-if="history?.incidents?.length" class="mt-3 flex flex-wrap items-center gap-1">
 				<span class="mr-1 text-sm text-ink-gray-5">Earlier incidents</span>
 				<Button
 					v-for="incident in history.incidents"
@@ -313,21 +357,10 @@ async function copyAffected() {
 			</div>
 		</section>
 
-		<section
-			class="flex flex-col gap-4 border-t border-outline-gray-1 py-6 first-of-type:border-t-0 first-of-type:pt-0"
-		>
+		<section :class="CARD">
 			<div class="flex flex-wrap items-center gap-x-4 gap-y-1">
-				<h2 class="flex flex-1 items-baseline gap-2 whitespace-nowrap text-base-semibold">
+				<h2 class="flex-1 whitespace-nowrap text-base-semibold text-ink-gray-9">
 					What happened
-					<span
-						v-if="overview.total > 1"
-						class="text-base text-ink-gray-5 tabular-nums"
-						>{{
-							overview.firing
-								? `${overview.firing} of ${overview.total} alerts firing`
-								: `${overview.total} alerts, none firing`
-						}}</span
-					>
 				</h2>
 				<div class="flex flex-wrap gap-x-3 gap-y-1 text-sm text-ink-gray-5">
 					<span
@@ -339,14 +372,13 @@ async function copyAffected() {
 					</span>
 					<span v-if="notifications.length" class="flex items-center gap-1.5">
 						<span class="size-2 rounded-full bg-surface-blue-7" />{{
-							notifications.length
+							plural(notifications.length, "notification")
 						}}
-						{{ notifications.length === 1 ? "notification" : "notifications" }}
 					</span>
 				</div>
 			</div>
 
-			<div class="flex flex-col gap-3">
+			<div class="mt-3 flex flex-col gap-3">
 				<div v-for="lane in shownLanes" :key="lane.name">
 					<div
 						v-if="lanes.length > 1"
@@ -360,9 +392,9 @@ async function copyAffected() {
 							:tooltip="lane.detail"
 							@click="openDocument('Beacon Alert', lane.name)"
 						/>
-						<span v-if="lane.count > 1" class="text-sm text-ink-gray-5"
-							>{{ lane.count }} alerts</span
-						>
+						<span v-if="lane.count > 1" class="text-sm text-ink-gray-5">{{
+							plural(lane.count, "alert")
+						}}</span>
 					</div>
 					<div
 						class="relative mt-1 h-4 cursor-pointer rounded-3 bg-surface-gray-2"
@@ -397,7 +429,7 @@ async function copyAffected() {
 			</div>
 
 			<div
-				class="relative h-8 border-t border-outline-gray-1 text-sm tabular-nums text-ink-gray-5"
+				class="relative mt-3 h-8 border-t border-outline-gray-1 text-sm tabular-nums text-ink-gray-5"
 			>
 				<Tooltip
 					v-for="(notification, index) in notifications"
@@ -431,9 +463,26 @@ async function copyAffected() {
 		<section
 			v-if="overview.cause_resource"
 			v-show="!isResourceEmpty"
-			class="flex flex-col gap-4 border-t border-outline-gray-1 py-6 first-of-type:border-t-0 first-of-type:pt-0"
+			class="flex flex-col gap-4"
+			:class="CARD"
 		>
-			<h2 class="text-base-semibold">{{ cause.resource_title }}</h2>
+			<div class="flex flex-wrap items-center gap-x-2 gap-y-2">
+				<h2 class="min-w-0 flex-1 truncate text-base-semibold text-ink-gray-9">
+					{{ cause.resource_title }}
+					<span class="text-base font-normal text-ink-gray-5">{{ resourceMeta }}</span>
+				</h2>
+				<div class="flex flex-wrap gap-2">
+					<Button
+						v-for="link in resourceLinks"
+						:key="link.label"
+						:label="link.label"
+						:icon-left="link.icon"
+						:icon-right="link.href && 'lucide-arrow-up-right'"
+						:href="link.href"
+						@click="link.route && openWithWindow(link.route)"
+					/>
+				</div>
+			</div>
 			<ResourceCharts
 				:name="overview.cause_resource"
 				:start="iso(span.start)"
@@ -459,12 +508,14 @@ async function copyAffected() {
 				<span class="flex-1" />
 				<Button
 					variant="ghost"
-					label="Metrics"
+					icon="lucide-line-chart"
+					tooltip="Metrics"
 					@click="openWithWindow(`beacon-metrics/${overview.parent.name}`)"
 				/>
 				<Button
 					variant="ghost"
-					label="Log viewer"
+					icon="lucide-scroll-text"
+					tooltip="Log viewer"
 					@click="
 						openWithWindow(
 							`beacon-logs/${overview.parent.region}/${overview.parent.name}`
