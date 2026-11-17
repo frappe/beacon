@@ -198,8 +198,16 @@ async function copyAffected() {
 							:theme="SEVERITY_THEME[cause.severity]"
 							:label="cause.severity"
 						/>
-						<h2 class="truncate text-lg-semibold text-ink-gray-9">
-							{{ cause.rule_title || cause.title }}
+						<h2 class="min-w-0 truncate text-lg-semibold text-ink-gray-9">
+							<button
+								v-if="cause.rule"
+								class="max-w-full truncate hover:underline hover:underline-offset-4"
+								title="Open the alert rule"
+								@click="openDocument('Beacon Alert Rule', cause.rule)"
+							>
+								{{ cause.rule_title || cause.title }}
+							</button>
+							<template v-else>{{ cause.title }}</template>
 						</h2>
 					</div>
 					<p v-if="cause.rule_description" class="mt-1 text-p-sm text-ink-gray-5">
@@ -213,12 +221,6 @@ async function copyAffected() {
 						icon-left="lucide-book-open"
 						icon-right="lucide-arrow-up-right"
 						:href="cause.runbook_url"
-					/>
-					<Button
-						v-if="cause.rule"
-						label="Rule"
-						icon-left="lucide-list-checks"
-						@click="openDocument('Beacon Alert Rule', cause.rule)"
 					/>
 					<template v-if="isResourceEmpty">
 						<Button
