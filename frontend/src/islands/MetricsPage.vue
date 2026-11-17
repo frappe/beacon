@@ -18,6 +18,10 @@ const host = useHost();
 const name = computed(() => props.route[0] || null);
 const from = ref(props.query.from || lastHours().from);
 const to = ref(props.query.to || lastHours().to);
+watch(
+	() => [props.query.from, props.query.to],
+	([start, end]) => start && end && ((from.value = start), (to.value = end))
+);
 const resource = useCall({
 	url: computed(() => `/api/v2/document/Beacon Resource/${encodeURIComponent(name.value)}`),
 	immediate: false,

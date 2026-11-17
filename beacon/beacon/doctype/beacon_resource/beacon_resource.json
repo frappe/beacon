@@ -97,6 +97,7 @@
    "fieldname": "url",
    "fieldtype": "Data",
    "label": "Owner URL",
+   "length": 1000,
    "options": "URL",
    "read_only": 1,
    "description": "The record in the system that owns the resource, such as Atlas.",

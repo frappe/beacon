@@ -73,6 +73,10 @@ const older = ref(null);
 const lines = ref([]);
 const from = ref(props.initialFrom || lastHours().from);
 const to = ref(props.initialTo || lastHours().to);
+watch(
+	() => [props.initialFrom, props.initialTo],
+	([start, end]) => start && end && ((from.value = start), (to.value = end))
+);
 
 const timeWindow = computed(() =>
 	props.start ? { start: props.start, end: props.end } : { start: from.value, end: to.value }
