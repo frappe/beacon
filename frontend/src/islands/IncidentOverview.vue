@@ -263,11 +263,20 @@ async function copyAffected() {
 				<div v-if="overview.total > 1">
 					<dt class="text-sm text-ink-gray-5">Alerts</dt>
 					<dd class="mt-1 text-base-medium tabular-nums text-ink-gray-9">
-						{{
-							overview.firing
-								? `${overview.firing} of ${overview.total} firing`
-								: `None of ${overview.total} firing`
-						}}
+						<button
+							class="underline decoration-outline-gray-3 underline-offset-4 hover:decoration-ink-gray-9"
+							@click="
+								host.navigate?.(
+									`/desk/beacon-alert?incident=${encodeURIComponent(name)}`
+								)
+							"
+						>
+							{{
+								overview.firing
+									? `${overview.firing} of ${overview.total} firing`
+									: `None of ${overview.total} firing`
+							}}
+						</button>
 					</dd>
 				</div>
 				<div class="min-w-0">
