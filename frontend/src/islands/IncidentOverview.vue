@@ -67,12 +67,6 @@ const banner = computed(() => {
 	if (!doc.acknowledged_at) return "Nobody has acknowledged this incident.";
 	return null;
 });
-const heading = computed(() => {
-	const problem = cause.value.rule_title || cause.value.title;
-	return `${problem} ${cause.value.resource_type === "Region" ? "in" : "on"} ${
-		cause.value.resource_title
-	}`;
-});
 const firedAt = computed(() => cause.value.fired_at || cause.value.started_at);
 
 // The lanes and charts show from 30 min before the first alert to the end, at most 7 days.
@@ -167,7 +161,9 @@ const notifications = computed(() =>
 		<section class="rounded-6 border border-outline-gray-1 bg-surface-base p-4">
 			<div class="flex flex-wrap items-start gap-3">
 				<div class="min-w-0 flex-1 basis-64">
-					<h2 class="text-lg-semibold text-ink-gray-9">{{ heading }}</h2>
+					<h2 class="text-lg-semibold text-ink-gray-9">
+						{{ cause.rule_title || cause.title }}
+					</h2>
 					<p v-if="cause.rule_description" class="mt-1 text-p-sm text-ink-gray-5">
 						{{ cause.rule_description }}
 					</p>
@@ -197,7 +193,7 @@ const notifications = computed(() =>
 							[
 								cause.resource_type !== cause.resource_title &&
 									cause.resource_type,
-								cause.region,
+								cause.resource_type !== "Region" && cause.region,
 							]
 								.filter(Boolean)
 								.join(", ")
@@ -228,7 +224,7 @@ const notifications = computed(() =>
 						{{ doc.acknowledged_by }}, {{ utc(doc.acknowledged_at) }}
 					</dd>
 				</div>
-				<div>
+				<div v-if="overview.total > 1">
 					<dt class="text-sm text-ink-gray-5">Alerts</dt>
 					<dd class="mt-0.5 text-base-medium tabular-nums">
 						{{
@@ -293,7 +289,7 @@ const notifications = computed(() =>
 			</div>
 
 			<div v-for="lane in shownLanes" :key="lane.name" class="mt-3">
-				<div class="flex min-w-0 flex-wrap items-center gap-x-1">
+				<div v-if="lanes.length > 1" class="flex min-w-0 flex-wrap items-center gap-x-1">
 					<Button
 						variant="ghost"
 						size="sm"
@@ -302,12 +298,14 @@ const notifications = computed(() =>
 						:tooltip="lane.detail"
 						@click="openDocument('Beacon Alert', lane.name)"
 					/>
-					<span class="min-w-0 truncate text-sm text-ink-gray-5"
-						>{{ lane.resource_title }},
-						{{ lane.count > 1 ? `${lane.count} alerts` : lane.status }}</span
+					<span v-if="lane.count > 1" class="text-sm text-ink-gray-5"
+						>{{ lane.count }} alerts</span
 					>
 				</div>
-				<div class="relative mt-1 h-4 rounded-3 bg-surface-gray-2">
+				<div
+					class="relative mt-1 h-4 cursor-pointer rounded-3 bg-surface-gray-2"
+					@click="openDocument('Beacon Alert', lane.name)"
+				>
 					<Tooltip
 						v-for="(segment, index) in lane.segments"
 						:key="index"
@@ -372,10 +370,7 @@ const notifications = computed(() =>
 			class="flex flex-col gap-4 rounded-6 border border-outline-gray-1 bg-surface-base p-4"
 		>
 			<div class="flex flex-wrap items-center gap-x-2 gap-y-1">
-				<h2 class="text-base-semibold">{{ cause.resource_title }}</h2>
-				<span class="flex-1 text-sm text-ink-gray-5"
-					>{{ cause.resource_type }} in {{ cause.region }}</span
-				>
+				<h2 class="flex-1 text-base-semibold">{{ cause.resource_title }}</h2>
 				<div class="flex gap-2">
 					<Button
 						label="Metrics"
@@ -405,7 +400,7 @@ const notifications = computed(() =>
 				:start="iso(span.start)"
 				:end="iso(span.end)"
 				initial-mode="groups"
-				:empty-text="`No log lines from ${cause.resource_title} while this incident was open.`"
+				empty-text="No log lines while this incident was open."
 			/>
 		</section>
 	</div>
