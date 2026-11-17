@@ -215,7 +215,7 @@ async function copyAffected() {
 				</div>
 			</div>
 
-			<dl class="flex flex-wrap gap-x-10 gap-y-4">
+			<dl class="flex flex-wrap gap-x-8 gap-y-4">
 				<div class="min-w-0">
 					<dt class="text-sm text-ink-gray-5">{{ cause.resource_type }}</dt>
 					<dd class="mt-1 flex h-5 items-center text-base-medium text-ink-gray-8">
@@ -258,18 +258,6 @@ async function copyAffected() {
 						<span class="truncate"
 							>{{ doc.acknowledged_by }}, {{ utc(doc.acknowledged_at) }}</span
 						>
-					</dd>
-				</div>
-				<div v-if="overview.total > 1">
-					<dt class="text-sm text-ink-gray-5">Alerts</dt>
-					<dd
-						class="mt-1 flex h-5 items-center text-base-medium text-ink-gray-8 tabular-nums"
-					>
-						{{
-							overview.firing
-								? `${overview.firing} firing of ${overview.total}`
-								: `None firing of ${overview.total}`
-						}}
 					</dd>
 				</div>
 				<div class="min-w-0">
@@ -362,7 +350,18 @@ async function copyAffected() {
 			class="flex flex-col gap-4 border-t border-outline-gray-1 py-6 first-of-type:border-t-0 first-of-type:pt-0"
 		>
 			<div class="flex flex-wrap items-center gap-x-4 gap-y-1">
-				<h2 class="flex-1 text-base-semibold">What happened</h2>
+				<h2 class="flex flex-1 items-baseline gap-2 text-base-semibold">
+					What happened
+					<span
+						v-if="overview.total > 1"
+						class="text-base text-ink-gray-5 tabular-nums"
+						>{{
+							overview.firing
+								? `${overview.firing} of ${overview.total} alerts firing`
+								: `${overview.total} alerts, none firing`
+						}}</span
+					>
+				</h2>
 				<div class="flex gap-3 text-sm text-ink-gray-5">
 					<span
 						v-for="[kind, segment] in legend"
