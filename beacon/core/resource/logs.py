@@ -11,6 +11,9 @@ from beacon.core.resource.charts import get_time_window, to_iso_utc, to_utc_naiv
 from beacon.core.resource.clickhouse import ClickHouseClient
 
 LEVELS = ("debug", "info", "notice", "warning", "error", "critical", "alert", "emergency")
+PAGE_LINES = 500
+MAX_PATTERNS = 500
+MAX_SERVICES = 200
 PATTERN_SQL = (
 	"replaceRegexpAll("
 	"replaceRegexpAll("
@@ -92,7 +95,7 @@ class LogSearch:
 		sql = (
 			"SELECT DISTINCT service FROM logs WHERE "
 			+ where
-			+ " AND service != '' ORDER BY service LIMIT 50"
+			+ f" AND service != '' ORDER BY service LIMIT {MAX_SERVICES}"
 		)
 		rows = self.clickhouse.query(sql, **parameters)
 		return [row["service"] for row in rows]
@@ -104,7 +107,7 @@ class LogSearch:
 		sql = (
 			"SELECT ts, resource_id, level, service, source, message, attributes FROM logs WHERE "
 			+ where
-			+ " ORDER BY ts DESC LIMIT 200"
+			+ f" ORDER BY ts DESC LIMIT {PAGE_LINES}"
 		)
 		rows = self.clickhouse.query(sql, **parameters)
 		resources = self._get_resources({row["resource_id"] for row in rows})
@@ -120,7 +123,7 @@ class LogSearch:
 			}
 			for row in rows
 		]
-		return {"lines": lines, "next_before": lines[-1]["ts"] if len(lines) == 200 else None}
+		return {"lines": lines, "next_before": lines[-1]["ts"] if len(lines) == PAGE_LINES else None}
 
 	def _get_resources(self, resource_ids: set[str]) -> dict[str, dict]:
 		"""The Desk name and title of each resource that wrote a line, so a line links to its resource."""
@@ -139,7 +142,7 @@ class LogSearch:
 		sql = (
 			"SELECT pattern, count() AS count, min(ts) AS first_seen, max(ts) AS last_seen, "
 			f"any(message) AS sample, max(indexOf({{level_order:Array(String)}}, lower(level))) AS level_rank "
-			f"FROM {source} GROUP BY pattern ORDER BY count DESC LIMIT 100"
+			f"FROM {source} GROUP BY pattern ORDER BY count DESC LIMIT {MAX_PATTERNS}"
 		)
 		rows = self.clickhouse.query(
 			sql, level_order=ClickHouseClient.quote_array(list(LEVELS)), **parameters
