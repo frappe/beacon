@@ -59,12 +59,16 @@ const banner = computed(() => {
 	const doc = props.doc;
 	if (doc.status === "Resolved") return null;
 	if (doc.escalation === "Waiting")
-		return `Beacon calls the on-call team at ${utc(
-			doc.next_page_at
-		)} unless someone acknowledges.`;
+		return {
+			title: "Beacon calls the on-call team soon.",
+			description: `At ${utc(doc.next_page_at)}, unless someone acknowledges.`,
+		};
 	if (doc.escalation === "Calling")
-		return `Beacon is calling the on-call team. Next call at ${utc(doc.next_page_at)}.`;
-	if (!doc.acknowledged_at) return "Nobody has acknowledged this incident.";
+		return {
+			title: "Beacon is calling the on-call team.",
+			description: `Next call at ${utc(doc.next_page_at)}.`,
+		};
+	if (!doc.acknowledged_at) return { title: "Nobody has acknowledged this incident." };
 	return null;
 });
 const firedAt = computed(() => cause.value.fired_at || cause.value.started_at);
@@ -174,11 +178,17 @@ async function copyAffected() {
 		This incident has no alerts. The Updates tab has what people wrote about it.
 	</p>
 
-	<div v-else class="flex flex-col gap-4 text-ink-gray-8">
-		<Alert v-if="banner" theme="amber" :title="banner" />
+	<div v-else class="flex flex-col pb-6 text-ink-gray-8">
+		<Alert
+			v-if="banner"
+			class="mb-6"
+			theme="amber"
+			:title="banner.title"
+			:description="banner.description"
+		/>
 
 		<section
-			class="flex flex-col gap-4 rounded-6 border border-outline-gray-1 bg-surface-base p-4"
+			class="flex flex-col gap-4 border-t border-outline-gray-1 py-6 first-of-type:border-t-0 first-of-type:pt-0"
 		>
 			<div class="flex flex-wrap items-start gap-3">
 				<div class="min-w-0 flex-1 basis-64">
@@ -205,49 +215,56 @@ async function copyAffected() {
 				</div>
 			</div>
 
-			<dl class="grid grid-cols-2 gap-x-4 gap-y-3 md:grid-cols-3">
+			<dl class="flex flex-wrap gap-x-10 gap-y-4">
 				<div class="min-w-0">
-					<dt class="text-sm text-ink-gray-5">Resource</dt>
-					<dd class="mt-0.5 truncate text-base-medium">
-						{{ cause.resource_title }}
-						<span class="text-base text-ink-gray-5">{{
-							[
-								cause.resource_type !== cause.resource_title &&
-									cause.resource_type,
-								cause.resource_type !== "Region" && cause.region,
-							]
-								.filter(Boolean)
-								.join(", ")
-						}}</span>
+					<dt class="text-sm text-ink-gray-5">{{ cause.resource_type }}</dt>
+					<dd class="mt-1 flex h-5 items-center text-base-medium text-ink-gray-8">
+						<span class="truncate">{{ cause.resource_title }}</span>
+					</dd>
+				</div>
+				<div v-if="cause.resource_type !== 'Region'">
+					<dt class="text-sm text-ink-gray-5">Region</dt>
+					<dd class="mt-1 flex h-5 items-center text-base-medium text-ink-gray-8">
+						{{ cause.region }}
 					</dd>
 				</div>
 				<div>
 					<dt class="text-sm text-ink-gray-5">Severity</dt>
-					<dd class="mt-0.5">
+					<dd class="mt-1 flex h-5 items-center">
 						<Badge :theme="SEVERITY_THEME[cause.severity]" :label="cause.severity" />
 					</dd>
 				</div>
 				<div>
 					<dt class="text-sm text-ink-gray-5">Fired</dt>
-					<dd class="mt-0.5 text-base-medium tabular-nums">
+					<dd
+						class="mt-1 flex h-5 items-center text-base-medium text-ink-gray-8 tabular-nums"
+					>
 						{{ date(time(firedAt)) }}, {{ utc(firedAt) }}
 					</dd>
 				</div>
 				<div v-if="doc.status === 'Resolved'">
 					<dt class="text-sm text-ink-gray-5">Resolved</dt>
-					<dd class="mt-0.5 text-base-medium tabular-nums">
+					<dd
+						class="mt-1 flex h-5 items-center text-base-medium text-ink-gray-8 tabular-nums"
+					>
 						{{ utc(doc.resolved_at) }}, after {{ duration(firedAt, doc.resolved_at) }}
 					</dd>
 				</div>
 				<div v-else-if="doc.acknowledged_at" class="min-w-0">
 					<dt class="text-sm text-ink-gray-5">Acknowledged</dt>
-					<dd class="mt-0.5 truncate text-base-medium tabular-nums">
-						{{ doc.acknowledged_by }}, {{ utc(doc.acknowledged_at) }}
+					<dd
+						class="mt-1 flex h-5 items-center text-base-medium text-ink-gray-8 tabular-nums"
+					>
+						<span class="truncate"
+							>{{ doc.acknowledged_by }}, {{ utc(doc.acknowledged_at) }}</span
+						>
 					</dd>
 				</div>
 				<div v-if="overview.total > 1">
 					<dt class="text-sm text-ink-gray-5">Alerts</dt>
-					<dd class="mt-0.5 text-base-medium tabular-nums">
+					<dd
+						class="mt-1 flex h-5 items-center text-base-medium text-ink-gray-8 tabular-nums"
+					>
 						{{
 							overview.firing
 								? `${overview.firing} firing of ${overview.total}`
@@ -257,35 +274,34 @@ async function copyAffected() {
 				</div>
 				<div class="min-w-0">
 					<dt class="text-sm text-ink-gray-5">Last 30 days</dt>
-					<dd class="mt-0.5 truncate text-base-medium">
-						{{
+					<dd class="mt-1 flex h-5 items-center text-base-medium text-ink-gray-8">
+						<span class="truncate">{{
 							history
 								? `${history.count} times on ${history.days} days, last ${date(
 										time(history.last_started_at)
 								  )}`
 								: "First time"
-						}}
+						}}</span>
 					</dd>
 				</div>
 			</dl>
 
 			<p
 				v-if="cause.detail"
-				class="whitespace-pre-wrap break-words rounded-4 bg-surface-gray-1 px-3 py-2 font-mono text-sm text-ink-gray-7"
+				class="whitespace-pre-wrap break-words border-l-2 border-outline-gray-2 pl-3 font-mono text-sm text-ink-gray-7"
 			>
 				{{ cause.detail }}
 			</p>
 
-			<div v-if="overview.affected.length" class="rounded-4 border border-outline-gray-1">
-				<div
-					class="flex min-h-9 items-center gap-2 border-b border-outline-gray-1 py-1 pl-3 pr-1"
-				>
-					<span class="text-base-medium text-ink-gray-9">{{
-						cause.rule_kind === "SLO Burn" ? "Failing now" : "Affected when it fired"
-					}}</span>
-					<span class="flex-1 text-base text-ink-gray-5">{{
-						overview.affected.length
-					}}</span>
+			<div v-if="overview.affected.length" class="divide-y divide-outline-gray-1">
+				<div class="flex min-h-9 items-center gap-2 pb-1">
+					<span class="flex-1 text-sm text-ink-gray-5"
+						>{{
+							cause.rule_kind === "SLO Burn"
+								? "Failing now"
+								: "Affected when it fired"
+						}}, {{ overview.affected.length }}</span
+					>
 					<Button
 						variant="ghost"
 						:label="copied ? 'Copied' : 'Copy'"
@@ -295,11 +311,11 @@ async function copyAffected() {
 				<div
 					v-for="item in overview.affected"
 					:key="item.key"
-					class="grid min-h-9 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 border-outline-gray-1 py-1 pl-3 pr-1 md:grid-cols-[10rem_minmax(0,1fr)_auto] [&+&]:border-t"
+					class="grid min-h-9 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 py-1 md:grid-cols-[10rem_minmax(0,1fr)_auto]"
 				>
-					<span class="truncate text-base-medium text-ink-gray-9">{{ item.key }}</span>
+					<span class="truncate text-base-medium text-ink-gray-8">{{ item.key }}</span>
 					<span
-						class="min-w-0 text-sm text-ink-gray-6 max-md:col-span-2 max-md:row-start-2 max-md:pb-1 md:truncate"
+						class="min-w-0 text-base text-ink-gray-6 max-md:col-span-2 max-md:row-start-2 max-md:pb-1 md:truncate"
 						:title="item.text"
 						>{{ item.text }}</span
 					>
@@ -343,7 +359,7 @@ async function copyAffected() {
 		</section>
 
 		<section
-			class="flex flex-col gap-4 rounded-6 border border-outline-gray-1 bg-surface-base p-4"
+			class="flex flex-col gap-4 border-t border-outline-gray-1 py-6 first-of-type:border-t-0 first-of-type:pt-0"
 		>
 			<div class="flex flex-wrap items-center gap-x-4 gap-y-1">
 				<h2 class="flex-1 text-base-semibold">What happened</h2>
@@ -448,7 +464,7 @@ async function copyAffected() {
 
 		<section
 			v-if="overview.cause_resource"
-			class="flex flex-col gap-4 rounded-6 border border-outline-gray-1 bg-surface-base p-4"
+			class="flex flex-col gap-4 border-t border-outline-gray-1 py-6 first-of-type:border-t-0 first-of-type:pt-0"
 		>
 			<div class="flex flex-wrap items-center gap-x-2 gap-y-1">
 				<h2 class="flex-1 text-base-semibold">{{ cause.resource_title }}</h2>
