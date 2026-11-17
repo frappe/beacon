@@ -14,23 +14,25 @@ from beacon.core.resource.clickhouse import ClickHouseClient
 if TYPE_CHECKING:
 	from beacon.beacon.doctype.beacon_resource.beacon_resource import BeaconResource
 
-MAX_POINTS = 2000
-MAX_SERIES = 20
-MAX_WINDOW_SECONDS = 7 * 24 * 60 * 60
+MAX_BUCKETS = 600
+MAX_SERIES = 50
+# Each series has at most MAX_BUCKETS buckets, plus one partial bucket.
+MAX_POINTS = 50_000
+# Datum keeps the raw system_ samples for 15 days.
+MAX_WINDOW_SECONDS = 14 * 24 * 60 * 60
 CHART_COLUMNS = ("ts", "series", "value")
 
 
 def get_time_window(start: str, end: str) -> tuple[datetime, datetime, int]:
-	"""Round the window to the minute and return the bucket size in seconds."""
+	"""Round the window to the minute and return the bucket size: whole minutes, and at most MAX_BUCKETS buckets."""
 	start_time = to_utc_naive(start).replace(second=0, microsecond=0)
 	end_time = to_utc_naive(end).replace(second=0, microsecond=0)
 	if end_time <= start_time:
 		frappe.throw(_("The end must be after the start."))
 	span = int((end_time - start_time).total_seconds())
 	if span > MAX_WINDOW_SECONDS:
-		frappe.throw(_("Choose a window of at most 7 days."))
-	step = max(60, span // 240)
-	return start_time, end_time, step - step % 60
+		frappe.throw(_("Choose a window of at most 14 days."))
+	return start_time, end_time, 60 * max(1, -(-span // (MAX_BUCKETS * 60)))
 
 
 def to_utc_naive(value) -> datetime:
