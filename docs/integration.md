@@ -290,14 +290,17 @@ beacon/
   rules/<rule-key>.http      HTTP checks
   rules/<rule-key>.tls       TLS certificate checks
   services/<service>.sql     SLI queries
+  charts/<chart-key>.sql     chart queries
   runbooks/<rule-key>.md     the steps for each rule that pages
 ```
 
-Add each repository as a Definition Source in Beacon Settings. Set its branch and the folder `beacon`. Select Sync Definitions to read the rule and service files. Beacon does not read the runbooks.
+A chart file has `-- title:`, `-- resource_type:`, `-- section:`, `-- unit:`, `-- style:`, `-- is_key_chart:` and `-- sort_order:` header lines. `style` is `Line` or `Bar`. Metrics in Beacon shows the charts of a resource, grouped by `section`. `resource_type` can name more than one type, separated by commas, when the metrics are the same, such as the machine metrics of a host and a VM. A key chart also shows as a number card, and the incident Overview shows it for the cause resource. The rest is a query that returns `ts`, `series` and `value`. It returns at most 20 series and 2000 rows. A null `value` is a gap. The query gets `{resource_id:String}`, `{start:DateTime64(3)}`, `{end:DateTime64(3)}`, `{step:UInt32}` (seconds per bucket, at least 60), plus `{region:String}` and `{excluded:Array(String)}`. Group the rows by `toStartOfInterval(ts, toIntervalSecond({step:UInt32}))`. Beacon deletes a chart when its file is gone.
+
+Add each repository as a Definition Source in Beacon Settings. Set its branch and the folder `beacon`. Select Sync Definitions to read the rule, service and chart files. Beacon does not read the runbooks.
 
 The sync checks all files of a source before it writes: an invalid header, a name that another source owns, or a new or changed SQL query that fails stops the source and Beacon changes nothing. It then applies each definition in its own committed transaction. A database failure after the checks can leave the earlier definitions applied, and the sync result names each failed definition.
 
-When a rule or service file is missing, Beacon disables that record and marks it Removed From Source. Beacon enables it again when the file comes back. A source can take a name when its old source removed the file or is no longer configured. So a rule can move between repositories.
+When a rule or service file is missing, Beacon disables that record and marks it Removed From Source. Beacon enables it again when the file comes back. A chart whose file is missing is deleted. A source can take a name when its old source removed the file or is no longer configured. So a rule can move between repositories.
 
 Desk can only turn a file rule or service on or off, set the Query Region of a global service, and set the Regions of an HTTP or TLS rule. A service is an Alert Rule of kind SLO Burn, so its file and its burn rule are one record. A file that names a region sets the Regions again at each sync. To change anything else, change its file.
 

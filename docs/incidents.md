@@ -60,6 +60,17 @@ Only a move in this table can change the status. The status field is read-only i
 
 Each minute, the recovery sweep looks for open incidents whose alerts all recovered. Because it reads all open incidents, a missed run delays a close and never loses it.
 
+## Overview tab
+
+The Overview tab of the incident form shows what a responder needs before they open an alert. It only reads data. Actions stay in the form.
+
+- A banner shows only when someone must act: Beacon is about to call, Beacon is calling, or nobody has acknowledged the incident.
+- The cause card names the worst open alert, else the oldest alert. It shows the rule description, the resource, the severity, the fire time, the acknowledge or resolve time, the count of firing alerts, the last 30 days of the same rule on the same resource, and the alert detail. Runbook and Rule open the runbook and the alert rule.
+- What happened shows one lane for each rule and resource, with the pending, firing and clean periods, and a dot for each notification. It shows the first 6 lanes, and Show all shows the rest.
+- The resource card shows the key charts of the cause resource and its logs while the incident was open, grouped by pattern. Metrics and Log viewer open the full views.
+
+An open incident reads the overview again each minute, because alerts change without a save of the incident.
+
 ## Publish
 
 The Publish action sets the visibility, the affected services with their impact, and the first public message. Publish gives the incident a link with a random public ID: `/incidents/<public_id>`. Public and Unlisted incidents use the same link, and only Public ones are listed. Nobody can guess the link or count the incidents from it. Support can send the link of an Unlisted incident to the customers who are affected. A change of visibility keeps the link. Regenerate Link makes a new one, and the old link stops working.

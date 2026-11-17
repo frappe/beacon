@@ -1,6 +1,12 @@
 frappe.ui.form.on("Beacon Resource", {
 	refresh(frm) {
 		if (frm.is_new()) return;
+		frm.add_custom_button(__("Metrics"), () =>
+			frappe.set_route("beacon-metrics", frm.doc.name)
+		);
+		frm.add_custom_button(__("Log viewer"), () =>
+			frappe.set_route("beacon-logs", frm.doc.region, frm.doc.name)
+		);
 		const view = new beacon.RecordView(frm);
 		view.related(
 			"now_html",

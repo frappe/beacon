@@ -1,17 +1,29 @@
 {
-	"name": "beacon-status-page",
+	"name": "beacon-frontend",
 	"private": true,
 	"type": "module",
 	"scripts": {
 		"dev": "vite",
-		"build": "vite build --base=/assets/beacon/frontend/ && mkdir -p ../beacon/www && cp ../beacon/public/frontend/index.html ../beacon/www/status.html"
+		"build": "vite build --base=/assets/beacon/frontend/ && mkdir -p ../beacon/www && cp ../beacon/public/frontend/index.html ../beacon/www/status.html && yarn build:islands",
+		"build:islands": "node build-islands.mjs --production",
+		"postinstall": "patch-package --patch-dir node_modules/@framework/ui/patches"
 	},
 	"dependencies": {
-		"vue": "^3.5.13",
-		"vue-router": "^4.5.0"
+		"frappe-ui": "github:frappe/frappe-ui#85de151a6937f61fc4bf46ff71a3ae40eb0ac2f0",
+		"vue": "^3.5.41",
+		"vue-router": "^4.6.4"
 	},
 	"devDependencies": {
-		"@vitejs/plugin-vue": "^5.2.1",
-		"vite": "^6.0.7"
+		"@framework/ui": "link:../../frappe/ui",
+		"@vitejs/plugin-vue": "^6.0.8",
+		"autoprefixer": "^10.5.4",
+		"patch-package": "^8.0.1",
+		"postcss": "^8.4.14",
+		"tailwindcss": "^3.4.19",
+		"typescript": "^5.9.3",
+		"vite": "^8.2.4"
+	},
+	"resolutions": {
+		"reka-ui": "2.10.4"
 	}
 }

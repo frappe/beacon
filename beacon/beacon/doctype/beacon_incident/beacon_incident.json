@@ -6,7 +6,7 @@
  "engine": "InnoDB",
  "field_order": [
   "overview_tab",
-  "overview_html",
+  "overview",
   "updates_tab",
   "updates",
   "postmortem_tab",
@@ -59,8 +59,9 @@
    "label": "Overview"
   },
   {
-   "fieldname": "overview_html",
-   "fieldtype": "HTML"
+   "fieldname": "overview",
+   "fieldtype": "Vue Component",
+   "options": "beacon.incident_overview"
   },
   {
    "fieldname": "title",
@@ -348,7 +349,7 @@
  ],
  "link_display_mode": "Search",
  "links": [],
- "modified": "2026-11-15 12:00:00.000000",
+ "modified": "2026-11-17 12:00:00.000000",
  "modified_by": "Administrator",
  "module": "Beacon",
  "name": "Beacon Incident",

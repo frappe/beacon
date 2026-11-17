@@ -4,6 +4,7 @@ import frappe
 from frappe.model.document import Document
 from frappe.utils import now_datetime
 
+from beacon.core.resource.charts import ResourceCharts, get_time_window
 from beacon.core.resource.registry import ResourceRegistry
 from beacon.core.resource.tree import ResourceTree
 from beacon.core.transaction import document_action
@@ -61,6 +62,20 @@ class BeaconResource(Document):
 		self.active_since = now_datetime()
 		self.save()
 		ResourceTree(self.region).rebuild()
+
+	@frappe.whitelist(methods=["GET"])
+	@frappe.read_only()
+	def get_charts(self, start: str, end: str) -> dict:
+		self.check_permission("read")
+		start_time, end_time, _step = get_time_window(start, end)
+		charts = ResourceCharts(self)
+		return {"charts": charts.get_definitions(), "alerts": charts.get_alerts(start_time, end_time)}
+
+	@frappe.whitelist(methods=["GET"])
+	@frappe.read_only()
+	def get_chart(self, chart: str, start: str, end: str) -> dict:
+		self.check_permission("read")
+		return ResourceCharts(self).get_chart(chart, start, end)
 
 
 def on_doctype_update() -> None:

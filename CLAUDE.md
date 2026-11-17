@@ -81,6 +81,7 @@ Read the [root specification](SPEC.md) for the module map, the jobs and the inva
 
 - The status page is a small Vue app in `frontend/`. It reads only the guest methods in `beacon/api/status.py`.
 - Desk forms use plain Frappe form scripts. Put actions in the **Actions** group and destructive ones behind a confirmation.
+- A read-only view in Desk, such as the Metrics and Log viewer Desk pages or the incident overview in a form, is a frappe-ui island in `frontend/src/islands/`. An island reads data and does no actions.
 
 ## Documentation
 

@@ -296,7 +296,7 @@ class BeaconIncident(Document):
 		self.require_published()
 		return frappe.get_cached_doc("Beacon Settings").get_status_page_url(f"/incidents/{self.public_id}")
 
-	@frappe.whitelist()
+	@frappe.whitelist(methods=["GET"])
 	@frappe.read_only()
 	def get_overview(self) -> dict:
 		"""The worst open alert, else the oldest alert, and the incident's alerts for the Overview tab."""
@@ -312,7 +312,21 @@ class BeaconIncident(Document):
 			cause.rule_title, cause.rule_description = AlertRules.get_problem_text(
 				cause.rule_kind, cause.rule_title, cause.rule_description
 			)
-		fields = ("title", "detail", "severity", "status", "started_at", "resolution")
+		fields = (
+			"name",
+			"title",
+			"detail",
+			"severity",
+			"status",
+			"started_at",
+			"fired_at",
+			"clean_since",
+			"resolved_at",
+			"resolution",
+			"resource",
+			"resource_title",
+			"rule",
+		)
 		return {
 			"cause": cause,
 			"alerts": [
@@ -321,7 +335,65 @@ class BeaconIncident(Document):
 			],
 			"total": len(rows),
 			"firing": sum(row.status == "Firing" for row in rows),
+			"notifications": frappe.get_all(
+				"Beacon Notification",
+				filters={"incident": self.name},
+				fields=["channel", "responder", "status", "sent_at", "answered_at"],
+				order_by="creation desc",
+				limit=30,
+			),
+			"history": self._get_history(rows),
+			"cause_resource": cause.resource if cause else None,
 		}
+
+	def _get_history(self, alerts: list[frappe._dict]) -> list[dict]:
+		pairs = {(alert.rule, alert.resource) for alert in alerts if alert.rule and alert.resource}
+		if not pairs:
+			return []
+		rows = frappe.get_all(
+			"Beacon Alert",
+			filters={
+				"rule": ("in", sorted({rule for rule, _resource in pairs})),
+				"resource": ("in", sorted({resource for _rule, resource in pairs})),
+				"started_at": (">=", now_datetime() - timedelta(days=30)),
+				"incident": ("!=", self.name),
+			},
+			fields=["rule", "resource", "started_at", "incident", "incident.title as incident_title"],
+		)
+		history: dict[tuple[str, str], dict] = {}
+		for row in rows:
+			pair = (row.rule, row.resource)
+			if pair not in pairs:
+				continue
+			started = get_datetime(row.started_at)
+			entry = history.setdefault(
+				pair, {"count": 0, "last_started_at": started, "days": set(), "incidents": {}}
+			)
+			entry["count"] += 1
+			entry["last_started_at"] = max(entry["last_started_at"], started)
+			entry["days"].add(started.date())
+			if row.incident:
+				incident = entry["incidents"].setdefault(
+					row.incident,
+					{"name": row.incident, "title": row.incident_title, "started_at": started},
+				)
+				incident["started_at"] = min(incident["started_at"], started)
+
+		return [
+			{
+				"rule": rule,
+				"resource": resource,
+				"count": entry["count"],
+				"last_started_at": entry["last_started_at"],
+				"days": len(entry["days"]),
+				"incidents": sorted(
+					entry["incidents"].values(), key=lambda item: item["started_at"], reverse=True
+				)[:3],
+			}
+			for (rule, resource), entry in sorted(
+				history.items(), key=lambda item: item[1]["last_started_at"], reverse=True
+			)
+		]
 
 	def _get_overview_alerts(self) -> list[frappe._dict]:
 		alert = frappe.qb.DocType("Beacon Alert")
@@ -341,6 +413,8 @@ class BeaconIncident(Document):
 				alert.status,
 				alert.started_at,
 				alert.fired_at,
+				alert.clean_since,
+				alert.resolved_at,
 				alert.value,
 				alert.resolution,
 				alert.region,

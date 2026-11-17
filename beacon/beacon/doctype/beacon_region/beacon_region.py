@@ -6,6 +6,7 @@ from frappe.utils import now_datetime
 
 from beacon.core.alert.evaluation_schedule import EvaluationSchedule
 from beacon.core.resource.clickhouse import ClickHouseClient
+from beacon.core.resource.logs import LogSearch
 from beacon.core.transaction import RecordTransaction, document_action
 
 
@@ -63,6 +64,32 @@ class BeaconRegion(Document):
 		clickhouse = ClickHouseClient(self)
 		latency_ms = clickhouse.ping()
 		return {"latency_ms": round(latency_ms), "settings": clickhouse.get_limit_settings()}
+
+	@frappe.whitelist(methods=["GET"])
+	@frappe.read_only()
+	def get_logs(
+		self,
+		start: str,
+		end: str,
+		resource: str | None = None,
+		levels: str | None = None,
+		service: str | None = None,
+		search: str | None = None,
+		before: str | None = None,
+		mode: str = "lines",
+	) -> dict:
+		"""The logs of every resource in the region, or of one resource when `resource` names it."""
+		self.check_permission("read")
+		resource_id = None
+		if resource:
+			row = frappe.db.get_value("Beacon Resource", resource, ["region", "resource_id"], as_dict=True)
+			if not row or row.region != self.name:
+				frappe.throw(frappe._("{0} is not a resource of {1}.").format(resource, self.name))
+			resource_id = row.resource_id
+
+		return LogSearch(self.name, resource_id).get_logs(
+			start, end, levels=levels, service=service, search=search, before=before, mode=mode
+		)
 
 	@document_action
 	def set_status(self, status: str) -> None:
