@@ -45,8 +45,12 @@ class IncidentForm {
 				["error", "Error"],
 			]
 		);
+		this.showEscalation();
 		if (this.doc.type === "Maintenance") this.maintenanceActions();
-		else this.incidentActions();
+		else {
+			this.incidentActions();
+			this.addOpenLinks();
+		}
 		if (!["Merged", "Cancelled"].includes(this.doc.status)) this.visibilityActions();
 		beacon.add_action(
 			this.frm,
@@ -57,6 +61,74 @@ class IncidentForm {
 			{ read: true }
 		);
 		this.irreversibleActions();
+	}
+
+	// The intro shows only when someone must act: Beacon is about to call, is calling, or nobody has acknowledged.
+	showEscalation() {
+		const doc = this.doc;
+		const at = (value) => `${(value || "").slice(11, 16)} UTC`;
+		this.frm.set_intro();
+		if (doc.status === "Resolved" || doc.type === "Maintenance") return;
+		if (doc.escalation === "Waiting")
+			this.frm.set_intro(
+				__("Beacon calls the on-call team at {0} unless someone acknowledges.", [
+					at(doc.next_page_at),
+				]),
+				"orange"
+			);
+		else if (doc.escalation === "Calling")
+			this.frm.set_intro(
+				__("Beacon is calling the on-call team. Next call at {0}.", [
+					at(doc.next_page_at),
+				]),
+				"red"
+			);
+		else if (!doc.acknowledged_at)
+			this.frm.set_intro(__("Nobody has acknowledged this incident."), "orange");
+	}
+
+	// The runbook, the rule and the cause resource, with Metrics and the Log viewer at the incident window.
+	async addOpenLinks() {
+		const url = `/api/v2/document/Beacon Incident/${encodeURIComponent(
+			this.doc.name
+		)}/method/get_overview`;
+		const overview = (await (await fetch(url)).json()).data;
+		const cause = overview?.cause;
+		if (!cause || this.frm.doc.name !== this.doc.name) return;
+
+		const group = __("Open");
+		const range = new URLSearchParams({
+			from: overview.window.start,
+			to: overview.window.end,
+		});
+		const external = (label, href) =>
+			href &&
+			this.frm.add_custom_button(
+				label,
+				() => window.open(href, "_blank", "noopener"),
+				group
+			);
+		external(__("Runbook"), cause.runbook_url);
+		this.frm.add_custom_button(
+			__("Rule"),
+			() => frappe.set_route("Form", "Beacon Alert Rule", cause.rule),
+			group
+		);
+		this.frm.add_custom_button(
+			__("Metrics"),
+			() => frappe.set_route(`beacon-metrics/${overview.cause_resource}?${range}`),
+			group
+		);
+		this.frm.add_custom_button(
+			__("Log viewer"),
+			() =>
+				frappe.set_route(
+					`beacon-logs/${cause.region}/${overview.cause_resource}?${range}`
+				),
+			group
+		);
+		external(__("Atlas"), cause.url);
+		external(__("Central"), overview.central_url);
 	}
 
 	async renderSubscribers() {

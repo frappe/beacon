@@ -11,13 +11,13 @@ const props = defineProps({
 	doc: { type: Object, default: () => ({}) },
 });
 
-const SEVERITY_THEME = { Critical: "red", High: "red", Medium: "amber", Low: "gray" };
 const SEGMENTS = {
 	pending: { label: "Pending", class: "bg-surface-amber-3" },
 	firing: { label: "Firing", class: "bg-surface-red-5" },
 	clean: { label: "Clean", class: "bg-surface-gray-4" },
 };
 const LANES_SHOWN = 6;
+const SEVERITY_THEME = { Critical: "red", High: "red", Medium: "amber", Low: "gray" };
 
 const host = useHost();
 const result = useCall({
@@ -54,34 +54,13 @@ function duration(from, to) {
 	return `${Math.floor(minutes / 1440)} d ${Math.floor((minutes % 1440) / 60)} h`;
 }
 
-// The banner shows only when someone must act: Beacon is about to call, is calling, or nobody has acknowledged.
-const banner = computed(() => {
-	const doc = props.doc;
-	if (doc.status === "Resolved") return null;
-	if (doc.escalation === "Waiting")
-		return {
-			title: "Beacon calls the on-call team soon.",
-			description: `At ${utc(doc.next_page_at)}, unless someone acknowledges.`,
-		};
-	if (doc.escalation === "Calling")
-		return {
-			title: "Beacon is calling the on-call team.",
-			description: `Next call at ${utc(doc.next_page_at)}.`,
-		};
-	if (!doc.acknowledged_at) return { title: "Nobody has acknowledged this incident." };
-	return null;
-});
 const firedAt = computed(() => cause.value.fired_at || cause.value.started_at);
 
-// The lanes and charts show from 30 min before the first alert to the end, at most 7 days.
-const span = computed(() => {
-	const starts = (overview.value?.alerts || [])
-		.map((alert) => time(alert.started_at))
-		.filter(Boolean);
-	const end = props.doc.resolved_at ? time(props.doc.resolved_at) + 15 * 60000 : Date.now();
-	const start = Math.max(Math.min(...starts, end - 3600000) - 30 * 60000, end - 7 * 86400000);
-	return { start, end };
-});
+// The lanes, charts and logs show the incident window that get_overview gives.
+const span = computed(() => ({
+	start: time(overview.value.window.start),
+	end: time(overview.value.window.end),
+}));
 const position = (value) => {
 	const { start, end } = span.value;
 	return `${(100 * (Math.min(Math.max(value, start), end) - start)) / (end - start)}%`;
@@ -142,21 +121,7 @@ const openWithWindow = (route) =>
 			pickerTime(new Date(span.value.end))
 		)
 	);
-const resourceLinks = computed(() => {
-	const resource = overview.value?.cause_resource;
-	if (!resource) return [];
-	return [
-		{ label: "Metrics", icon: "lucide-line-chart", route: `beacon-metrics/${resource}` },
-		{
-			label: "Log viewer",
-			icon: "lucide-scroll-text",
-			route: `beacon-logs/${cause.value.region}/${resource}`,
-		},
-		cause.value.url && { label: "Atlas", href: cause.value.url },
-		overview.value.central_url && { label: "Central", href: overview.value.central_url },
-	].filter(Boolean);
-});
-// A Region shows no logs, so its section is empty without charts or a parent. Its links then join the cause.
+// A Region shows no logs, so its section is empty without charts or a parent.
 const chartCount = ref(null);
 const isResourceEmpty = computed(
 	() =>
@@ -199,51 +164,16 @@ async function copyAffected() {
 	</p>
 
 	<div v-else class="flex flex-col pb-6 text-ink-gray-8">
-		<Alert
-			v-if="banner"
-			class="mb-6"
-			theme="amber"
-			:title="banner.title"
-			:description="banner.description"
-		/>
-
 		<section
 			class="flex flex-col gap-4 border-t border-outline-gray-1 py-6 first-of-type:border-t-0 first-of-type:pt-0"
 		>
-			<div class="flex flex-wrap items-start gap-3">
-				<div class="min-w-0 flex-1 basis-64">
-					<h2 class="flex min-h-7 items-center text-lg-semibold text-ink-gray-9">
-						{{ cause.rule_title || cause.title }}
-					</h2>
-					<p v-if="cause.rule_description" class="mt-1 text-p-sm text-ink-gray-5">
-						{{ cause.rule_description }}
-					</p>
-				</div>
-				<div class="flex flex-wrap gap-2">
-					<Button
-						v-if="cause.runbook_url"
-						label="Runbook"
-						icon-left="lucide-book-open"
-						:href="cause.runbook_url"
-					/>
-					<Button
-						v-if="cause.rule"
-						label="Rule"
-						icon-left="lucide-list-checks"
-						@click="openDocument('Beacon Alert Rule', cause.rule)"
-					/>
-					<template v-if="isResourceEmpty">
-						<Button
-							v-for="link in resourceLinks"
-							:key="link.label"
-							:label="link.label"
-							:icon-left="link.icon"
-							:icon-right="link.href && 'lucide-arrow-up-right'"
-							:href="link.href"
-							@click="link.route && openWithWindow(link.route)"
-						/>
-					</template>
-				</div>
+			<div>
+				<h2 class="text-lg-semibold text-ink-gray-9">
+					{{ cause.rule_title || cause.title }}
+				</h2>
+				<p v-if="cause.rule_description" class="mt-1 text-p-sm text-ink-gray-5">
+					{{ cause.rule_description }}
+				</p>
 			</div>
 
 			<dl class="flex flex-wrap gap-x-8 gap-y-4">
@@ -503,20 +433,7 @@ async function copyAffected() {
 			v-show="!isResourceEmpty"
 			class="flex flex-col gap-4 border-t border-outline-gray-1 py-6 first-of-type:border-t-0 first-of-type:pt-0"
 		>
-			<div class="flex flex-wrap items-center gap-x-2 gap-y-1">
-				<h2 class="flex-1 text-base-semibold">{{ cause.resource_title }}</h2>
-				<div class="flex flex-wrap gap-2">
-					<Button
-						v-for="link in resourceLinks"
-						:key="link.label"
-						:label="link.label"
-						:icon-left="link.icon"
-						:icon-right="link.href && 'lucide-arrow-up-right'"
-						:href="link.href"
-						@click="link.route && openWithWindow(link.route)"
-					/>
-				</div>
-			</div>
+			<h2 class="text-base-semibold">{{ cause.resource_title }}</h2>
 			<ResourceCharts
 				:name="overview.cause_resource"
 				:start="iso(span.start)"

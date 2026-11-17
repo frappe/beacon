@@ -64,10 +64,11 @@ Each minute, the recovery sweep looks for open incidents whose alerts all recove
 
 The Overview tab of the incident form shows what a responder needs before they open an alert. It only reads data. Actions stay in the form.
 
-- A banner shows only when someone must act: Beacon is about to call, Beacon is calling, or nobody has acknowledged the incident.
-- The cause card names the worst open alert, else the oldest alert. It shows the rule description, the resource, the severity, the fire time, the acknowledge or resolve time, the count of firing alerts, the last 30 days of the same rule on the same resource, and the alert detail. Runbook and Rule open the runbook and the alert rule.
+- The form intro shows only when someone must act: Beacon is about to call, Beacon is calling, or nobody has acknowledged the incident.
+- The **Open** group of the form opens the runbook, the alert rule, Metrics and the Log viewer of the cause resource, its Atlas record and the Central record. Metrics and the Log viewer open at the incident window: from 30 min before the first alert to 15 min after the resolution or now, at most 7 days.
+- The cause card names the worst open alert, else the oldest alert. It shows the rule description, the resource, the severity, the fire time, the acknowledge or resolve time, the count of firing alerts, the last 30 days of the same rule on the same resource, and the alert detail.
 - What happened shows one lane for each rule and resource, with the pending, firing and clean periods, and a dot for each notification. It shows the first 6 lanes, and Show all shows the rest.
-- The resource card shows the key charts of the cause resource and its logs while the incident was open, grouped by pattern. Metrics and Log viewer open the full views.
+- The resource card shows the key charts of the cause resource and its logs while the incident was open, grouped by pattern.
 
 An open incident reads the overview again each minute, because alerts change without a save of the incident.
 

@@ -372,6 +372,7 @@ class BeaconIncident(Document):
 			"chart_keys": AlertRules.get_chart_keys(cause.charts) if cause else [],
 			"central_url": self._get_central_url(cause),
 			"parent": self._get_parent(cause),
+			"window": self._get_window(rows),
 			"affected": self._get_affected(cause),
 		}
 
@@ -439,6 +440,14 @@ class BeaconIncident(Document):
 		if parent:
 			parent.firing = frappe.db.count("Beacon Alert", {"resource": parent.name, "status": "Firing"})
 		return parent
+
+	def _get_window(self, alerts: list[frappe._dict]) -> dict:
+		"""From 30 min before the first alert, or 1 h before the end, to 15 min after the resolution or now.
+		At most 7 days. Metrics, the Log viewer and the Overview charts open at it."""
+		end = get_datetime(self.resolved_at) + timedelta(minutes=15) if self.resolved_at else now_datetime()
+		first = min([get_datetime(alert.started_at) for alert in alerts] + [end - timedelta(hours=1)])
+		start = max(first - timedelta(minutes=30), end - timedelta(days=7))
+		return {"start": f"{start:%Y-%m-%d %H:%M:%S}", "end": f"{end:%Y-%m-%d %H:%M:%S}"}
 
 	def _get_history(self, alerts: list[frappe._dict]) -> list[dict]:
 		pairs = {(alert.rule, alert.resource) for alert in alerts if alert.rule and alert.resource}
