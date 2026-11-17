@@ -24,6 +24,8 @@ HELD_REMOVAL_RATIO = 0.1
 # A resource missing from this many good fetches in a row is Terminated.
 MISSING_FETCHES_TO_TERMINATE = 2
 
+MAX_URL_LENGTH = 1000
+
 
 @dataclass(frozen=True)
 class SourceRow:
@@ -52,6 +54,10 @@ class SourceRow:
 			raise SourceFetchError(f"Resource {row.resource_id} has an unknown status {row.status!r}")
 		if row.url and not row.url.startswith(("https://", "http://")):
 			raise SourceFetchError(f"Resource {row.resource_id} has a URL that is not HTTP: {row.url!r}")
+		if len(row.url) > MAX_URL_LENGTH:
+			raise SourceFetchError(
+				f"Resource {row.resource_id} has a URL longer than {MAX_URL_LENGTH} characters"
+			)
 		return row
 
 	@property

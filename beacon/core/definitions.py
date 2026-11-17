@@ -148,6 +148,7 @@ class DefinitionFile:
 			return {
 				"kind": BURN_KIND,
 				"measurement": "Measured",
+				"charts": "",
 				"status_page_group": "",
 				**self.values,
 				"sli_query": self.query,
