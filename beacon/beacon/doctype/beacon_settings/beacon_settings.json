@@ -65,7 +65,7 @@
    "default": "0",
    "fieldname": "paging_paused",
    "fieldtype": "Check",
-   "label": "Paging Paused",
+   "label": "Calls and emails paused",
    "read_only": 1
   },
   {
@@ -120,7 +120,7 @@
    "default": "90",
    "fieldname": "page_delay_seconds",
    "fieldtype": "Int",
-   "label": "Page Delay (Seconds)"
+   "label": "Notification delay (seconds)"
   },
   {
    "default": "15",

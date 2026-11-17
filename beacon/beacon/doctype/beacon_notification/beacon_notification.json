@@ -100,7 +100,7 @@
   {
    "fieldname": "page_round",
    "fieldtype": "Int",
-   "label": "Round",
+   "label": "Call round",
    "read_only": 1
   },
   {

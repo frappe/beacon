@@ -253,7 +253,7 @@ class SourceSync:
 				)
 			]
 			+ [
-				f"{file.path}: a {file.values['severity']} rule pages, so add a runbook_url."
+				f"{file.path}: a {file.values['severity']} rule notifies, so add a runbook_url."
 				for file in files
 				if file.values.get("severity") in PAGING_SEVERITIES and not file.values.get("runbook_url")
 			]

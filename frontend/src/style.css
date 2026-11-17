@@ -4,8 +4,7 @@
 	font-family: Inter, system-ui, -apple-system, sans-serif; color: #1f2937; background: #f7f7f8;
 }
 * { box-sizing: border-box; }
-body { margin: 0; }
-h1, h2 { margin: 0; }
+body, h1, h2 { margin: 0; }
 h1 { font-size: 1.25rem; }
 h2 { font-size: 1rem; }
 a { color: inherit; }
@@ -47,8 +46,7 @@ a { color: inherit; }
 .day-detail { font-size: .8rem; line-height: 1.6; padding: 12px; background: #f1f3f5; border-radius: 6px; }
 .day-facts { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin: 8px 0; font-variant-numeric: tabular-nums; }
 .day-facts dt { color: var(--muted); font-size: .75rem; }
-.day-facts dd { margin: 0; }
-.day-detail .muted { margin: 0; }
+.day-facts dd, .day-detail .muted { margin: 0; }
 @media (max-width: 40rem) {
 	.bars { height: 40px; gap: 1px; }
 	.day-facts { grid-template-columns: repeat(2, 1fr); }

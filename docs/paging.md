@@ -31,15 +31,15 @@ POST /api/v2/document/Beacon%20Incident/<name>/method/acknowledge
 
 | From | Event | To |
 | --- | --- | --- |
-| None | Incident created, and its resource has a parent | Waiting, for the page delay |
-| None, Waiting | The page delay ends, the resource has no parent, or Page On-call | Calling |
+| None | Incident created, and its resource has a parent | Waiting, for the notification delay |
+| None, Waiting | The notification delay ends, the resource has no parent, or Notify On-call | Calling |
 | Calling | No acknowledge in the backup time | Calling the next responder |
 | Calling | The Acknowledge action or an answered call | Done |
 | Waiting, Calling | The incident merges or resolves | Done |
 
-## Paging pause
+## Calls and emails pause
 
-"Paging Paused" in Beacon Settings stops all calls and emails, for example after a database restore. Escalations continue when the pause ends.
+"Calls and emails paused" in Beacon Settings stops all calls and emails, for example after a database restore. Escalations continue when the pause ends.
 
 ## Emails to responders
 
@@ -48,7 +48,7 @@ Each email is a report card from `beacon/templates/emails/` with the incident's 
 | Email | Sent to | When |
 | --- | --- | --- |
 | New incident | Every active responder | A High or Critical incident starts |
-| Escalation page | The responder that Beacon calls | Each page round, with the call. One email for each responder in each round. |
+| Escalation | The responder that Beacon calls | Each call round, with the call. One email for each responder in each round. |
 | Incident resolved | Every active responder | A High or Critical incident resolves. It shows the closing note. |
 
 ## Delivery
@@ -59,7 +59,7 @@ Chat messages use Markdown, and the incident name links to the incident in Desk.
 
 When a call or an email fails, Beacon posts to chat who did not get it, with a link to the notification. It posts at most one such message for each incident and channel in an hour. The error stays on the notification, because a provider response can hold data that chat must not show. For an email, Sent means that Frappe accepted it into the Email Queue. Frappe sends it later and records a delivery error on the Email Queue row, not on the notification.
 
-A queued call, or an escalation email with a page round, is cancelled when its incident closed or its escalation stopped before the job sent it. A closing email with page round 0 is still sent.
+A queued call, or an escalation email with a call round, is cancelled when its incident closed or its escalation stopped before the job sent it. A closing email with call round 0 is still sent.
 
 ## Heartbeat
 

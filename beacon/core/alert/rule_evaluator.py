@@ -132,7 +132,8 @@ class RuleEvaluator:
 			return
 
 		reconciler = AlertReconciler(self.rule, self.registry, self.now)
-		if self._has_gap():
+		last_success = self.evaluation.last_success_at
+		if last_success and self.now - last_success > timedelta(seconds=3 * self.rule.interval):
 			reconciler.restart_timers()
 
 		failing, unknown = self._get_failing_rows(rows)
@@ -159,7 +160,6 @@ class RuleEvaluator:
 	def _get_failing_rows(self, rows: list[dict]) -> tuple[list[RuleFailure], int]:
 		failing: list[RuleFailure] = []
 		unknown = 0
-		seen: set[tuple[str, str]] = set()
 		# Any token in the region can send any metric, so a row for a resource of another type is not trusted.
 		resource_types = AlertRules.get_resource_types(self.rule.resource_type)
 		for row in rows:
@@ -167,18 +167,12 @@ class RuleEvaluator:
 			if not resource or (resource_types and resource.resource_type not in resource_types):
 				unknown += 1
 				continue
-
-			key = (resource.name, row["alert_key"])
-			if key in seen or not self.registry.is_evaluated(resource, self.now):
+			if not self.registry.is_evaluated(resource, self.now):
 				continue
-
-			seen.add(key)
-			failing.append(RuleFailure(resource, key[1], row["value"], row["detail"], row["severity"]))
+			failing.append(
+				RuleFailure(resource, row["alert_key"], row["value"], row["detail"], row["severity"])
+			)
 		return failing, unknown
-
-	def _has_gap(self) -> bool:
-		last_success = self.evaluation.last_success_at
-		return bool(last_success) and self.now - last_success > timedelta(seconds=3 * self.rule.interval)
 
 	def _record_error(self, error: str) -> None:
 		"""Log and post only when the state changes, so a rule that keeps failing does not flood the logs."""

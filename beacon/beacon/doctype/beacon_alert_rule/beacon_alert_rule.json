@@ -353,7 +353,7 @@
    "description": "If you clear this, SLO burn alerts are Medium. Beacon then sends them only to chat.",
    "fieldname": "page_on_burn",
    "fieldtype": "Check",
-   "label": "Notify and Call on Burn",
+   "label": "Notify on error budget burn",
    "show_description_on_click": 1
   },
   {

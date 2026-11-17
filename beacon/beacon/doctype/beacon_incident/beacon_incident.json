@@ -324,7 +324,7 @@
   {
    "fieldname": "next_page_at",
    "fieldtype": "Datetime",
-   "label": "Next Page At",
+   "label": "Next notification at",
    "read_only": 1
   },
   {
@@ -334,14 +334,14 @@
   {
    "fieldname": "page_round",
    "fieldtype": "Int",
-   "label": "Page Round",
+   "label": "Call round",
    "read_only": 1
   },
   {
    "description": "The position, in the responder list, of the person Beacon notifies now.",
    "fieldname": "page_index",
    "fieldtype": "Int",
-   "label": "Page Index",
+   "label": "Responder index",
    "read_only": 1,
    "show_description_on_click": 1
   }

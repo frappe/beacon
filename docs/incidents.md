@@ -21,7 +21,7 @@ For each Firing alert without an incident, the coordinator tries these steps in 
 1. **Cover.** An open incident has a scope row that covers the resource of the alert, or a parent of it. The alert joins that incident. An alert on the region resource is never covered, because all region-level rules report on it. It joins by pair or rule only.
 2. **Pair.** Each minute, the service measurement keeps the resources that sent bad events (the bad reporters). A burn alert joins an open incident in its region that has a cause alert on a bad reporter of its service or on a parent of one. A cause alert on such a resource joins an open incident that has only burn alerts, and adds its resource to the scope. Alerts that are not related in this way do not pair.
 3. **Rule.** An open incident in the region has an alert of the same rule, and it is Triggered or younger than 30 minutes. The alert joins it. An older, acknowledged incident does not take a second outage.
-4. **Create.** Beacon creates an Internal incident in Triggered. When the resource has no parent, paging starts at once. Else paging waits for the page delay (90 seconds), so an incident of the parent can take the alert first.
+4. **Create.** Beacon creates an Internal incident in Triggered. When the resource has no parent, notifications start at once. Else notifications wait for the notification delay (90 seconds), so an incident of the parent can take the alert first.
 
 A join is never silent. The coordinator posts one chat message for each incident in each run, with the alerts that joined. When an alert raises the severity, Beacon announces it and pages again. When an alert joins an incident in Monitoring, the incident goes back to Investigating and pages again.
 
