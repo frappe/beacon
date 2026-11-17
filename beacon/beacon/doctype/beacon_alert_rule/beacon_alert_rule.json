@@ -15,6 +15,7 @@
   "silenced_until",
   "resource_type",
   "runbook_url",
+  "charts",
   "service_section",
   "measurement",
   "slo_target",
@@ -128,6 +129,13 @@
    "fieldtype": "Data",
    "label": "Runbook URL",
    "options": "URL"
+  },
+  {
+   "fieldname": "charts",
+   "fieldtype": "Small Text",
+   "label": "Charts",
+   "description": "The chart keys that the incident Overview shows first, separated by commas.",
+   "show_description_on_click": 1
   },
   {
    "depends_on": "eval:['HTTP', 'TLS'].includes(doc.kind)",
@@ -454,7 +462,7 @@
    "link_fieldname": "service"
   }
  ],
- "modified": "2026-11-16 12:00:00.000000",
+ "modified": "2026-11-18 00:44:44.877866",
  "modified_by": "Administrator",
  "module": "Beacon",
  "name": "Beacon Alert Rule",

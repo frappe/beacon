@@ -37,6 +37,7 @@ class BeaconAlertRule(Document):
 
 		from beacon.beacon.doctype.beacon_region_item.beacon_region_item import BeaconRegionItem
 
+		charts: DF.SmallText | None
 		description: DF.SmallText | None
 		enabled: DF.Check
 		expected_status: DF.Int

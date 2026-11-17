@@ -41,6 +41,7 @@ RULE_HEADER_FIELDS = {
 	"pending_for": int,
 	"resolve_after": int,
 	"scope_includes_descendants": int,
+	"charts": str,
 }
 ENDPOINT_HEADER_FIELDS = {
 	**{
@@ -152,9 +153,9 @@ class DefinitionFile:
 				"sli_query": self.query,
 			}
 		if self.kind == "SQL":
-			return {**self.values, "kind": "SQL", "query": self.query, "regions": []}
+			return {"charts": "", **self.values, "kind": "SQL", "query": self.query, "regions": []}
 
-		values = {name: value for name, value in self.values.items() if name != "region"}
+		values = {"charts": "", **{name: value for name, value in self.values.items() if name != "region"}}
 		region = self.values.get("region")
 		if region:
 			values["regions"] = [] if region == ALL_REGIONS else [{"region": region}]
@@ -275,6 +276,7 @@ class SourceSync:
 			)
 		]
 		known_types = set(frappe.get_all("Beacon Resource", pluck="resource_type", distinct=True))
+		known_charts = set(frappe.get_all("Beacon Chart", pluck="name"))
 		return (
 			[
 				f"{file.path}: no resource has the type {name}. Check resource_type: Beacon drops rows of other types."
@@ -287,6 +289,12 @@ class SourceSync:
 				f"{file.path}: a {file.values['severity']} rule notifies, so add a runbook_url."
 				for file in files
 				if file.values.get("severity") in PAGING_SEVERITIES and not file.values.get("runbook_url")
+			]
+			+ [
+				f"{file.path}: no chart has the key {key}. Check charts."
+				for file in files
+				for key in AlertRules.get_chart_keys(file.values.get("charts"))
+				if key not in known_charts
 			]
 			+ [f"{name}: a global service needs a Query Region. Set it in Desk." for name in unmeasured]
 			+ [

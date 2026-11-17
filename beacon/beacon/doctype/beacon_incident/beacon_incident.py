@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import timedelta
+from urllib.parse import urlencode
 
 import frappe
 from frappe import _
@@ -367,7 +368,35 @@ class BeaconIncident(Document):
 			),
 			"history": self._get_history(rows),
 			"cause_resource": cause.resource if cause else None,
+			"chart_keys": AlertRules.get_chart_keys(cause.charts) if cause else [],
+			"central_url": self._get_central_url(cause),
+			"parent": self._get_parent(cause),
 		}
+
+	@staticmethod
+	def _get_central_url(cause: frappe._dict | None) -> str | None:
+		"""Central names its VMs by its own ID, so the link filters its list on the Atlas VM ID."""
+		central_url = frappe.db.get_single_value("Beacon Settings", "central_url")
+		if not (cause and central_url and cause.resource_type == "Virtual Machine"):
+			return None
+		return (
+			f"{central_url.rstrip('/')}/desk/virtual-machine?{urlencode({'atlas_vm_id': cause.resource_id})}"
+		)
+
+	@staticmethod
+	def _get_parent(cause: frappe._dict | None) -> dict | None:
+		"""Where the cause resource runs now, such as the host of a VM. It can differ from where it ran during the incident."""
+		if not (cause and cause.parent_resource):
+			return None
+		parent = frappe.db.get_value(
+			"Beacon Resource",
+			cause.parent_resource,
+			["name", "title", "resource_id", "resource_type", "region", "url"],
+			as_dict=True,
+		)
+		if parent:
+			parent.firing = frappe.db.count("Beacon Alert", {"resource": parent.name, "status": "Firing"})
+		return parent
 
 	def _get_history(self, alerts: list[frappe._dict]) -> list[dict]:
 		pairs = {(alert.rule, alert.resource) for alert in alerts if alert.rule and alert.resource}
@@ -448,10 +477,13 @@ class BeaconIncident(Document):
 				rule.description.as_("rule_description"),
 				rule.runbook_url,
 				rule.scope_includes_descendants,
+				rule.charts,
 				Coalesce(resource.title, resource.resource_id).as_("resource_title"),
 				resource.resource_id,
 				resource.resource_type,
 				resource.path,
+				resource.url,
+				resource.parent_resource,
 			)
 			.where(alert.incident == self.name)
 			.orderby(alert.started_at)

@@ -28,3 +28,8 @@ class AlertRules:
 	def get_resource_types(resource_type: str | None) -> set[str]:
 		"""The types in a rule's comma-separated `resource_type`. An empty set takes every type."""
 		return {name.strip() for name in (resource_type or "").split(",") if name.strip()}
+
+	@staticmethod
+	def get_chart_keys(charts: str | None) -> list[str]:
+		"""The keys in a rule's comma-separated `charts`, in order."""
+		return [key.strip() for key in (charts or "").split(",") if key.strip()]

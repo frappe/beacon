@@ -34,6 +34,7 @@ class SourceRow:
 	parent_id: str
 	title: str
 	status: str
+	url: str
 
 	@classmethod
 	def parse(cls, payload: Any) -> SourceRow:
@@ -49,6 +50,8 @@ class SourceRow:
 			raise SourceFetchError(f"A resource row has no resource_id or resource_type: {payload!r}")
 		if row.status not in RESOURCE_STATUSES:
 			raise SourceFetchError(f"Resource {row.resource_id} has an unknown status {row.status!r}")
+		if row.url and not row.url.startswith(("https://", "http://")):
+			raise SourceFetchError(f"Resource {row.resource_id} has a URL that is not HTTP: {row.url!r}")
 		return row
 
 	@property
@@ -153,6 +156,7 @@ class ResourceSync:
 			"resource_type": row.resource_type,
 			"title": row.title,
 			"status": row.status,
+			"url": row.url,
 			"row_hash": row.row_hash,
 			"missing_fetches": 0,
 		}
@@ -230,6 +234,7 @@ class ResourceSync:
 				"resource_type": row.resource_type,
 				"title": row.title,
 				"status": row.status,
+				"url": row.url,
 				"row_hash": row.row_hash,
 				"active_since": self.now if row.status == "Active" else None,
 				"terminated_at": self.now if row.status == "Terminated" else None,

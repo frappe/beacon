@@ -380,7 +380,7 @@ const notifications = computed(() =>
 		>
 			<div class="flex flex-wrap items-center gap-x-2 gap-y-1">
 				<h2 class="flex-1 text-base-semibold">{{ cause.resource_title }}</h2>
-				<div class="flex gap-2">
+				<div class="flex flex-wrap gap-2">
 					<Button
 						label="Metrics"
 						icon-left="lucide-line-chart"
@@ -395,6 +395,18 @@ const notifications = computed(() =>
 							)
 						"
 					/>
+					<Button
+						v-if="cause.url"
+						label="Atlas"
+						icon-right="lucide-arrow-up-right"
+						:href="cause.url"
+					/>
+					<Button
+						v-if="overview.central_url"
+						label="Central"
+						icon-right="lucide-arrow-up-right"
+						:href="overview.central_url"
+					/>
 				</div>
 			</div>
 			<ResourceCharts
@@ -402,7 +414,36 @@ const notifications = computed(() =>
 				:start="iso(span.start)"
 				:end="iso(span.end)"
 				key-only
+				:chart-keys="overview.chart_keys"
 			/>
+			<div
+				v-if="overview.parent"
+				class="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-4 bg-surface-gray-2 py-1 pl-3 pr-1 text-p-sm"
+			>
+				<span class="text-ink-gray-5">Runs on</span>
+				<span class="text-base-medium text-ink-gray-9">{{
+					overview.parent.title || overview.parent.resource_id
+				}}</span>
+				<span class="text-ink-gray-5">{{ overview.parent.resource_type }}</span>
+				<Badge
+					v-if="overview.parent.firing"
+					theme="red"
+					:label="`${overview.parent.firing} firing`"
+				/>
+				<span class="flex-1" />
+				<Button
+					variant="ghost"
+					label="Metrics"
+					@click="openWithWindow(`beacon-metrics/${overview.parent.name}`)"
+				/>
+				<Button
+					v-if="overview.parent.url"
+					variant="ghost"
+					label="Atlas"
+					icon-right="lucide-arrow-up-right"
+					:href="overview.parent.url"
+				/>
+			</div>
 			<LogViewer
 				:region="cause.region"
 				:resource="overview.cause_resource"

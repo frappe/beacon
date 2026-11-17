@@ -10,6 +10,8 @@ const props = defineProps({
 	start: { type: String, required: true },
 	end: { type: String, required: true },
 	keyOnly: { type: Boolean, default: false },
+	// The charts that the alert rule names. With keyOnly they show as trends before the key numbers.
+	chartKeys: { type: Array, default: () => [] },
 });
 
 const results = reactive({});
@@ -20,7 +22,14 @@ const listing = useCall({
 	refetch: true,
 });
 const charts = computed(() => listing.data?.charts || []);
-const shown = computed(() => charts.value.filter((chart) => !props.keyOnly || chart.is_key_chart));
+const named = computed(() =>
+	props.chartKeys.map((key) => charts.value.find((chart) => chart.name === key)).filter(Boolean)
+);
+const shown = computed(() =>
+	charts.value.filter(
+		(chart) => !props.keyOnly || (chart.is_key_chart && !props.chartKeys.includes(chart.name))
+	)
+);
 const sections = computed(() => {
 	const bySection = {};
 	for (const chart of shown.value) (bySection[chart.section || "Other"] ||= []).push(chart);
@@ -29,7 +38,7 @@ const sections = computed(() => {
 </script>
 
 <template>
-	<div class="flex flex-col gap-6 text-ink-gray-8">
+	<div class="flex flex-col text-ink-gray-8" :class="keyOnly ? 'gap-3' : 'gap-6'">
 		<Alert
 			v-if="listing.error"
 			theme="red"
@@ -41,20 +50,33 @@ const sections = computed(() => {
 			No chart applies to this resource type.
 		</p>
 
-		<div
-			v-else-if="keyOnly && shown.length"
-			class="grid grid-cols-2 gap-3 sm:grid-cols-[repeat(auto-fit,minmax(9rem,1fr))]"
-		>
-			<ChartPanel
-				v-for="chart in shown"
-				:key="chart.name"
-				summary
-				:resource="name"
-				:chart="chart"
-				:start="start"
-				:end="end"
-			/>
-		</div>
+		<template v-else-if="keyOnly">
+			<div v-if="named.length" class="grid grid-cols-1 gap-3 lg:grid-cols-2">
+				<ChartPanel
+					v-for="chart in named"
+					:key="chart.name"
+					:resource="name"
+					:chart="chart"
+					:start="start"
+					:end="end"
+					:alerts="listing.data.alerts"
+				/>
+			</div>
+			<div
+				v-if="shown.length"
+				class="grid grid-cols-2 gap-3 sm:grid-cols-[repeat(auto-fit,minmax(9rem,1fr))]"
+			>
+				<ChartPanel
+					v-for="chart in shown"
+					:key="chart.name"
+					summary
+					:resource="name"
+					:chart="chart"
+					:start="start"
+					:end="end"
+				/>
+			</div>
+		</template>
 
 		<template v-else-if="shown.length">
 			<div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
