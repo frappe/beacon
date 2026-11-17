@@ -17,6 +17,7 @@ class BeaconChart(Document):
 		chart_key: DF.Data
 		is_key_chart: DF.Check
 		query: DF.Code
+		requires_metric: DF.Data | None
 		resource_type: DF.Data | None
 		section: DF.Data | None
 		sort_order: DF.Int

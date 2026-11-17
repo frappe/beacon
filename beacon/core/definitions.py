@@ -75,6 +75,7 @@ CHART_KIND = "Chart"
 CHART_HEADER_FIELDS = {
 	"title": str,
 	"resource_type": str,
+	"requires_metric": str,
 	"section": str,
 	"unit": str,
 	"style": str,

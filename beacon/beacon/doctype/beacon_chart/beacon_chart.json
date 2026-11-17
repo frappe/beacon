@@ -9,6 +9,7 @@
   "chart_key",
   "title",
   "resource_type",
+  "requires_metric",
   "section",
   "chart_column",
   "unit",
@@ -46,6 +47,13 @@
    "fieldtype": "Data",
    "in_list_view": 1,
    "label": "Resource Type",
+   "show_description_on_click": 1
+  },
+  {
+   "description": "Show the chart only on a resource that sent this metric in the window.",
+   "fieldname": "requires_metric",
+   "fieldtype": "Data",
+   "label": "Requires Metric",
    "show_description_on_click": 1
   },
   {
@@ -103,7 +111,7 @@
  ],
  "link_display_mode": "Search",
  "links": [],
- "modified": "2026-11-17 12:00:00.000000",
+ "modified": "2026-11-17 18:00:00.000000",
  "modified_by": "Administrator",
  "module": "Beacon",
  "name": "Beacon Chart",

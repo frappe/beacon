@@ -69,7 +69,10 @@ class BeaconResource(Document):
 		self.check_permission("read")
 		start_time, end_time, _step = get_time_window(start, end)
 		charts = ResourceCharts(self)
-		return {"charts": charts.get_definitions(), "alerts": charts.get_alerts(start_time, end_time)}
+		return {
+			"charts": charts.get_definitions(start_time, end_time),
+			"alerts": charts.get_alerts(start_time, end_time),
+		}
 
 	@frappe.whitelist(methods=["GET"])
 	@frappe.read_only()
