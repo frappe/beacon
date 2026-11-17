@@ -3,7 +3,7 @@ from __future__ import annotations
 import frappe
 
 BURN_KIND = "SLO Burn"
-BURN_RESOLVE_AFTER_SECONDS = 300
+BURN_RESOLVE_AFTER_SECONDS = 1800
 
 
 class AlertRules:
