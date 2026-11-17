@@ -2,12 +2,12 @@
 import { useHost } from "@framework/ui/island";
 import { Alert, useCall } from "frappe-ui";
 import { computed, ref, watch } from "vue";
-import { lastHours } from "./api";
+import { lastHours, routeWithWindow } from "./api";
 import ResourceCharts from "./ResourceCharts.vue";
 import ResourcePicker from "./ResourcePicker.vue";
 import TimeWindow from "./TimeWindow.vue";
 
-// Desk page /desk/beacon-metrics/<resource>.
+// Desk page /desk/beacon-metrics/<resource>?from=&to=. Without a window it shows the last 6 hours.
 const props = defineProps({
 	route: { type: Array, default: () => [] },
 	query: { type: Object, default: () => ({}) },
@@ -16,8 +16,8 @@ const emit = defineEmits(["title", "actions"]);
 const host = useHost();
 
 const name = computed(() => props.route[0] || null);
-const from = ref(lastHours().from);
-const to = ref(lastHours().to);
+const from = ref(props.query.from || lastHours().from);
+const to = ref(props.query.to || lastHours().to);
 const resource = useCall({
 	url: computed(() => `/api/v2/document/Beacon Resource/${encodeURIComponent(name.value)}`),
 	immediate: false,
@@ -35,7 +35,13 @@ watch(
 						{
 							label: "Log viewer",
 							onClick: () =>
-								host.navigate?.(`beacon-logs/${doc.region}/${doc.name}`),
+								host.navigate?.(
+									routeWithWindow(
+										`beacon-logs/${doc.region}/${doc.name}`,
+										from.value,
+										to.value
+									)
+								),
 						},
 						{
 							label: "Open resource",

@@ -5,7 +5,7 @@ import { computed, watch } from "vue";
 import LogViewer from "./LogViewer.vue";
 import ResourcePicker from "./ResourcePicker.vue";
 
-// Desk page /desk/beacon-logs/<region>/<resource>. The route holds the choice, so a link opens the same view.
+// Desk page /desk/beacon-logs/<region>/<resource>?from=&to=. The route holds the choice, so a link opens the same view.
 const props = defineProps({
 	route: { type: Array, default: () => [] },
 	query: { type: Object, default: () => ({}) },
@@ -48,7 +48,13 @@ watch(resource, (value) => value && chosen.reload(), { immediate: true });
 			title="The regions did not load."
 			:description="regions.error.message"
 		/>
-		<LogViewer v-else-if="region" :region="region" :resource="resource">
+		<LogViewer
+			v-else-if="region"
+			:region="region"
+			:resource="resource"
+			:initial-from="query.from"
+			:initial-to="query.to"
+		>
 			<template #filters>
 				<Select
 					:model-value="region"
