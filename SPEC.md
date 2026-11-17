@@ -14,10 +14,10 @@ Every DocType name starts with `Beacon `. For example, `Beacon Incident` uses `b
 | Resource | `beacon/core/resource` | Resource sync, resource tree, region selection, ClickHouse access, region probe | `source.py`, `source_client.py`, `registry.py`, `regions.py`, `tree.py`, `clickhouse.py`, `region_probe.py` |
 | Alert | `beacon/core/alert` | Rule evaluation, alert transitions, burn rule lookups, silence and maintenance suppression | `rule_evaluator.py`, `evaluation_schedule.py`, `reconciler.py`, `states.py`, `rules.py`, `suppression.py` |
 | Incident | `beacon/core/incident` | Alert matching and coordination, escalation, notifications, status page subscriptions | `matcher.py`, `coordinator.py`, `escalation.py`, `notifiers.py`, `chat_message.py`, `postmortem.py`, `subscription.py` |
-| Service | `beacon/core/service` | Service measurements, damped status, minute history, error budget and burn alerts | `measurement.py`, `status.py`, `history.py`, `burn.py` |
+| Service | `beacon/core/service` | Service measurements, damped status, minute history, error budget, burn alerts and published impact | `measurement.py`, `status.py`, `history.py`, `burn.py`, `impact.py` |
 | API | `beacon/api` | Guest status page methods and Twilio callbacks only | `status.py`, `twilio.py` |
 | Status page | `frontend/` | The Vue app at `/` | `src/main.js`, `src/api.js`, `src/pages/` |
-| Desk actions | `beacon/public/js/beacon.bundle.js` | `beacon.add_action`, `beacon.add_silence_actions`, `beacon.show_results` and `beacon.RecordView`, used by every form script | `document_action.js`, `record_view.js` |
+| Desk actions | `beacon/public/js/beacon.bundle.js` | `beacon.add_action`, `beacon.add_silence_actions`, the `beacon.show_*` result renderers and `beacon.RecordView`, used by every form script | `document_action.js`, `result_view.js`, `record_view.js` |
 
 ## Desk dashboard
 

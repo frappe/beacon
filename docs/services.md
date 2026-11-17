@@ -64,7 +64,7 @@ The status of a service in a region comes from the SLI of the last minute.
 
 A worse status must stay for 3 minutes before Beacon shows it. A better status must stay for 2 minutes.
 
-The status page shows the worse of the measured status and the impact of open published incidents. Unknown shows as grey "Status unavailable", never as the last green state.
+The status page shows the worse of the measured status and the impact of open published incidents. The measurement and the status page load that impact through one loader, and only Public incidents count. Unknown shows as grey "Status unavailable", never as the last green state.
 
 ## Uptime
 
@@ -72,7 +72,7 @@ Uptime on the status page is the measured SLI: good divided by valid, for each U
 
 ## Declared services and groups
 
-A service with `measurement: Declared` has no SLI, and Beacon does not measure it. Its burn alerts resolve. Its status is the impact of the open published incidents on it, else Operational. Its bars show the minutes of published impact on each day since Beacon added it, with the same colors. The page says "Set by incidents, not measured" in place of the uptime. Use a declared service for a part that customers see but that has no metric yet.
+A service with `measurement: Declared` has no SLI, and Beacon does not measure it. Its burn alerts resolve. Its status is the impact of the open published incidents on it, else Operational. Its bars show the minutes of published impact on each day since Beacon added it, with the same colors. When published incidents overlap, each minute counts once at its worst impact. The page says "Set by incidents, not measured" in place of the uptime. Use a declared service for a part that customers see but that has no metric yet.
 
 Services with the same `status_page_group` show under one heading with that name. The group takes the place of its first service in the sort order.
 

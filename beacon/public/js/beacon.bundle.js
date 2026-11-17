@@ -1,10 +1,13 @@
-import { DocumentAction, ResultView } from "./document_action";
+import { DocumentAction } from "./document_action";
 import { RecordView } from "./record_view";
+import { showFields, showRows, showTest } from "./result_view";
 
 frappe.provide("beacon");
 beacon.add_action = (frm, label, method, fields, on_done, options = {}) =>
 	new DocumentAction(frm, label, method, fields, on_done, options).add();
-beacon.show_results = (title, results) => new ResultView(title, results).show();
+beacon.show_fields = showFields;
+beacon.show_rows = showRows;
+beacon.show_test = showTest;
 beacon.RecordView = RecordView;
 beacon.add_runbook_button = (frm, url) => {
 	if (/^https?:\/\//.test(url || ""))

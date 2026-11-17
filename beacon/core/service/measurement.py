@@ -13,8 +13,8 @@ from beacon.core.resource.clickhouse import ClickHouseClient
 from beacon.core.resource.registry import ResourceMatch, ResourceRegistry
 from beacon.core.service.burn import BurnPolicy
 from beacon.core.service.history import ServiceHistory, ServiceSample
-from beacon.core.service.status import STATUS_ORDER, ServiceStatus
-from beacon.core.status_page import CLOSED_STATUSES
+from beacon.core.service.impact import PublishedImpact
+from beacon.core.service.status import ServiceStatus
 from beacon.core.transaction import RecordTransaction
 
 if TYPE_CHECKING:
@@ -33,6 +33,7 @@ class RegionMeasurementContext:
 		self.now = now
 		self.registry = ResourceRegistry(region.name)
 		self.clickhouse = ClickHouseClient(region)
+		self.published_impact = PublishedImpact()
 		self.cause_alert_resources = set(
 			frappe.get_all(
 				"Beacon Alert",
@@ -101,7 +102,7 @@ class ServiceMeasurement:
 		if self._is_counted():
 			return
 
-		impact = self._get_published_impact()
+		impact = self.context.published_impact.get(self.service.name, self.region)
 		ServiceStatus(self.state, self.minute).apply(self._compute_status(sample, impact))
 		if sample and sample.valid:
 			# The day history counts a declared outage too. The SLO budget counts only good and valid.
@@ -172,26 +173,6 @@ class ServiceMeasurement:
 		registry = self.context.registry
 		reconciler = AlertReconciler.for_rule(self.service.name, registry, self.now)
 		reconciler.reconcile(policy.get_failures(registry.region_resource))
-
-	def _get_published_impact(self) -> str:
-		"""The worst impact on this service in this region of the open Public incidents and maintenances."""
-		incident = frappe.qb.DocType("Beacon Incident")
-		impact = frappe.qb.DocType("Beacon Incident Service")
-		impacts = (
-			frappe.qb.from_(incident)
-			.join(impact)
-			.on(impact.parent == incident.name)
-			.select(impact.impact)
-			.distinct()
-			.where(
-				(incident.visibility == "Public")
-				& incident.status.notin((*CLOSED_STATUSES, "Scheduled"))
-				& (impact.service == self.service.name)
-				& ((impact.region == self.region) | impact.region.isnull() | (impact.region == ""))
-			)
-			.run(pluck=True)
-		)
-		return max(impacts, key=STATUS_ORDER.index, default="Operational")
 
 	def _load_state(self) -> BeaconServiceState:
 		name = frappe.db.get_value("Beacon Service State", self.filters, for_update=True)

@@ -40,7 +40,7 @@ frappe.ui.form.on("Beacon Settings", {
 			"sync_definitions",
 			null,
 			async (results) => {
-				beacon.show_results(__("Sync result"), results);
+				beacon.show_rows(__("Sync result"), results);
 				await frm.reload_doc();
 			},
 			{ confirm: __("Read the rule and service files of every source and apply them now?") }

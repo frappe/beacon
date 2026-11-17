@@ -45,11 +45,6 @@
 }
 .beacon-fields dt { color: var(--text-muted); font-size: var(--text-sm); font-weight: 400; }
 .beacon-fields dd { margin: 2px 0 0; font-weight: 500; overflow-wrap: anywhere; }
-.beacon-result-section { margin-top: 12px; }
-.beacon-result-section h6 { margin-bottom: 6px; color: var(--text-muted); font-size: var(--text-sm); font-weight: 500; }
-.beacon-result-list { margin: 0; padding-left: 18px; }
-.beacon-panel-heading { margin: 16px 0 6px; color: var(--text-muted); font-size: var(--text-sm); font-weight: 500; }
-.beacon-panel-heading:first-child { margin-top: 0; }
 
 .beacon-overview { display: grid; gap: 14px; }
 .beacon-overview-banner {

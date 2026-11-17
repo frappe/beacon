@@ -228,7 +228,7 @@ class IncidentForm {
 	}
 
 	showAffectedResources(rows) {
-		beacon.show_results(
+		beacon.show_rows(
 			__("Affected resources, including child resources"),
 			rows
 				.slice(1)

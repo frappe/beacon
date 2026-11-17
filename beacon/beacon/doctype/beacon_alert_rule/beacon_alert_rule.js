@@ -50,7 +50,7 @@ frappe.ui.form.on("Beacon Alert Rule", {
 				"test",
 				null,
 				(results) =>
-					beacon.show_results(
+					beacon.show_rows(
 						__(
 							"Test result. These numbers include unknown resources and maintenance time."
 						),
@@ -58,15 +58,17 @@ frappe.ui.form.on("Beacon Alert Rule", {
 					),
 				{ standalone: true, draft: true }
 			);
-		else if (["SQL", "HTTP", "TLS"].includes(frm.doc.kind))
+		else if (["SQL", "HTTP", "TLS"].includes(frm.doc.kind)) {
+			const show = frm.doc.kind === "SQL" ? beacon.show_test : beacon.show_rows;
 			beacon.add_action(
 				frm,
 				__("Test Rule"),
 				"test",
 				null,
-				(results) => beacon.show_results(__("Test result"), results),
+				(results) => show(__("Test result"), results),
 				{ standalone: true, draft: true }
 			);
+		}
 		beacon.add_silence_actions(frm);
 	},
 });

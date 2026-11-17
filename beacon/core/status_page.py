@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from email.utils import format_datetime
+from itertools import pairwise
 from typing import Any
 from xml.etree import ElementTree
 
@@ -13,12 +14,12 @@ from pypika.terms import Case
 
 from beacon.core.alert.rules import BURN_KIND
 from beacon.core.resource.regions import RegionSelection
+from beacon.core.service.impact import CLOSED_STATUSES, PublishedImpact
 from beacon.core.service.status import STATUS_ORDER, ServiceStatus
 
 CACHE_SECONDS = 60
 HISTORY_DAYS = 90
 MINUTES_PER_DAY = 1440
-CLOSED_STATUSES = ("Resolved", "Merged", "Completed", "Cancelled")
 PUBLISHED_VISIBILITIES = ("Public", "Unlisted")
 # A declared service shows these minutes for each day. A Partial Outage minute is also an outage minute.
 DAY_MINUTE_FIELDS = ("degraded_minutes", "outage_minutes", "partial_outage_minutes", "maintenance_minutes")
@@ -63,10 +64,11 @@ class StatusPage:
 	def get_status(self) -> dict:
 		settings = frappe.get_cached_doc("Beacon Settings")
 		incidents = self._get_open_published_incidents()
-		impacts = self._get_impacts(incidents)
+		impacts = PublishedImpact()
 		days = self._get_days()
-		self.declared_days = self._get_declared_days()
 		visible_services = self._get_services()
+		declared_services = [service for service in visible_services if service.measurement == "Declared"]
+		self.declared_days = self._get_declared_days(declared_services) if declared_services else {}
 		self.states = self._get_states()
 
 		regions = []
@@ -224,24 +226,6 @@ class StatusPage:
 			order_by="creation desc",
 		)
 
-	def _get_impacts(self, incidents: list[frappe._dict]) -> dict[tuple[str, str], str]:
-		"""The worst published impact for each (service, region). A blank region means every region."""
-		impacts: dict[tuple[str, str], str] = {}
-		active = [incident.name for incident in incidents if incident.status != "Scheduled"]
-		rows = (
-			frappe.get_all(
-				"Beacon Incident Service",
-				filters={"parent": ("in", active)},
-				fields=["service", "region", "impact"],
-			)
-			if active
-			else []
-		)
-		for row in rows:
-			key = (row.service, row.region or "")
-			impacts[key] = max(impacts.get(key, "Operational"), row.impact, key=STATUS_ORDER.index)
-		return impacts
-
 	def _get_services(self) -> list[frappe._dict]:
 		services = frappe.get_all(
 			"Beacon Alert Rule",
@@ -313,12 +297,8 @@ class StatusPage:
 			days.setdefault((day.service, day.region), []).append(day)
 		return days
 
-	def _get_service(self, service: frappe._dict, region: str, impacts: dict, days: dict) -> dict:
-		impact = max(
-			impacts.get((service.name, region), "Operational"),
-			impacts.get((service.name, ""), "Operational"),
-			key=STATUS_ORDER.index,
-		)
+	def _get_service(self, service: frappe._dict, region: str, impacts: PublishedImpact, days: dict) -> dict:
+		impact = impacts.get(service.name, region)
 		row = {
 			"service": service.name,
 			"title": service.title,
@@ -334,10 +314,7 @@ class StatusPage:
 
 	def _get_declared_service(self, service: frappe._dict, region: str, impact: str) -> dict:
 		"""No SLI: the status is the impact of open published incidents, and each day shows their minutes."""
-		history = {
-			**self.declared_days.get((service.name, ""), {}),
-			**self.declared_days.get((service.name, region), {}),
-		}
+		history = self.declared_days.get((service.name, region), {})
 		return {
 			"status": impact,
 			"measurement_status": "Declared",
@@ -385,10 +362,27 @@ class StatusPage:
 			],
 		}
 
-	def _get_declared_days(self) -> dict[tuple[str, str], dict[str, dict[str, int]]]:
+	def _get_declared_days(
+		self, services: list[frappe._dict]
+	) -> dict[tuple[str, str], dict[str, dict[str, int]]]:
 		"""For each (service, region), the minutes of each published impact on each UTC day of the history.
 		A blank region means every region. An open incident counts until now. Maintenance counts from its
 		scheduled start."""
+		intervals = self._get_declared_intervals()
+		days: dict[tuple[str, str], dict[str, dict[str, int]]] = {}
+		for service in services:
+			for region in [service.query_region] if service.scope == "Global" else service.region_names:
+				items = [
+					(begin, end, impact)
+					for begin, end, item_region, impact in intervals.get(service.name, [])
+					if item_region in ("", region)
+				]
+				if items:
+					days[(service.name, region)] = _sum_impact_days(items)
+		return days
+
+	@staticmethod
+	def _get_declared_intervals() -> dict[str, list[tuple[datetime, datetime, str, str]]]:
 		now = now_datetime()
 		start = get_datetime(add_days(getdate(), -HISTORY_DAYS + 1))
 		incidents = {
@@ -405,22 +399,14 @@ class StatusPage:
 			filters={"parent": ("in", list(incidents) or [""])},
 			fields=["parent", "service", "region", "impact"],
 		)
-		days: dict[tuple[str, str], dict[str, dict[str, int]]] = {}
+		intervals: dict[str, list[tuple[datetime, datetime, str, str]]] = {}
 		for row in rows:
 			incident = incidents[row.parent]
-			moment = max(get_datetime(incident.scheduled_start or incident.creation), start)
+			begin = max(get_datetime(incident.scheduled_start or incident.creation), start)
 			end = get_datetime(incident.resolved_at) if incident.resolved_at else now
-			while moment < end:
-				day_end = min(get_datetime(add_days(moment.date(), 1)), end)
-				minutes = days.setdefault((row.service, row.region or ""), {}).setdefault(
-					str(moment.date()), dict.fromkeys(DAY_MINUTE_FIELDS, 0)
-				)
-				for field in IMPACT_MINUTE_FIELDS[row.impact]:
-					minutes[field] = min(
-						minutes[field] + int((day_end - moment).total_seconds() // 60), MINUTES_PER_DAY
-					)
-				moment = day_end
-		return days
+			if begin < end:
+				intervals.setdefault(row.service, []).append((begin, end, row.region or "", row.impact))
+		return intervals
 
 	@staticmethod
 	def _to_utc_iso(value: str | datetime | None) -> str | None:
@@ -435,6 +421,32 @@ class StatusPage:
 		"""The worst status of the items. Unknown counts only when nothing else is known."""
 		statuses = [item["status"] for item in items if item["status"] != "Unknown"]
 		return max(statuses, key=STATUS_ORDER.index) if statuses else "Unknown"
+
+
+def _sum_impact_days(intervals: list[tuple[datetime, datetime, str]]) -> dict[str, dict[str, int]]:
+	"""Split the intervals at UTC midnight, then count each minute once at its worst impact."""
+	segments: dict[str, list[tuple[datetime, datetime, str]]] = {}
+	for begin, end, impact in intervals:
+		while begin < end:
+			day_end = min(get_datetime(add_days(begin.date(), 1)), end)
+			segments.setdefault(str(begin.date()), []).append((begin, day_end, impact))
+			begin = day_end
+	return {day: _sum_impact_day(items) for day, items in segments.items()}
+
+
+def _sum_impact_day(segments: list[tuple[datetime, datetime, str]]) -> dict[str, int]:
+	points = sorted({point for begin, end, _ in segments for point in (begin, end)})
+	seconds = dict.fromkeys(DAY_MINUTE_FIELDS, 0.0)
+	for begin, end in pairwise(points):
+		active = [
+			impact for item_begin, item_end, impact in segments if item_begin <= begin and end <= item_end
+		]
+		if not active:
+			continue
+		duration = (end - begin).total_seconds()
+		for field in IMPACT_MINUTE_FIELDS[max(active, key=STATUS_ORDER.index)]:
+			seconds[field] += duration
+	return {field: min(int(total // 60), MINUTES_PER_DAY) for field, total in seconds.items()}
 
 
 class IncidentFeed:
