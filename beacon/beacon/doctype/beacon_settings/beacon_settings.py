@@ -45,7 +45,6 @@ class BeaconSettings(Document):
 		email_enabled: DF.Check
 		github_token: DF.Password | None
 		heartbeat_url: DF.Password | None
-		max_rounds: DF.Int
 		override_until: DF.Datetime | None
 		page_delay_seconds: DF.Int
 		paging_paused: DF.Check

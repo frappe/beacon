@@ -60,9 +60,9 @@ const slots = computed(() => {
 	return Array.from({ length: 90 }, (_, index) => {
 		const date = new Date(today);
 		date.setUTCDate(today.getUTCDate() - (89 - index));
-		const key = date.toISOString().slice(0, 10),
-			declared = props.declaredSince && key >= props.declaredSince,
-			day = byDate[key] || (declared ? { date: key, ...NO_IMPACT } : undefined);
+		const key = date.toISOString().slice(0, 10);
+		const declared = props.declaredSince && key >= props.declaredSince;
+		const day = byDate[key] || (declared ? { date: key, ...NO_IMPACT } : undefined);
 		if (!day || (day.uptime === null && !declared))
 			return {
 				date: key,

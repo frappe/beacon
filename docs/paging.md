@@ -15,7 +15,7 @@ The times are defaults in Beacon Settings. An admin can change them.
 
 Beacon Settings has an ordered list of responders. Each active responder must be an enabled user with the Beacon Responder or Beacon Admin role, because an answered call acknowledges as that person. Beacon calls the primary override until its end time, when that person is an active responder. Else it calls the first active responder. When the responder does not acknowledge in the backup time, Beacon calls the next one. After the last responder, Beacon starts another round after the repeat interval, 15 minutes by default.
 
-A High incident stops after the maximum rounds, 3 by default, and Beacon posts to chat that nobody acknowledged. A Critical incident continues until a person acknowledges.
+A High or Critical incident continues until a person acknowledges.
 
 ## Acknowledge
 
@@ -35,7 +35,6 @@ POST /api/v2/document/Beacon%20Incident/<name>/method/acknowledge
 | None, Waiting | The page delay ends, the resource has no parent, or Page On-call | Calling |
 | Calling | No acknowledge in the backup time | Calling the next responder |
 | Calling | The Acknowledge action or an answered call | Done |
-| Calling | The maximum rounds without an answer, and the severity is High | Done, and a chat post |
 | Waiting, Calling | The incident merges or resolves | Done |
 
 ## Paging pause

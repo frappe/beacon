@@ -24,6 +24,7 @@
   "details_column",
   "status",
   "visibility",
+  "subscribers_html",
   "merged_into",
   "acknowledgement_section",
   "acknowledged_by",
@@ -118,6 +119,11 @@
    "label": "Visibility",
    "options": "Internal\nUnlisted\nPublic",
    "read_only": 1
+  },
+  {
+   "fieldname": "subscribers_html",
+   "fieldtype": "HTML",
+   "label": "Subscribers"
   },
   {
    "depends_on": "eval:doc.status == 'Merged'",
@@ -341,13 +347,7 @@
   }
  ],
  "link_display_mode": "Search",
- "links": [
-  {
-   "group": "Subscribers",
-   "link_doctype": "Beacon Incident Subscriber",
-   "link_fieldname": "incident"
-  }
- ],
+ "links": [],
  "modified": "2026-11-15 12:00:00.000000",
  "modified_by": "Administrator",
  "module": "Beacon",

@@ -15,8 +15,16 @@ class StateMachine:
 		self.moves = moves
 
 	def can_move(self, document: Document, state: str) -> bool:
-		"""True when the current state allows the move."""
 		return state in self.moves.get(document.get(self.field), ())
+
+	def require(self, document: Document, *states: str) -> None:
+		"""Refuse the action unless the field is in one of the given states."""
+		current = document.get(self.field)
+		if current not in states:
+			frappe.throw(
+				_("You cannot do this while the {0} is {1}.").format(_(document.doctype).lower(), current),
+				StateError,
+			)
 
 	def move(self, document: Document, state: str) -> None:
 		"""Set the state. A move to the current state changes nothing."""

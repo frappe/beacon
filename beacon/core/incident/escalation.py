@@ -67,7 +67,14 @@ class IncidentEscalation:
 		if self.incident.escalation == "Calling":
 			self.move_to_next_responder()
 		self.call_next()
-		self.incident.save(ignore_permissions=True)
+		self.incident.db_set(
+			{
+				"escalation": self.incident.escalation,
+				"next_page_at": self.incident.next_page_at,
+				"page_round": self.incident.page_round,
+				"page_index": self.incident.page_index,
+			}
+		)
 
 	def stop(self) -> None:
 		"""Called on acknowledge and close. Does not save."""
@@ -82,15 +89,10 @@ class IncidentEscalation:
 			self.incident.page_round += 1
 
 	def call_next(self) -> None:
-		"""Call and mail the current responder, then plan the next step. High incidents stop after max_rounds."""
+		"""Call and mail the current responder, then plan the next step."""
 		responders = self.settings.get_active_responders()
 		if not responders:
 			self._finish("No responder is active. Contact the team directly.")
-			return
-		if self.incident.severity == "High" and self.incident.page_round > self.settings.max_rounds:
-			self._finish(
-				f"Nobody acknowledged after {self.settings.max_rounds} rounds. Contact the team directly."
-			)
 			return
 
 		self.incident.escalation = "Calling"
@@ -126,7 +128,6 @@ class IncidentEscalation:
 					"status": ("in", ("Queued", "Sending", "Sent")),
 				},
 				"name",
-				for_update=True,
 			)
 		)
 

@@ -47,12 +47,11 @@ class IncidentEmail:
 			"pill_class": SEVERITY_PILLS.get(incident.severity, ""),
 		}
 		if page_round:
-			rounds = f" of {settings.max_rounds}" if incident.severity == "High" else ""
 			instruction = "If you take it, open the incident and select Acknowledge."
 			if incident.next_page_at:
 				instruction += f" If nobody acknowledges by {self._format(incident.next_page_at)}, Beacon notifies again."
 			args["instruction"] = instruction
-			args["facts"] = [*facts, ("Round", f"{page_round}{rounds}")]
+			args["facts"] = [*facts, ("Round", str(page_round))]
 		else:
 			args["instruction"] = "If you take it, open the incident and select Acknowledge."
 			args["facts"] = facts

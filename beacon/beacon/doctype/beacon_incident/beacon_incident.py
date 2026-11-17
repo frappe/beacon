@@ -78,6 +78,7 @@ class BeaconIncident(Document):
 			"Completed",
 			"Cancelled",
 		]
+		subscribers_html: DF.HTML | None
 		title: DF.Data
 		type: DF.Literal["Incident", "Maintenance"]
 		updates: DF.Table[BeaconIncidentUpdate]
@@ -100,12 +101,6 @@ class BeaconIncident(Document):
 	@property
 	def is_open(self) -> bool:
 		return self.status in OPEN_STATUSES
-
-	@property
-	def has_open_alerts(self) -> bool:
-		return bool(
-			frappe.db.exists("Beacon Alert", {"incident": self.name, "status": ("in", OPEN_ALERT_STATUSES)})
-		)
 
 	def before_insert(self) -> None:
 		self.status = "Scheduled" if self.type == "Maintenance" else self.status or "Investigating"
@@ -139,7 +134,7 @@ class BeaconIncident(Document):
 	@document_action
 	def acknowledge(self) -> None:
 		self.check_permission("write")
-		self.require_open()
+		self.STATUS.require(self, *OPEN_STATUSES)
 		escalation = IncidentEscalation(self)
 		if self.acknowledged_by and not escalation.is_active:
 			return
@@ -156,12 +151,12 @@ class BeaconIncident(Document):
 	def post_update(self, message: str, status: str | None = None, is_public: bool = False) -> None:
 		self.check_permission("write")
 		if self.type == "Maintenance":
-			self.require_status("Scheduled", "In Progress")
+			self.STATUS.require(self, "Scheduled", "In Progress")
 		elif status == "Resolved":
 			self.resolve(message, is_public)
 			return
 		else:
-			self.require_open()
+			self.STATUS.require(self, *OPEN_STATUSES)
 			if status and status not in OPEN_STATUSES:
 				frappe.throw(_("Choose Investigating, Identified or Monitoring."), IncidentActionError)
 			self.STATUS.move(self, status or self.status)
@@ -173,7 +168,7 @@ class BeaconIncident(Document):
 	def resolve(self, message: str, is_public: bool = False, silence_hours: int = 0) -> None:
 		"""Close the incident. Unsuppressed firing alerts block it unless they are silenced for silence_hours."""
 		self.check_permission("write")
-		self.require_open()
+		self.STATUS.require(self, *OPEN_STATUSES)
 		firing = frappe.get_all(
 			"Beacon Alert",
 			filters={"incident": self.name, "status": "Firing", "suppressed": 0},
@@ -222,7 +217,7 @@ class BeaconIncident(Document):
 	@document_action
 	def page_on_call(self) -> None:
 		self.check_permission("write")
-		self.require_open()
+		self.STATUS.require(self, *OPEN_STATUSES)
 		escalation = IncidentEscalation(self)
 		if escalation.is_active:
 			frappe.throw(
@@ -235,7 +230,7 @@ class BeaconIncident(Document):
 	def merge_into(self, target: str) -> None:
 		"""Close this incident as Merged. Its scope and its open alerts go to the target."""
 		self.check_permission("write")
-		self.require_open()
+		self.STATUS.require(self, *OPEN_STATUSES)
 		incident = frappe.get_doc("Beacon Incident", target, for_update=True)
 		if incident.name == self.name or not incident.is_open or incident.type != "Incident":
 			frappe.throw(_("Choose a different incident that is still open."), IncidentActionError)
@@ -307,14 +302,16 @@ class BeaconIncident(Document):
 		"""The worst open alert, else the oldest alert, and the incident's alerts for the Overview tab."""
 		self.check_permission("read")
 		rows = self._get_overview_alerts()
-		if not rows:
-			return {"cause": None, "alerts": [], "total": 0, "firing": 0}
-
 		open_rows = [row for row in rows if row.status in OPEN_ALERT_STATUSES]
-		cause = max(open_rows, key=lambda row: SEVERITIES.index(row.severity)) if open_rows else rows[0]
-		cause.rule_title, cause.rule_description = AlertRules.get_problem_text(
-			cause.rule_kind, cause.rule_title, cause.rule_description
+		cause = (
+			max(open_rows, key=lambda row: SEVERITIES.index(row.severity))
+			if open_rows
+			else (rows[0] if rows else None)
 		)
+		if cause:
+			cause.rule_title, cause.rule_description = AlertRules.get_problem_text(
+				cause.rule_kind, cause.rule_title, cause.rule_description
+			)
 		fields = ("title", "detail", "severity", "status", "started_at", "resolution")
 		return {
 			"cause": cause,
@@ -346,11 +343,14 @@ class BeaconIncident(Document):
 				alert.fired_at,
 				alert.value,
 				alert.resolution,
+				alert.region,
+				alert.resource,
 				rule.name.as_("rule"),
 				rule.kind.as_("rule_kind"),
 				rule.title.as_("rule_title"),
 				rule.description.as_("rule_description"),
 				rule.runbook_url,
+				rule.scope_includes_descendants,
 				Coalesce(resource.title, resource.resource_id).as_("resource_title"),
 				resource.resource_id,
 				resource.resource_type,
@@ -366,22 +366,10 @@ class BeaconIncident(Document):
 	def get_affected_resources(self) -> list[list[str]]:
 		"""The resources in the scope and under the incident's alerts, read from the registry when asked, as CSV rows."""
 		self.check_permission("read")
-		alerts = frappe.get_all(
-			"Beacon Alert", filters={"incident": self.name}, fields=["region", "resource", "rule"]
-		)
-		with_descendants = set(
-			frappe.get_all(
-				"Beacon Alert Rule",
-				filters={
-					"name": ("in", [alert.rule for alert in alerts] or [""]),
-					"scope_includes_descendants": 1,
-				},
-				pluck="name",
-			)
-		)
+		alerts = self._get_overview_alerts()
+		with_descendants = {alert.rule for alert in alerts if alert.scope_includes_descendants}
 		regions = {*(scope.region for scope in self.scope), *(alert.region for alert in alerts)}
 		registries = {region: ResourceRegistry(region) for region in sorted(regions)}
-
 		matches = [ResourceMatch.from_row(scope) for scope in self.scope]
 		for alert in alerts:
 			resource = registries[alert.region].get(alert.resource)
@@ -398,9 +386,11 @@ class BeaconIncident(Document):
 		columns = ("region", "resource_id", "resource_type", "title", "status", "path")
 		rows = [["Region", "Resource ID", "Type", "Title", "Status", "Path"]]
 		for registry in registries.values():
-			for resource in sorted(registry.by_name.values(), key=lambda row: row.path or ""):
-				if any(match.covers(resource) for match in matches):
-					rows.append([resource.get(column) for column in columns])
+			rows += [
+				[resource.get(column) for column in columns]
+				for resource in sorted(registry.by_name.values(), key=lambda row: row.path or "")
+				if any(match.covers(resource) for match in matches)
+			]
 		return rows
 
 	@document_action
@@ -413,7 +403,7 @@ class BeaconIncident(Document):
 	@document_action
 	def extend_maintenance(self, scheduled_end: str) -> None:
 		self.check_permission("write")
-		self.require_status("In Progress")
+		self.STATUS.require(self, "In Progress")
 		if get_datetime(scheduled_end) <= max(now_datetime(), get_datetime(self.scheduled_end)):
 			frappe.throw(_("Choose an end time later than the current end."), IncidentActionError)
 		self.scheduled_end = scheduled_end
@@ -476,14 +466,7 @@ class BeaconIncident(Document):
 		self.save(ignore_permissions=True)
 
 	def close_as_merged(self, target: str) -> None:
-		"""Move the open alerts to the target and close this incident."""
-		frappe.db.set_value(
-			"Beacon Alert",
-			{"incident": self.name, "status": ("in", OPEN_ALERT_STATUSES)},
-			"incident",
-			target,
-			update_modified=False,
-		)
+		self._release_alerts(target)
 		self.merged_into = target
 		self.STATUS.move(self, "Merged")
 		self.close()
@@ -495,7 +478,13 @@ class BeaconIncident(Document):
 	def record_recovery(self) -> None:
 		"""Beacon's action when no alert of the incident is open any more. Beacon resolves an Internal
 		incident that it made. A person resolves every other incident, so Beacon posts to chat one time."""
-		if not self.is_open or self.alerts_recovered_at or self.has_open_alerts:
+		if (
+			not self.is_open
+			or self.alerts_recovered_at
+			or frappe.db.exists(
+				"Beacon Alert", {"incident": self.name, "status": ("in", OPEN_ALERT_STATUSES)}
+			)
+		):
 			return
 
 		self.alerts_recovered_at = now_datetime()
@@ -513,11 +502,14 @@ class BeaconIncident(Document):
 		"""Stop the notifications and free the open alerts for a new incident. Does not save."""
 		self.resolved_at = now_datetime()
 		IncidentEscalation(self).stop()
+		self._release_alerts(None)
+
+	def _release_alerts(self, target: str | None) -> None:
 		frappe.db.set_value(
 			"Beacon Alert",
 			{"incident": self.name, "status": ("in", OPEN_ALERT_STATUSES)},
 			"incident",
-			None,
+			target,
 			update_modified=False,
 		)
 
@@ -544,19 +536,6 @@ class BeaconIncident(Document):
 				return name
 			name = merged_into
 		return name
-
-	def require_open(self) -> None:
-		if not self.is_open:
-			frappe.throw(
-				_("You cannot do this because the incident is {0}.").format(self.status), IncidentActionError
-			)
-
-	def require_status(self, *statuses: str) -> None:
-		if self.status not in statuses:
-			frappe.throw(
-				_("You can only do this when it is {0}.").format(_(" or ").join(statuses)),
-				IncidentActionError,
-			)
 
 	def require_published(self) -> None:
 		if self.visibility not in PUBLISHED_VISIBILITIES or not self.public_id:
@@ -627,8 +606,9 @@ class BeaconIncident(Document):
 			fields=["incident", "status"],
 			distinct=True,
 		)
-		with_open_alerts = {alert.incident for alert in alerts if alert.status in OPEN_ALERT_STATUSES}
-		recovered = {alert.incident for alert in alerts} - with_open_alerts
+		recovered = {alert.incident for alert in alerts} - {
+			alert.incident for alert in alerts if alert.status in OPEN_ALERT_STATUSES
+		}
 
 		RecordTransaction.run_each(
 			"Beacon Incident",
@@ -639,26 +619,25 @@ class BeaconIncident(Document):
 
 	@staticmethod
 	def advance_maintenances() -> None:
-		"""Scheduled every minute: start and complete each maintenance at its scheduled time."""
-		BeaconIncident._run_due_maintenances("Scheduled", "scheduled_start", "start_maintenance")
-		BeaconIncident._run_due_maintenances("In Progress", "scheduled_end", "complete_maintenance")
+		now = now_datetime()
+		for status, time_field, method in (
+			("Scheduled", "scheduled_start", "start_maintenance"),
+			("In Progress", "scheduled_end", "complete_maintenance"),
+		):
+			names = frappe.get_all(
+				"Beacon Incident",
+				filters={"type": "Maintenance", "status": status, time_field: ("<=", now)},
+				pluck="name",
+			)
 
-	@staticmethod
-	def _run_due_maintenances(status: str, time_field: str, action: str) -> None:
-		names = frappe.get_all(
-			"Beacon Incident",
-			filters={"type": "Maintenance", "status": status, time_field: ("<=", now_datetime())},
-			pluck="name",
-		)
+			def run(name: str, status: str = status, method: str = method) -> None:
+				maintenance = frappe.get_doc("Beacon Incident", name, for_update=True)
+				if maintenance.status == status:
+					getattr(maintenance, method)()
 
-		def run(name: str) -> None:
-			maintenance = frappe.get_doc("Beacon Incident", name, for_update=True)
-			if maintenance.status == status:
-				getattr(maintenance, action)()
-
-		RecordTransaction.run_each(
-			"Beacon Incident", names, f"Beacon could not {action.replace('_', ' ')}", run
-		)
+			RecordTransaction.run_each(
+				"Beacon Incident", names, "Beacon could not advance a maintenance", run
+			)
 
 
 def on_doctype_update() -> None:

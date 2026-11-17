@@ -42,7 +42,7 @@ The definitions live in `beacon/beacon/workspace/`, `beacon/beacon/sidebar/` and
 | Every minute | `jobs.sync_sources` | `BeaconResourceSource.queue_due_syncs` queues `sync` for each enabled source with `frappe.enqueue_doc`. |
 | Every minute | `jobs.evaluate_due_rules` | `RegionEvaluation.queue_due` queues one `jobs.evaluate_region` job per region with due evaluations. |
 | Daily | `jobs.delete_old_rows` | `RecordRetention` removes expired records. |
-| Daily | `jobs.remind_postmortems` | `Postmortem.remind_missing` posts to chat one reminder at 3 days and one at 7 days for each required postmortem that is still empty. A missed run catches up on the next run. |
+| Daily | `jobs.remind_postmortems` | `Postmortem.remind_missing` posts to chat one reminder at 3 days and one at 7 days for each required postmortem that is still empty. A missed daily run skips that reminder. |
 | After commit | `jobs.deliver_notification` | `BeaconNotification.send` sends one Beacon Notification. When an email or call fails, it posts the error to chat at most once for each incident and channel in an hour. |
 | After migrate | `definitions.create_built_in_rules` | Creates the built-in rules. |
 | Sync Definitions in Beacon Settings | `definitions.DefinitionSync` | Reads `rules/*.sql`, `rules/*.http`, `rules/*.tls` and `services/*.sql` from each definition source on GitHub and applies them. Runs only on demand. |

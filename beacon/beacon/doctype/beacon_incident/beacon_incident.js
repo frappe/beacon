@@ -1,6 +1,5 @@
 const OPEN_STATUSES = ["Triggered", "Investigating", "Identified", "Monitoring"];
 const escape = frappe.utils.escape_html;
-// Each dialog starts with the usual message for its status. Staff edit it before they send it.
 const MESSAGES = {
 	Investigating: __("We are investigating the problem. We will post an update soon."),
 	Identified: __("We found the cause and are working on a fix."),
@@ -19,13 +18,6 @@ const messageField = (message) => ({
 	reqd: 1,
 });
 
-// Replace the message only while it is still a prefilled one, so a typed message stays.
-function prefillMessage(dialog, message) {
-	const current = dialog.get_value("message");
-	if (!current || Object.values(MESSAGES).includes(current))
-		dialog.set_value("message", message);
-}
-
 class IncidentForm {
 	constructor(frm) {
 		this.frm = frm;
@@ -34,14 +26,15 @@ class IncidentForm {
 	}
 
 	refresh() {
-		// Only actions add updates. Staff can change only the Public flag of a row.
 		this.frm.set_df_property("updates", "cannot_add_rows", true);
 		this.frm.set_df_property("updates", "cannot_delete_rows", true);
+		this.frm.dashboard.hide();
 		if (this.frm.is_new()) {
 			this.frm.layout.tabs.find((tab) => tab.df.fieldname === "details_tab")?.set_active();
 			return;
 		}
 		this.renderOverview();
+		this.renderSubscribers();
 		this.view.related(
 			"notifications_html",
 			"Beacon Notification",
@@ -68,6 +61,15 @@ class IncidentForm {
 		this.irreversibleActions();
 	}
 
+	async renderSubscribers() {
+		const field = this.frm.fields_dict.subscribers_html;
+		if (!field) return;
+		const count = await frappe.db.count("Beacon Incident Subscriber", {
+			filters: { incident: this.doc.name },
+		});
+		field.$wrapper.html(`<p class="text-muted">${__("{0} subscribers", [count])}</p>`);
+	}
+
 	async renderOverview() {
 		const name = this.doc.name;
 		const field = this.frm.fields_dict.overview_html;
@@ -77,7 +79,17 @@ class IncidentForm {
 			if (this.frm.doc.name !== name) return;
 			this.overview = message;
 			field.$wrapper.html(this.overviewHtml(message));
-			this.bindOverview();
+			const wrapper = field.$wrapper;
+			wrapper.find('[data-action="affected"]').on("click", (event) => {
+				event.preventDefault();
+				this.frm
+					.call("get_affected_resources")
+					.then(({ message }) => this.showAffectedResources(message));
+			});
+			wrapper.find('[data-action="rule"]').on("click", (event) => {
+				event.preventDefault();
+				frappe.set_route("Form", "Beacon Alert Rule", this.overview.cause.rule);
+			});
 		} catch (error) {
 			console.error(error);
 			if (this.frm.doc.name === name)
@@ -90,12 +102,7 @@ class IncidentForm {
 	}
 
 	overviewHtml({ cause, alerts, total, firing }) {
-		return `<div class="beacon-overview">${this.overviewBanner(firing, total)}${
-			cause ? this.causeCard(cause) : ""
-		}${this.alertsCard(alerts, firing, total)}${this.timelineCard()}</div>`;
-	}
-
-	overviewBanner(firing, total) {
+		let banner = "";
 		if (["Waiting", "Calling"].includes(this.doc.escalation)) {
 			const next = frappe.datetime.str_to_user(this.doc.next_page_at);
 			const text =
@@ -106,19 +113,21 @@ class IncidentForm {
 					: __("Beacon is notifying the on-call team. Next notification at {0}.", [
 							next,
 					  ]);
-			return `<div class="beacon-overview-banner">${escape(text)}</div>`;
-		}
-		if (this.doc.status === "Monitoring")
-			return `<div class="beacon-overview-banner blue">${escape(
+			banner = `<div class="beacon-overview-banner">${escape(text)}</div>`;
+		} else if (this.doc.status === "Monitoring") {
+			banner = `<div class="beacon-overview-banner blue">${escape(
 				__("{0} of {1} alerts still fire.", [firing, total])
 			)}</div>`;
-		return "";
+		}
+		return `<div class="beacon-overview">${banner}${cause ? this.causeCard(cause) : ""}${
+			alerts.length > 1 ? this.alertsCard(alerts, firing, total) : ""
+		}${this.timelineCard()}</div>`;
 	}
 
 	causeCard(cause) {
 		const facts = [
 			[__("Resource"), `${cause.resource_title} (${cause.resource_type})`],
-			[__("Value"), this.text(cause.value)],
+			[__("Value"), cause.value === "" || cause.value == null ? "–" : cause.value],
 			[__("Failing since"), this.time(cause.started_at)],
 			[__("Fired"), this.time(cause.fired_at)],
 		];
@@ -126,6 +135,11 @@ class IncidentForm {
 			cause.resource_type === "Region"
 				? __("{0} in {1}", [cause.rule_title, cause.resource_title])
 				: __("{0} on {1}", [cause.rule_title, cause.resource_title]);
+		const runbook = /^https?:\/\//.test(cause.runbook_url || "")
+			? `<a href="${escape(cause.runbook_url)}" target="_blank" rel="noopener">${__(
+					"Runbook"
+			  )}</a>`
+			: "";
 		return `<div class="beacon-overview-card">
 			<h3>${escape(heading)}</h3>
 			${
@@ -142,14 +156,7 @@ class IncidentForm {
 				)
 				.join("")}</dl>
 			${cause.detail ? `<div class="beacon-overview-evidence">${escape(cause.detail)}</div>` : ""}
-			<div class="beacon-overview-links">
-				${
-					/^https?:\/\//.test(cause.runbook_url || "")
-						? `<a href="${escape(
-								cause.runbook_url
-						  )}" target="_blank" rel="noopener">${__("Runbook")}</a>`
-						: ""
-				}
+			<div class="beacon-overview-links">${runbook}
 				<a href="#" data-action="affected">${__("Affected resources")}</a>
 				<a href="#" data-action="rule">${__("Rule")}</a>
 			</div>
@@ -157,40 +164,33 @@ class IncidentForm {
 	}
 
 	alertsCard(alerts, firing, total) {
-		if (!alerts.length) return "";
-		const count = __("{0} firing", [firing]);
 		const limit =
 			total > alerts.length
 				? ` (${__("Showing first {0} of {1}", [alerts.length, total])})`
 				: "";
+		const rows = alerts
+			.map((alert) => {
+				const open = ["Pending", "Firing"].includes(alert.status);
+				const color = open
+					? { Critical: "red", High: "orange", Medium: "amber", Low: "gray" }[
+							alert.severity
+					  ] || "gray"
+					: "green";
+				const label = open ? alert.severity : alert.resolution || alert.status;
+				return `<div class="beacon-overview-row">
+					<div class="beacon-overview-row-title">${escape(alert.title)}</div>
+					<div class="beacon-overview-row-detail">${escape(alert.detail || "")}</div>
+					<div class="beacon-overview-row-side"><span class="beacon-overview-pill ${color}">${escape(
+					label
+				)}</span><small>${escape(this.age(alert.started_at))}</small></div>
+				</div>`;
+			})
+			.join("");
 		return `<div class="beacon-overview-card">
-			<h2>${__("Alerts")} <span class="beacon-overview-muted">${escape(count + limit)}</span></h2>
-			${alerts.map((alert) => this.alertRow(alert)).join("")}
+			<h2>${__("Alerts")} <span class="beacon-overview-muted">${escape(
+			__("{0} firing", [firing]) + limit
+		)}</span></h2>${rows}
 		</div>`;
-	}
-
-	alertRow(alert) {
-		const open = ["Pending", "Firing"].includes(alert.status);
-		const pill = open
-			? this.pill(alert.severity, this.severityColor(alert.severity))
-			: this.pill(alert.resolution || alert.status, "green");
-		return `<div class="beacon-overview-row">
-			<div class="beacon-overview-row-title">${escape(alert.title)}</div>
-			<div class="beacon-overview-row-detail">${escape(alert.detail || "")}</div>
-			<div class="beacon-overview-row-side">${pill}<small>${escape(
-			this.age(alert.started_at)
-		)}</small></div>
-		</div>`;
-	}
-
-	pill(label, color) {
-		return `<span class="beacon-overview-pill ${color}">${escape(label)}</span>`;
-	}
-
-	severityColor(severity) {
-		return (
-			{ Critical: "red", High: "orange", Medium: "amber", Low: "gray" }[severity] || "gray"
-		);
 	}
 
 	timelineCard() {
@@ -202,29 +202,19 @@ class IncidentForm {
 				.map(
 					(update) =>
 						`<li><time title="${escape(this.time(update.posted_at))}">${escape(
-							this.clock(update.posted_at)
+							frappe.datetime
+								.convert_to_user_tz(update.posted_at, false)
+								.format("HH:mm")
 						)}</time><div>${escape(
 							update.message
 						)} <span class="beacon-overview-who">· ${escape(
-							this.who(update.posted_by)
+							update.posted_by === "Administrator"
+								? __("Beacon")
+								: frappe.user.full_name(update.posted_by) || update.posted_by
 						)}</span></div></li>`
 				)
 				.join("")}</ul>
 		</div>`;
-	}
-
-	bindOverview() {
-		const wrapper = this.frm.fields_dict.overview_html.$wrapper;
-		wrapper.find('[data-action="affected"]').on("click", (event) => {
-			event.preventDefault();
-			this.frm
-				.call("get_affected_resources")
-				.then(({ message }) => this.showAffectedResources(message));
-		});
-		wrapper.find('[data-action="rule"]').on("click", (event) => {
-			event.preventDefault();
-			frappe.set_route("Form", "Beacon Alert Rule", this.overview.cause.rule);
-		});
 	}
 
 	showAffectedResources(rows) {
@@ -236,17 +226,8 @@ class IncidentForm {
 		);
 	}
 
-	text(value) {
-		return value === null || value === undefined || value === "" ? "–" : String(value);
-	}
-
 	time(value) {
 		return value ? frappe.datetime.str_to_user(value) : "–";
-	}
-
-	clock(value) {
-		if (!value) return "–";
-		return frappe.datetime.convert_to_user_tz(value, false).format("HH:mm");
 	}
 
 	age(value) {
@@ -255,8 +236,37 @@ class IncidentForm {
 		return frappe.utils.get_formatted_duration(seconds, { hide_seconds: 1 });
 	}
 
-	who(user) {
-		return user === "Administrator" ? __("Beacon") : frappe.user.full_name(user) || user;
+	messageFields(message, status) {
+		return [
+			...(status
+				? [
+						{
+							fieldname: "status",
+							fieldtype: "Select",
+							label: __("Status"),
+							options: ["Investigating", "Identified", "Monitoring"],
+							default: status,
+							reqd: 1,
+							onchange() {
+								const current = cur_dialog.get_value("message");
+								if (!current || Object.values(MESSAGES).includes(current))
+									cur_dialog.set_value("message", MESSAGES[this.get_value()]);
+							},
+						},
+				  ]
+				: []),
+			...(this.doc.visibility === "Internal"
+				? []
+				: [
+						{
+							fieldname: "is_public",
+							fieldtype: "Check",
+							label: __("Show this update to customers"),
+							default: 1,
+						},
+				  ]),
+			messageField(message),
+		];
 	}
 
 	incidentActions() {
@@ -283,27 +293,12 @@ class IncidentForm {
 			this.frm,
 			__("Post Update"),
 			"post_update",
-			[
-				{
-					fieldname: "status",
-					fieldtype: "Select",
-					label: __("Status"),
-					options: ["Investigating", "Identified", "Monitoring"],
-					default: status,
-					reqd: 1,
-					onchange() {
-						prefillMessage(cur_dialog, MESSAGES[this.get_value()]);
-					},
-				},
-				...this.audienceField(),
-				messageField(MESSAGES[status]),
-			],
+			this.messageFields(MESSAGES[status], status),
 			null,
 			{ standalone: true }
 		);
 		beacon.add_action(this.frm, __("Resolve"), "resolve", [
-			...this.audienceField(),
-			messageField(MESSAGES.Resolved),
+			...this.messageFields(MESSAGES.Resolved),
 			{
 				fieldname: "silence_hours",
 				fieldtype: "Int",
@@ -330,21 +325,23 @@ class IncidentForm {
 	}
 
 	maintenanceActions() {
-		if (this.doc.status === "Scheduled") {
+		const window = this.maintenanceWindow;
+		if (this.doc.status === "Scheduled")
 			beacon.add_action(this.frm, __("Start Maintenance"), "start_maintenance", null, null, {
 				primary: true,
 				confirm: [
 					__("Start this maintenance now?"),
-					__("Planned time: {0}.", [this.maintenanceWindow]),
+					__("Planned time: {0}.", [window]),
 					__("Alerts for its resources stop until the maintenance ends."),
 				],
 			});
-		}
 		if (["Scheduled", "In Progress"].includes(this.doc.status))
-			beacon.add_action(this.frm, __("Post Update"), "post_update", [
-				messageField(MESSAGES.Maintenance),
-				...this.audienceField(),
-			]);
+			beacon.add_action(
+				this.frm,
+				__("Post Update"),
+				"post_update",
+				this.messageFields(MESSAGES.Maintenance)
+			);
 		if (this.doc.status === "In Progress") {
 			beacon.add_action(this.frm, __("Extend Maintenance"), "extend_maintenance", [
 				{
@@ -372,19 +369,6 @@ class IncidentForm {
 		}
 	}
 
-	audienceField() {
-		return this.doc.visibility === "Internal"
-			? []
-			: [
-					{
-						fieldname: "is_public",
-						fieldtype: "Check",
-						label: __("Show this update to customers"),
-						default: 1,
-					},
-			  ];
-	}
-
 	visibilityActions() {
 		if (this.doc.visibility === "Internal") {
 			beacon.add_action(
@@ -392,13 +376,6 @@ class IncidentForm {
 				__("Publish"),
 				"publish",
 				[
-					{
-						fieldname: "preview",
-						fieldtype: "HTML",
-						options: `<p><b>${frappe.utils.escape_html(this.doc.title)}</b></p><p>${__(
-							"Customers see this title, the message and the impact below."
-						)}</p><p>${__("Earlier internal updates stay hidden.")}</p>`,
-					},
 					{
 						fieldname: "visibility",
 						fieldtype: "Select",
@@ -476,35 +453,35 @@ class IncidentForm {
 					},
 				}
 			);
-		} else {
-			const visibility = this.doc.visibility === "Public" ? "Unlisted" : "Public";
-			beacon.add_action(
-				this.frm,
-				__("Make {0}", [__(visibility)]),
-				"change_visibility",
-				null,
-				null,
-				{
-					confirm: [
-						__("Make this incident {0}?", [__(visibility)]),
-						visibility === "Public"
-							? __("The status page lists it for everyone.")
-							: __(
-									"The status page does not list it. Only people with its link can see it."
-							  ),
-					],
-					prepare: () => ({ visibility }),
-				}
-			);
-			beacon.add_action(
-				this.frm,
-				__("Copy Link"),
-				"get_public_link",
-				null,
-				(link) => frappe.utils.copy_to_clipboard(link),
-				{ read: true }
-			);
+			return;
 		}
+		const visibility = this.doc.visibility === "Public" ? "Unlisted" : "Public";
+		beacon.add_action(
+			this.frm,
+			__("Make {0}", [__(visibility)]),
+			"change_visibility",
+			null,
+			null,
+			{
+				confirm: [
+					__("Make this incident {0}?", [__(visibility)]),
+					visibility === "Public"
+						? __("The status page lists it for everyone.")
+						: __(
+								"The status page does not list it. Only people with its link can see it."
+						  ),
+				],
+				prepare: () => ({ visibility }),
+			}
+		);
+		beacon.add_action(
+			this.frm,
+			__("Copy Link"),
+			"get_public_link",
+			null,
+			(link) => frappe.utils.copy_to_clipboard(link),
+			{ read: true }
+		);
 	}
 
 	irreversibleActions() {
@@ -546,7 +523,9 @@ class IncidentForm {
 				"regenerate_public_link",
 				null,
 				null,
-				{ confirm: [__("Make a new link?"), __("The old link stops working.")] }
+				{
+					confirm: [__("Make a new link?"), __("The old link stops working.")],
+				}
 			);
 	}
 }

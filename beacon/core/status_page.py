@@ -32,6 +32,16 @@ IMPACT_MINUTE_FIELDS = {
 }
 MEASUREMENT_MAX_AGE = timedelta(minutes=3)
 PUBLIC_UPDATE_FIELDS = ["posted_at", "status", "message"]
+INCIDENT_FIELDS = [
+	"public_id",
+	"title",
+	"type",
+	"status",
+	"creation",
+	"resolved_at",
+	"scheduled_start",
+	"scheduled_end",
+]
 
 
 class StatusCache:
@@ -118,18 +128,7 @@ class StatusPage:
 				"status": ("in", ("Resolved", "Completed")),
 				"resolved_at": (">", add_days(now_datetime(), -HISTORY_DAYS)),
 			},
-			fields=[
-				"name",
-				"public_id",
-				"title",
-				"type",
-				"status",
-				"severity",
-				"creation",
-				"resolved_at",
-				"scheduled_start",
-				"scheduled_end",
-			],
+			fields=INCIDENT_FIELDS,
 			order_by="resolved_at desc",
 		)
 		return {
@@ -164,7 +163,6 @@ class StatusPage:
 	def _get_detail(self, name: str) -> dict:
 		incident = frappe.get_doc("Beacon Incident", name)
 		detail = self._summarize(incident)
-		detail["site_title"] = frappe.db.get_single_value("Beacon Settings", "status_page_title")
 		detail["updates"] = [
 			{
 				field: self._to_utc_iso(row.posted_at) if field == "posted_at" else row.get(field)
@@ -185,13 +183,7 @@ class StatusPage:
 			)
 		)
 		detail["affected_services"] = [
-			{
-				"service": row.service,
-				"title": titles.get(row.service),
-				"region": row.region,
-				"impact": row.impact,
-			}
-			for row in incident.affected_services
+			{"title": titles.get(row.service), "region": row.region} for row in incident.affected_services
 		]
 		detail["public_rca"] = incident.public_rca if incident.status in CLOSED_STATUSES else None
 		return detail
@@ -212,17 +204,7 @@ class StatusPage:
 		return frappe.get_all(
 			"Beacon Incident",
 			filters={"visibility": "Public", "status": ("not in", CLOSED_STATUSES)},
-			fields=[
-				"name",
-				"public_id",
-				"title",
-				"type",
-				"status",
-				"creation",
-				"resolved_at",
-				"scheduled_start",
-				"scheduled_end",
-			],
+			fields=INCIDENT_FIELDS,
 			order_by="creation desc",
 		)
 
@@ -252,7 +234,7 @@ class StatusPage:
 			(state.service, state.region): state
 			for state in frappe.get_all(
 				"Beacon Service State",
-				fields=["service", "region", "status", "checked_at", "last_counted_minute"],
+				fields=["service", "region", "status", "checked_at"],
 			)
 		}
 
@@ -305,42 +287,29 @@ class StatusPage:
 			"description": service.description,
 			"group": service.status_page_group or None,
 			"measurement": service.measurement,
-			"declared_impact": impact,
 			"history_days": HISTORY_DAYS,
 		}
 		if service.measurement == "Declared":
-			return {**row, **self._get_declared_service(service, region, impact)}
-		return {**row, **self._get_measured_service(service.name, region, impact, days)}
+			history = self.declared_days.get((service.name, region), {})
+			return {
+				**row,
+				"status": impact,
+				"declared_since": str(getdate(service.creation)),
+				"days": [{"date": date, **minutes} for date, minutes in sorted(history.items())],
+			}
 
-	def _get_declared_service(self, service: frappe._dict, region: str, impact: str) -> dict:
-		"""No SLI: the status is the impact of open published incidents, and each day shows their minutes."""
-		history = self.declared_days.get((service.name, region), {})
-		return {
-			"status": impact,
-			"measurement_status": "Declared",
-			"stale": False,
-			"checked_at": None,
-			"last_counted_minute": None,
-			"coverage": None,
-			"uptime": None,
-			"declared_since": str(getdate(service.creation)),
-			"days": [{"date": date, **minutes} for date, minutes in sorted(history.items())],
-		}
-
-	def _get_measured_service(self, service: str, region: str, impact: str, days: dict) -> dict:
-		state = self.states.get((service, region)) or frappe._dict(status="Unknown")
+		state = self.states.get((service.name, region)) or frappe._dict(status="Unknown")
 		age = now_datetime() - get_datetime(state.checked_at) if state.checked_at else None
 		stale = age is None or age < timedelta(0) or age > MEASUREMENT_MAX_AGE
 		measured_status = "Unknown" if stale else state.status
-		status = ServiceStatus.with_impact(measured_status, impact)
-		history = days.get((service, region), [])
+		history = days.get((service.name, region), [])
 		good, valid = sum(day.good for day in history), sum(day.valid for day in history)
 		return {
-			"status": status,
+			**row,
+			"status": ServiceStatus.with_impact(measured_status, impact),
 			"measurement_status": measured_status,
 			"stale": stale,
 			"checked_at": self._to_utc_iso(state.checked_at),
-			"last_counted_minute": self._to_utc_iso(state.last_counted_minute),
 			"coverage": round(
 				sum(day.observed_minutes for day in history) / (HISTORY_DAYS * MINUTES_PER_DAY), 4
 			),
@@ -349,14 +318,7 @@ class StatusPage:
 				{
 					"date": str(day.date),
 					"uptime": round(100 * day.good / day.valid, 3) if day.valid else None,
-					"coverage": round(day.observed_minutes / MINUTES_PER_DAY, 3),
-					"good": day.good,
-					"valid": day.valid,
-					"observed_minutes": day.observed_minutes,
-					"degraded_minutes": day.degraded_minutes,
-					"outage_minutes": day.outage_minutes,
-					"partial_outage_minutes": day.partial_outage_minutes,
-					"maintenance_minutes": day.maintenance_minutes,
+					**{field: day[field] for field in DAY_MINUTE_FIELDS},
 				}
 				for day in history
 			],
@@ -368,21 +330,6 @@ class StatusPage:
 		"""For each (service, region), the minutes of each published impact on each UTC day of the history.
 		A blank region means every region. An open incident counts until now. Maintenance counts from its
 		scheduled start."""
-		intervals = self._get_declared_intervals()
-		days: dict[tuple[str, str], dict[str, dict[str, int]]] = {}
-		for service in services:
-			for region in [service.query_region] if service.scope == "Global" else service.region_names:
-				items = [
-					(begin, end, impact)
-					for begin, end, item_region, impact in intervals.get(service.name, [])
-					if item_region in ("", region)
-				]
-				if items:
-					days[(service.name, region)] = _sum_impact_days(items)
-		return days
-
-	@staticmethod
-	def _get_declared_intervals() -> dict[str, list[tuple[datetime, datetime, str, str]]]:
 		now = now_datetime()
 		start = get_datetime(add_days(getdate(), -HISTORY_DAYS + 1))
 		incidents = {
@@ -394,19 +341,29 @@ class StatusPage:
 				fields=["name", "creation", "scheduled_start", "resolved_at"],
 			)
 		}
-		rows = frappe.get_all(
+		intervals: dict[str, list[tuple[datetime, datetime, str, str]]] = {}
+		for row in frappe.get_all(
 			"Beacon Incident Service",
 			filters={"parent": ("in", list(incidents) or [""])},
 			fields=["parent", "service", "region", "impact"],
-		)
-		intervals: dict[str, list[tuple[datetime, datetime, str, str]]] = {}
-		for row in rows:
+		):
 			incident = incidents[row.parent]
 			begin = max(get_datetime(incident.scheduled_start or incident.creation), start)
 			end = get_datetime(incident.resolved_at) if incident.resolved_at else now
 			if begin < end:
 				intervals.setdefault(row.service, []).append((begin, end, row.region or "", row.impact))
-		return intervals
+
+		days: dict[tuple[str, str], dict[str, dict[str, int]]] = {}
+		for service in services:
+			for region in [service.query_region] if service.scope == "Global" else service.region_names:
+				items = [
+					(begin, end, impact)
+					for begin, end, item_region, impact in intervals.get(service.name, [])
+					if item_region in ("", region)
+				]
+				if items:
+					days[(service.name, region)] = _sum_impact_days(items)
+		return days
 
 	@staticmethod
 	def _to_utc_iso(value: str | datetime | None) -> str | None:
@@ -431,22 +388,21 @@ def _sum_impact_days(intervals: list[tuple[datetime, datetime, str]]) -> dict[st
 			day_end = min(get_datetime(add_days(begin.date(), 1)), end)
 			segments.setdefault(str(begin.date()), []).append((begin, day_end, impact))
 			begin = day_end
-	return {day: _sum_impact_day(items) for day, items in segments.items()}
 
-
-def _sum_impact_day(segments: list[tuple[datetime, datetime, str]]) -> dict[str, int]:
-	points = sorted({point for begin, end, _ in segments for point in (begin, end)})
-	seconds = dict.fromkeys(DAY_MINUTE_FIELDS, 0.0)
-	for begin, end in pairwise(points):
-		active = [
-			impact for item_begin, item_end, impact in segments if item_begin <= begin and end <= item_end
-		]
-		if not active:
-			continue
-		duration = (end - begin).total_seconds()
-		for field in IMPACT_MINUTE_FIELDS[max(active, key=STATUS_ORDER.index)]:
-			seconds[field] += duration
-	return {field: min(int(total // 60), MINUTES_PER_DAY) for field, total in seconds.items()}
+	days = {}
+	for day, items in segments.items():
+		points = sorted({point for begin, end, _ in items for point in (begin, end)})
+		seconds = dict.fromkeys(DAY_MINUTE_FIELDS, 0.0)
+		for begin, end in pairwise(points):
+			active = [
+				impact for item_begin, item_end, impact in items if item_begin <= begin and end <= item_end
+			]
+			if active:
+				duration = (end - begin).total_seconds()
+				for field in IMPACT_MINUTE_FIELDS[max(active, key=STATUS_ORDER.index)]:
+					seconds[field] += duration
+		days[day] = {field: min(int(total // 60), MINUTES_PER_DAY) for field, total in seconds.items()}
+	return days
 
 
 class IncidentFeed:
