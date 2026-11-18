@@ -36,7 +36,8 @@ class RegionSchedule:
 
 	def __init__(self, region: str):
 		self.region = frappe.get_doc("Beacon Region", region)
-		self.now = now_datetime()
+		# The run belongs to its cron minute, so the timers of HTTP and TLS alerts count whole minutes.
+		self.now = now_datetime().replace(second=0, microsecond=0)
 
 	def run(self) -> None:
 		"""Each step runs alone, so a failed step is logged and the next step still runs."""

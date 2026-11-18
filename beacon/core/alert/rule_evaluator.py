@@ -39,7 +39,9 @@ class RegionEvaluation:
 
 	def __init__(self, region: str):
 		self.region = frappe.get_doc("Beacon Region", region)
-		self.now = now_datetime()
+		# The run belongs to its cron minute. A job that starts a few seconds late still finds the next run due,
+		# and pending and resolve timers count whole minutes.
+		self.now = now_datetime().replace(second=0, microsecond=0)
 
 	@staticmethod
 	def queue_due() -> None:
@@ -77,7 +79,7 @@ class RegionEvaluation:
 		def evaluate(name: str) -> None:
 			# Run Now and the scheduled run can both reach one evaluation. One runs at a time.
 			with frappe.db.advisory_lock(f"{frappe.db.cur_db_name}:beacon-evaluation:{name}", timeout=60):
-				RuleEvaluator(name, registry, clickhouse).run()
+				RuleEvaluator(name, registry, clickhouse, self.now).run()
 				frappe.db.commit()  # nosemgrep: commit before the next run can take the lock
 
 		RecordTransaction.run_each(
@@ -108,13 +110,15 @@ class RegionEvaluation:
 class RuleEvaluator:
 	"""Runs one rule in one region and records the result on its Rule Evaluation."""
 
-	def __init__(self, evaluation: str, registry: ResourceRegistry, clickhouse: ClickHouseClient):
+	def __init__(
+		self, evaluation: str, registry: ResourceRegistry, clickhouse: ClickHouseClient, now: datetime
+	):
 		self.evaluation_name = evaluation
 		self.registry = registry
 		self.clickhouse = clickhouse
 		rule = frappe.db.get_value("Beacon Rule Evaluation", evaluation, "rule")
 		self.rule = frappe.db.get_value("Beacon Alert Rule", rule, RULE_FIELDS, as_dict=True)
-		self.now = now_datetime()
+		self.now = now
 
 	def run(self) -> None:
 		"""Evaluate once. A query or contract error changes no alert. The query runs before any lock is taken."""

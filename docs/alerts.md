@@ -83,7 +83,7 @@ When a variable has no value in a region, Beacon logs an error and skips the rul
 
 ## One evaluation
 
-Each minute, Beacon queues one job for each region that has due rules. For each due rule in that region, it does these steps:
+Each minute, Beacon queues one job for each region that has due rules. The job uses the start of its minute as the time of each evaluation, so a rule with `interval` 60 runs each minute even when the job starts late, and the pending and clean timers count whole minutes. For each due rule in that region, it does these steps:
 
 1. When the region is Unreachable, skip the rule. The region alert covers it.
 2. Run the query as the read-only `beacon` user, with a time limit.
